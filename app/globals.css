@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+body { background:#F8F7F4; color:#111; font-family: Inter, system-ui, sans-serif; }
+.city-pill-active { background:#0f172a; color:white; }
+.city-pill { background:white; border:1px solid #e5e7eb; color:#111; }
