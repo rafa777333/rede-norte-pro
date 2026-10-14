@@ -34,10 +34,11 @@ const LUGARES = [
 ]
 
 const VAGAS = [
-  {id:"v1", cargo:"Auxiliar de Produção", empresa:"Fiação Apucarana", cidade:"Apucarana", salario:"R$ 1.850", tipo:"Integral"},
-  {id:"v2", cargo:"Vendedor Externo", empresa:"Distribuidora Norte", cidade:"Arapongas", salario:"R$ 2.200 + comissão", tipo:"Externo"},
-  {id:"v3", cargo:"Técnico em Manutenção", empresa:"Grupo Vale", cidade:"Ivaiporã", salario:"R$ 3.100", tipo:"Integral"},
-  {id:"v4", cargo:"Atendente de Lanchonete", empresa:"Brutus Burger", cidade:"Apucarana", salario:"R$ 1.650", tipo:"Meio período"},
+  {id:"v1", cargo:"Auxiliar de Produção", empresa:"Fiação Apucarana", cidade:"Apucarana", salario:"R$ 1.850", tipo:"Integral", whatsapp:"5543991011001", desc:"Auxiliar linha de fiação, controle de qualidade e organização. Experiência não exigida, treinamento interno.", req:"Ensino médio completo, disponibilidade de turnos."},
+  {id:"v2", cargo:"Vendedor Externo", empresa:"Distribuidora Norte", cidade:"Arapongas", salario:"R$ 2.200 + comissão", tipo:"Externo", whatsapp:"5543991011002", desc:"Visita a clientes, prospecção e pós-venda na região. Ajuda de custo + comissão agressiva.", req:"CNH B, experiência com vendas, celular e moto própria."},
+  {id:"v3", cargo:"Técnico em Manutenção", empresa:"Grupo Vale", cidade:"Ivaiporã", salario:"R$ 3.100", tipo:"Integral", whatsapp:"5543991011003", desc:"Manutenção preventiva e corretiva em máquinas têxteis industriais.", req:"Técnico mecânico/elétrica, NR10/NR12."},
+  {id:"v4", cargo:"Atendente de Lanchonete", empresa:"Brutus Burger", cidade:"Apucarana", salario:"R$ 1.650", tipo:"Meio período", whatsapp:"5543991011004", desc:"Atendimento, caixa e montagem. Escala 6x1 noturna, ambiente jovem.", req:"Maior de 18, simpatia e agilidade."},
+  {id:"v5", cargo:"Auxiliar Administrativo", empresa:"Rede Norte Mídia", cidade:"Apucarana", salario:"R$ 1.950", tipo:"Integral", whatsapp:"5543991011005", desc:"Apoio financeiro, atendimento a parceiros do guia Onde Ir e controle de mídia kit.", req:"Pacote Office, boa escrita, organização."},
 ]
 
 export default function App(){
@@ -50,6 +51,20 @@ export default function App(){
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolume] = useState(0.8)
   const [showSearch, setShowSearch] = useState(false)
+
+  // candidatura flow - in-memory only, no localStorage per persistence boundary
+  type Candidatura = { vagaId:string, nome:string, telefone:string, email:string, mensagem:string, data:string, via:string }
+  const [candidaturas, setCandidaturas] = useState<Candidatura[]>([])
+  const [vagaModal, setVagaModal] = useState<any | null>(null)
+  const [formCandidatura, setFormCandidatura] = useState({nome:"", telefone:"", email:"", mensagem:""})
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(()=>{
+    if(toast){
+      const t = setTimeout(()=> setToast(null), 3500)
+      return ()=> clearTimeout(t)
+    }
+  },[toast])
 
   useEffect(()=>{
     if(audioRef.current) audioRef.current.volume = volume
@@ -360,7 +375,65 @@ export default function App(){
         ) : categoriaAtiva?.menu==="tv" ? (
           <TvView categoria={categoriaAtiva.sub} />
         ) : categoriaAtiva?.menu==="empregos" ? (
-          <EmpregosView vagas={vagasFiltradas} cidade={cidadeAtiva} categoria={categoriaAtiva?.sub || "Todas"} />
+          <EmpregosView 
+            vagas={vagasFiltradas} 
+            cidade={cidadeAtiva} 
+            categoria={categoriaAtiva?.sub || "Todas"}
+            candidaturas={candidaturas}
+            vagaModal={vagaModal}
+            setVagaModal={setVagaModal}
+            formCandidatura={formCandidatura}
+            setFormCandidatura={setFormCandidatura}
+            onSalvar={(vaga:any)=>{
+              if(!formCandidatura.nome.trim() || !formCandidatura.telefone.trim()){
+                setToast("Preencha nome e telefone")
+                return
+              }
+              const nova = {
+                vagaId: vaga.id,
+                nome: formCandidatura.nome,
+                telefone: formCandidatura.telefone,
+                email: formCandidatura.email,
+                mensagem: formCandidatura.mensagem || `Olá! Tenho interesse na vaga de ${vaga.cargo} na ${vaga.empresa}.`,
+                data: new Date().toLocaleString("pt-BR"),
+                via: "rascunho"
+              }
+              setCandidaturas(prev=>{
+                const filtered = prev.filter(c=> c.vagaId!==vaga.id)
+                return [...filtered, nova]
+              })
+              setToast(`Rascunho salvo • ${vaga.cargo} • ${nova.data}`)
+            }}
+            onWhatsapp={(vaga:any)=>{
+              if(!formCandidatura.nome.trim() || !formCandidatura.telefone.trim()){
+                setToast("Preencha nome e telefone antes de enviar")
+                return
+              }
+              const msg = `Olá, Rede Norte! Me chamo ${formCandidatura.nome.trim()}.%0A%0ATenho interesse na vaga:%0A*${vaga.cargo}* - ${vaga.empresa} (${vaga.cidade})%0ASalário: ${vaga.salario}%0A%0AMeu contato: ${formCandidatura.telefone}%0A${formCandidatura.email ? `Email: ${formCandidatura.email}%0A` : ""}%0AMensagem: ${formCandidatura.mensagem || "Tenho experiência na área e disponibilidade imediata."}%0A%0AVi no portal Rede Norte - ${cidadeAtiva}`
+              const nova = {
+                vagaId: vaga.id,
+                nome: formCandidatura.nome,
+                telefone: formCandidatura.telefone,
+                email: formCandidatura.email,
+                mensagem: formCandidatura.mensagem,
+                data: new Date().toLocaleString("pt-BR"),
+                via: "whatsapp"
+              }
+              setCandidaturas(prev=>{
+                const filtered = prev.filter(c=> c.vagaId!==vaga.id)
+                return [...filtered, nova]
+              })
+              setToast("Abrindo WhatsApp • candidatura marcada como ENVIADA")
+              const url = `https://wa.me/${vaga.whatsapp}?text=${msg}`
+              window.open(url, "_blank")
+            }}
+            onCopiar={()=>{
+              const vaga = vagaModal
+              if(!vaga) return
+              const texto = `Candidatura - ${vaga.cargo} / ${vaga.empresa}\nNome: ${formCandidatura.nome}\nTelefone: ${formCandidatura.telefone}\nEmail: ${formCandidatura.email}\nMensagem: ${formCandidatura.mensagem || "Interesse na vaga"}\n\nGerado no Rede Norte - ${new Date().toLocaleString("pt-BR")}`
+              navigator.clipboard?.writeText(texto).then(()=> setToast("Texto copiado para área de transferência")).catch(()=> setToast("Copie manualmente: " + texto.slice(0,40)+"..."))
+            }}
+          />
         ) : categoriaAtiva?.menu==="radio" ? (
           <RadioView isPlaying={isPlaying} toggle={togglePlay} volume={volume} setVolume={setVolume} />
         ) : (
@@ -411,6 +484,13 @@ export default function App(){
           </div>
         </div>
       </div>
+      {toast && (
+        <div className="fixed bottom-[84px] left-1/2 -translate-x-1/2 z-[90] bg-[var(--navy)] text-white px-5 py-3 rounded-full text-[12px] font-bold shadow-[0_12px_24px_-8px_rgba(0,0,0,0.4)] border border-white/10 flex items-center gap-2 animate-[slideUp_0.3s_ease]">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"/>
+          {toast}
+          <button onClick={()=> setToast(null)} className="ml-2 w-6 h-6 rounded-full bg-white/10 grid place-items-center">X</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -565,32 +645,102 @@ function TvView({categoria}:{categoria:string}){
   )
 }
 
-function EmpregosView({vagas, cidade, categoria}:{vagas:any[], cidade:string, categoria:string}){
+function EmpregosView({vagas, cidade, categoria, candidaturas, vagaModal, setVagaModal, formCandidatura, setFormCandidatura, onSalvar, onWhatsapp, onCopiar}:{vagas:any[], cidade:string, categoria:string, candidaturas:any[], vagaModal:any, setVagaModal:(v:any)=>void, formCandidatura:any, setFormCandidatura:(f:any)=>void, onSalvar:(v:any)=>void, onWhatsapp:(v:any)=>void, onCopiar:()=>void}){
+  const getPreview = (v:any)=>{
+    const nome = formCandidatura.nome || "[seu nome]";
+    const tel = formCandidatura.telefone || "[seu telefone]";
+    const emailPart = formCandidatura.email ? "Email: " + formCandidatura.email + "\n" : "";
+    const msgPart = formCandidatura.mensagem || "Tenho experiencia e disponibilidade imediata.";
+    return "Ola, Rede Norte! Me chamo " + nome + ".\n\nTenho interesse na vaga: " + v.cargo + " - " + v.empresa + " (" + v.cidade + ")\nSalario: " + v.salario + "\n\nContato: " + tel + "\n" + emailPart + "Mensagem: " + msgPart + "\n\nVi no portal Rede Norte - " + cidade;
+  };
   return (
-    <div>
-      <div className="flex items-end justify-between gap-4 mb-8">
+    <div className="relative">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
         <div>
-          <h2 className="serif text-[36px] md:text-[44px] font-black tracking-[-0.03em] leading-[0.9]">VAGAS • {cidade.toUpperCase()}</h2>
-          <p className="text-[13px] text-[var(--muted)] mt-2">{categoria} • {vagas.length} oportunidades • DEMO • Atualizado hoje</p>
+          <h2 className="serif text-[36px] md:text-[44px] font-black tracking-[-0.03em] leading-[0.9]">VAGAS - {cidade.toUpperCase()}</h2>
+          <p className="text-[13px] text-[var(--muted)] mt-2">{categoria} - {vagas.length} oportunidades - {candidaturas.length} em memoria - Prototipo funcional</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] px-3 py-1.5 rounded-full bg-[var(--navy)] text-white font-bold">{candidaturas.length} EM MEMORIA</span>
+          <span className="text-[11px] px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold">Botao funcional</span>
         </div>
       </div>
+      {candidaturas.length>0 && (
+        <div className="mb-6 rounded-[14px] bg-[var(--surface)] border border-[var(--line)] p-4 flex flex-wrap gap-2 items-center">
+          <span className="text-[11px] font-bold tracking-[0.12em] text-[var(--muted)]">MINHAS CANDIDATURAS (memoria):</span>
+          {candidaturas.map((c:any)=>{
+            const vaga = VAGAS.find((vv:any)=> vv.id===c.vagaId)
+            return <span key={c.vagaId} className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[var(--navy)] text-white">{vaga?.cargo} - {c.via.toUpperCase()} - {c.data}</span>
+          })}
+        </div>
+      )}
       <div className="grid md:grid-cols-2 gap-4">
-        {vagas.map(v=>(
-          <div key={v.id} className="bg-[var(--surface)] border border-[var(--line)] rounded-[16px] p-5 flex flex-col gap-3 hover:border-[var(--navy)]/30 transition">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-bold text-[16px] leading-tight">{v.cargo}</h3>
-                <p className="text-[12px] text-[var(--muted)] mt-1">{v.empresa} • {v.cidade} • {v.tipo}</p>
+        {vagas.map(v=>{
+          const jaEnviada = candidaturas.find((c:any)=> c.vagaId===v.id)
+          return (
+            <div key={v.id} className={"bg-[var(--surface)] border rounded-[16px] p-5 flex flex-col gap-3 " + (jaEnviada ? "border-emerald-300 bg-emerald-50/30" : "border-[var(--line)]")}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[16px] leading-tight">{v.cargo} {jaEnviada && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white">ENVIADA</span>}</h3>
+                  <p className="text-[12px] text-[var(--muted)] mt-1">{v.empresa} - {v.cidade} - {v.tipo} - {v.salario}</p>
+                  <p className="text-[12px] mt-2">{v.desc}</p>
+                  <p className="text-[10px] text-[var(--muted)] mt-1">Req: {v.req}</p>
+                </div>
+                <span className={"shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full " + (jaEnviada ? "bg-emerald-600 text-white" : "bg-[var(--orange)] text-white")}>{jaEnviada ? "ENVIADA" : "ABERTA"}</span>
               </div>
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[var(--orange)] text-white">DEMO</span>
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <span className="text-[13px] font-bold text-[var(--navy)]">{v.salario}</span>
+                <button onClick={()=>{ setVagaModal(v); if(jaEnviada){ setFormCandidatura({nome: jaEnviada.nome, telefone: jaEnviada.telefone, email: jaEnviada.email, mensagem: jaEnviada.mensagem}) } }} className={"h-9 px-4 rounded-full text-[11px] font-bold " + (jaEnviada ? "bg-emerald-600 text-white" : "bg-[var(--navy)] text-white")}>{jaEnviada ? "VER / REENVIAR" : "CANDIDATAR"}</button>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-bold text-[var(--navy)]">{v.salario}</span>
-              <button className="h-9 px-4 rounded-full bg-[var(--navy)] text-white text-[11px] font-bold tracking-[0.08em]">CANDIDATAR</button>
+          )
+        })}
+      </div>
+      {vagaModal && (
+        <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center p-0 md:p-6">
+          <div className="absolute inset-0 bg-[var(--navy)]/60 backdrop-blur-[4px]" onClick={()=> setVagaModal(null)} />
+          <div className="relative w-full md:max-w-[640px] bg-[var(--surface)] md:rounded-[20px] rounded-t-[20px] border border-[var(--line)] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.4)] max-h-[92vh] overflow-auto">
+            <div className="sticky top-0 bg-[var(--surface)] px-6 py-4 flex items-center justify-between gap-4 border-b border-[var(--line)]">
+              <div>
+                <h3 className="serif font-black text-[18px]">Candidatar-se - {vagaModal.cargo}</h3>
+                <p className="text-[11px] text-[var(--muted)]">{vagaModal.empresa} - {vagaModal.cidade} - WhatsApp {vagaModal.whatsapp}</p>
+              </div>
+              <button onClick={()=> setVagaModal(null)} className="w-9 h-9 rounded-full bg-[var(--paper)] border border-[var(--line)]">X</button>
+            </div>
+            <div className="p-6 grid gap-5">
+              <div className="rounded-[12px] bg-[var(--paper)] border border-[var(--line)] p-4 text-[12px]">
+                <p className="font-bold">Vaga: {vagaModal.cargo} - {vagaModal.empresa}</p>
+                <p className="text-[var(--muted)]">{vagaModal.desc} - {vagaModal.req}</p>
+                <p className="mt-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 inline-block px-2 py-1 rounded-full">FLUXO 100% LOCAL - memoria - preview antes de WhatsApp</p>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <label className="grid gap-1.5">
+                  <span className="text-[11px] font-bold">NOME *</span>
+                  <input value={formCandidatura.nome} onChange={e=> setFormCandidatura({...formCandidatura, nome:e.target.value})} placeholder="Ex: Joao Silva" className="h-[44px] px-4 rounded-full border border-[var(--line)] bg-white text-[14px]"/>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-[11px] font-bold">TELEFONE *</span>
+                  <input value={formCandidatura.telefone} onChange={e=> setFormCandidatura({...formCandidatura, telefone:e.target.value})} placeholder="(43) 9 9999-9999" className="h-[44px] px-4 rounded-full border border-[var(--line)] bg-white text-[14px]"/>
+                </label>
+                <label className="grid gap-1.5 md:col-span-2">
+                  <span className="text-[11px] font-bold">EMAIL</span>
+                  <input value={formCandidatura.email} onChange={e=> setFormCandidatura({...formCandidatura, email:e.target.value})} placeholder="seu@email.com" className="h-[44px] px-4 rounded-full border border-[var(--line)] bg-white text-[14px]"/>
+                </label>
+                <label className="grid gap-1.5 md:col-span-2">
+                  <span className="text-[11px] font-bold">MENSAGEM</span>
+                  <textarea value={formCandidatura.mensagem} onChange={e=> setFormCandidatura({...formCandidatura, mensagem:e.target.value})} placeholder="Experiencia..." className="min-h-[88px] p-4 rounded-[16px] border border-[var(--line)] bg-white text-[13px]"/>
+                </label>
+              </div>
+              <div className="rounded-[12px] border border-dashed border-[var(--line)] bg-[var(--paper)] p-3 text-[11px] whitespace-pre-wrap">{getPreview(vagaModal)}</div>
+              <div className="grid md:grid-cols-3 gap-2">
+                <button onClick={()=> onSalvar(vagaModal)} className="h-[44px] rounded-full bg-white border border-[var(--navy)] text-[11px] font-bold">SALVAR RASCUNHO</button>
+                <button onClick={onCopiar} className="h-[44px] rounded-full bg-[var(--paper)] border border-[var(--line)] text-[11px] font-bold">COPIAR TEXTO</button>
+                <button onClick={()=> onWhatsapp(vagaModal)} className="h-[44px] rounded-full bg-[#25D366] text-white text-[11px] font-bold">ENVIAR VIA WHATSAPP</button>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
