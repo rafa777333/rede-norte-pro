@@ -2,224 +2,137 @@
 import { useState, useRef, useEffect } from "react";
 
 const STREAM_URL = "https://servidor34-2.brlogic.com:7016/live";
-const CIDADES = ["Todas", "Apucarana", "Arapongas", "Califórnia", "Marilândia do Sul", "Rolândia"] as const;
-
+const CIDADES = ["Todas", "Apucarana", "Arapongas", "Vale do Ivaí"] as const;
 const MENU = [
-  { label: "HOME", subs: ["Destaques", "Últimas", "Mais lidas"] },
-  { label: "NOTÍCIAS", subs: ["Cidade", "Política", "Segurança", "Economia Local", "Eventos"] },
-  { label: "TV & VÍDEOS", subs: ["Programas da TV Web", "Entrevistas", "Cortes", "Ao Vivo"] },
-  { label: "RÁDIO", subs: ["Ao Vivo", "Programação", "Podcasts"] },
-  { label: "EMPREGOS & SERVIÇOS", subs: ["Vagas", "Currículos", "Comércio", "Serviços", "Profissionais"], badge: "★" },
-  { label: "ONDE IR", subs: ["Lanchonetes", "Pizzarias", "Restaurantes", "Bares", "Cafés & Sorveterias", "Recomendados pela Rede"], guia: ["Happy Hour hoje", "Música ao vivo", "Aberto agora"] },
-  { label: "COMPRAS & VENDAS", subs: ["Imóveis", "Carros", "Móveis", "Eletrônicos"] },
-];
-
-const VAGAS_MOCK = [
-  { id: 1, titulo: "Auxiliar Administrativo", empresa: "Auto Peças Central", cidade: "Apucarana", tipo: "CLT" },
-  { id: 2, titulo: "Vendedor(a)", empresa: "Loja Estilo", cidade: "Arapongas", tipo: "CLT" },
-  { id: 3, titulo: "Atendente de Lanchonete", empresa: "Burger Top", cidade: "Arapongas", tipo: "Meio período" },
-];
-
-const LUGARES_MOCK = [
-  { id: 1, nome: "Dona Chica Lanchonete", cat: "Lanchonetes", cidade: "Apucarana", nota: "4.8", status: "Aberto agora" },
-  { id: 2, nome: "Cantina da Praça", cat: "Restaurantes", cidade: "Apucarana", nota: "4.6", status: "Aberto agora" },
-  { id: 3, nome: "Bar do Alemão", cat: "Bares", cidade: "Arapongas", nota: "4.9", status: "Happy Hour hoje" },
-  { id: 4, nome: "Pizzaria Forno & Lenha", cat: "Pizzarias", cidade: "Arapongas", nota: "4.7", status: "Música ao vivo" },
+  { label: "NOTÍCIAS", subs: ["Cidade", "Política", "Segurança", "Economia Local"] },
+  { label: "OUÇA AO VIVO", isRadio: true },
+  { label: "VÍDEOS E TV WEB", subs: ["Ao Vivo", "Entrevistas", "Programas", "Cortes"] },
+  { label: "PODCASTS", subs: ["Podcasts em vídeo", "Cortes"] },
+  { label: "EMPREGOS", subs: ["Vagas", "Currículos"] },
+  { label: "SERVIÇOS E GUIA", subs: ["Lanchonetes", "Restaurantes", "Bares", "Comércio"] },
+  { label: "AGENDA REGIONAL", subs: ["Festas", "Shows", "Eventos"] },
 ];
 
 export default function Page() {
   const [cidadeSel, setCidadeSel] = useState("Todas");
   const [menuAberto, setMenuAberto] = useState<string | null>(null);
-  const [categoriaAtiva, setCategoriaAtiva] = useState<{ menu: string; sub: string } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [busca, setBusca] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const toggleRadio = async () => {
     if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      try {
-        audioRef.current.volume = 0.8;
-        await audioRef.current.play();
-        setIsPlaying(true);
-      } catch (e) {
-        console.log("Erro ao tocar:", e);
-        alert("Clique em permitir áudio se o navegador bloquear. O streaming é: " + STREAM_URL);
-      }
-    }
+    if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
+    else { try { audioRef.current.volume = 0.8; await audioRef.current.play(); setIsPlaying(true);} catch(e){ alert("Permita áudio no navegador"); }}
   };
-
-  const handleClickSub = (menu: string, sub: string) => {
-    setCategoriaAtiva({ menu, sub });
-    setMenuAberto(null);
-    setTimeout(() => document.getElementById("conteudo")?.scrollIntoView({ behavior: "smooth" }), 100);
-  };
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const onEnded = () => setIsPlaying(false);
-    const onPause = () => setIsPlaying(false);
-    const onPlay = () => setIsPlaying(true);
-    audio.addEventListener("ended", onEnded);
-    audio.addEventListener("pause", onPause);
-    audio.addEventListener("play", onPlay);
-    return () => {
-      audio.removeEventListener("ended", onEnded);
-      audio.removeEventListener("pause", onPause);
-      audio.removeEventListener("play", onPlay);
-    };
-  }, []);
-
-  const lugaresFiltrados = LUGARES_MOCK.filter(l => {
-    const cidadeOk = cidadeSel === "Todas" || l.cidade === cidadeSel;
-    const subOk = !categoriaAtiva || categoriaAtiva.menu !== "ONDE IR" ? true : l.cat === categoriaAtiva.sub || categoriaAtiva.sub === "Recomendados pela Rede";
-    const buscaOk = !busca || l.nome.toLowerCase().includes(busca.toLowerCase());
-    return cidadeOk && subOk && buscaOk;
-  });
-
-  const vagasFiltradas = VAGAS_MOCK.filter(v => {
-    const cidadeOk = cidadeSel === "Todas" || v.cidade === cidadeSel;
-    const buscaOk = !busca || v.titulo.toLowerCase().includes(busca.toLowerCase());
-    return cidadeOk && buscaOk;
-  });
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-[90px]">
-      {/* ÁUDIO ELEMENT - PLAYER REAL BRLOGIC */}
-      <audio ref={audioRef} src={STREAM_URL} preload="none" crossOrigin="anonymous" />
+    <div className="min-h-screen bg-[#f8fafc] pb-[90px]">
+      <audio ref={audioRef} src={STREAM_URL} preload="none" />
 
-      {/* TOP BAR COM RÁDIO */}
-      <div className="bg-black text-white text-[11px] flex justify-between items-center px-4 py-2 sticky top-0 z-50">
-        <span>• QUARTA, 14 OUT • APUCARANA, PR • ☀️ 22°C</span>
-        <div className="flex items-center gap-2">
-          <button onClick={toggleRadio} className={`flex items-center gap-2 px-4 py-1.5 rounded-full font-bold transition-all ${isPlaying ? "bg-red-600 animate-pulse" : "bg-white/10 hover:bg-white/20"}`}>
-            <span className={`w-2 h-2 rounded-full ${isPlaying ? "bg-white animate-ping" : "bg-red-500"}`}></span>
-            {isPlaying ? "🔊 TOCANDO AO VIVO - CLIQUE PARA PAUSAR" : "🔴 RÁDIO AO VIVO - CLIQUE PARA OUVIR"}
-          </button>
-        </div>
+      {/* TOP BAR */}
+      <div className="bg-[#0A2342] text-white text-[11px] flex justify-between items-center px-4 py-2">
+        <span>REDE NORTE • APUCARANA, ARAPONGAS E VALE DO IVAÍ • 🔴 AO VIVO</span>
+        <button onClick={toggleRadio} className={`px-4 py-1 rounded-full font-black text-[11px] ${isPlaying ? "bg-[#FF6B00] text-white animate-pulse" : "bg-white text-[#0A2342]"}`}>
+          {isPlaying ? "⏸️ TOCANDO RÁDIO" : "▶ OUÇA AO VIVO"}
+        </button>
       </div>
 
-      <header className="bg-white border-b sticky top-[32px] z-30">
-        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between gap-6">
+      {/* HEADER COM LOGO NOVO */}
+      <header className="bg-white border-b sticky top-0 z-30">
+        <div className="max-w-[1400px] mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#0F172A] rounded-lg flex items-center justify-center text-white font-black text-xl">R</div>
-            <div>
-              <div className="font-black leading-none text-[#0F172A]">REDE NORTE DE COMUNICAÇÃO</div>
-              <div className="text-[10px] tracking-[0.2em] text-slate-500">PORTAL • TV • RÁDIO • SERVIÇOS</div>
+            {/* LOGO - usar seu PNG aqui */}
+            <div className="relative w-[140px] h-[70px] bg-[#FF6B00] rounded-[12px] flex items-center justify-center overflow-hidden" style={{clipPath: "url(#mapClip)"}}>
+              <div className="text-[#0A2342] font-black text-center leading-[0.9] text-[18px]">REDE<br/><span className="text-[28px]">NORTE</span></div>
+            </div>
+            <div className="hidden md:block">
+              <div className="font-black text-[#0A2342] leading-none text-[22px]">REDE NORTE</div>
+              <div className="text-[10px] tracking-[0.25em] text-[#FF6B00] font-bold">COMUNICAÇÃO • JORNALISMO REGIONAL</div>
+              <div className="text-[10px] text-slate-500">Apucarana • Arapongas • Vale do Ivaí</div>
             </div>
           </div>
-          <div className="hidden lg:flex items-center gap-2 bg-amber-400 text-black rounded-full px-4 py-1.5 text-xs font-bold">
-            <span className="w-2 h-2 bg-black rounded-full animate-pulse"></span> RÁDIO WEB APUCARANA - {isPlaying ? "AO VIVO TOCANDO" : "ONLINE"}
-          </div>
-          <div className="flex items-center bg-slate-100 rounded-full px-3 py-1.5 w-[320px]">
-            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar..." className="bg-transparent outline-none text-sm w-full" />
+          <div className="flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-2 bg-[#0A2342] text-white rounded-full px-4 py-2 text-xs">
+              <span className={`w-2 h-2 rounded-full ${isPlaying ? "bg-[#FF6B00] animate-ping" : "bg-slate-500"}`}></span>
+              Rádio Web Apucarana - BRLogic
+            </div>
+            <div className="bg-slate-100 rounded-full px-3 py-2 flex items-center gap-2">
+              <span className="text-slate-400">🔍</span>
+              <input placeholder="Buscar notícia..." className="bg-transparent outline-none text-sm w-[180px]" />
+            </div>
           </div>
         </div>
 
-        <nav className="bg-[#0F172A] text-white text-[13px] font-bold border-b-4 border-amber-500">
-          <div className="max-w-[1400px] mx-auto px-2 flex overflow-x-auto">
+        {/* MENU NOVO CONFORME BRIEFING */}
+        <nav className="bg-[#0A2342] text-white text-[13px] font-bold border-b-4 border-[#FF6B00]">
+          <div className="max-w-[1400px] mx-auto px-2 flex">
             {MENU.map(m => (
-              <button key={m.label} onMouseEnter={()=>setMenuAberto(m.label)} onClick={()=>setMenuAberto(menuAberto===m.label?null:m.label)} className={`whitespace-nowrap px-4 py-3 flex items-center gap-1 ${menuAberto===m.label?'bg-white text-[#0F172A]':''}`}>
-                {m.label} <span className="text-[10px] ml-1">▼</span>
+              <button key={m.label} onClick={()=> m.isRadio ? toggleRadio() : setMenuAberto(menuAberto===m.label?null:m.label)} className={`px-4 py-3 whitespace-nowrap flex items-center gap-1 ${m.isRadio ? "bg-[#FF6B00] text-[#0A2342]" : ""} ${menuAberto===m.label ? "bg-white text-[#0A2342]" : ""}`}>
+                {m.label} {!m.isRadio && <span className="text-[10px]">▼</span>}
               </button>
             ))}
           </div>
         </nav>
-
-        {menuAberto && (
-          <div className="bg-white border-b shadow-xl">
-            <div className="max-w-[1400px] mx-auto px-6 py-6 grid grid-cols-[280px_1fr_1fr] gap-8">
-              <div>
-                <div className="font-black mb-2">{menuAberto}</div>
-                <p className="text-xs text-slate-500">Clique em qualquer sub-aba - agora com rádio integrado!</p>
-                <button onClick={toggleRadio} className="mt-4 w-full bg-black text-white rounded-full py-2 text-xs font-bold">{isPlaying ? "⏸️ Pausar Rádio" : "▶️ Ouvir Rádio Web Apucarana"}</button>
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-400 font-bold mb-3">SUBCATEGORIAS - CLIQUE PARA FILTRAR</div>
-                <div className="space-y-1">
-                  {(MENU.find(m=>m.label===menuAberto)?.subs || []).map(s => (
-                    <button key={s} onClick={()=>handleClickSub(menuAberto, s)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${categoriaAtiva?.menu===menuAberto && categoriaAtiva?.sub===s ? "bg-[#0F172A] text-white" : "hover:bg-slate-50"}`}>{s}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-400 font-bold mb-3">RÁDIO AO VIVO</div>
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <div className="text-xs font-bold">Radio Web Apucarana</div>
-                  <div className="text-[11px] text-slate-500">Streaming BRLOGIC Plus • 128kbps</div>
-                  <div className="text-[10px] mt-2 bg-white p-2 rounded border font-mono break-all">{STREAM_URL}</div>
-                  <div className="mt-3 flex items-center gap-2 text-[11px]"><span className={`w-2 h-2 rounded-full ${isPlaying ? "bg-emerald-500" : "bg-slate-300"}`}></span>{isPlaying ? "Tocando agora (Não informado)" : "Parado"}</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-[#0F172A] text-white text-[11px] px-6 py-3 flex justify-between">
-              <span>💡 O mesmo streaming funciona no site antigo e no novo ao mesmo tempo.</span>
-              <button onClick={()=>setMenuAberto(null)} className="font-bold">FECHAR ✕</button>
-            </div>
-          </div>
-        )}
       </header>
 
-      <div className="bg-white border-b sticky top-[104px] z-20">
-        <div className="max-w-[1400px] mx-auto px-4 py-3 flex items-center gap-3 overflow-x-auto">
-          <span className="text-xs font-bold">📍 Filtrar por cidade:</span>
+      <div className="bg-white border-b">
+        <div className="max-w-[1400px] mx-auto px-4 py-2.5 flex gap-2 overflow-x-auto">
+          <span className="text-xs font-bold">📍 Cidade:</span>
           {CIDADES.map(c => (
-            <button key={c} onClick={()=>setCidadeSel(c)} className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold border ${cidadeSel===c? "bg-[#0F172A] text-white border-[#0F172A]" : "bg-white text-slate-600 border-slate-200"}`}>{c}</button>
+            <button key={c} onClick={()=>setCidadeSel(c)} className={`px-4 py-1 rounded-full text-xs font-bold border ${cidadeSel===c ? "bg-[#0A2342] text-white border-[#0A2342]" : "bg-white border-slate-200"}`}>{c}</button>
           ))}
         </div>
       </div>
 
-      <main id="conteudo" className="max-w-[1400px] mx-auto px-4 py-6">
-        {categoriaAtiva && (
-          <div className="mb-6 bg-[#0F172A] text-white rounded-xl px-5 py-4 flex justify-between items-center">
-            <div><div className="text-[10px] text-amber-400 font-bold">{categoriaAtiva.menu}</div><div className="font-black text-xl">{categoriaAtiva.sub} {cidadeSel!=="Todas" && `em ${cidadeSel}`}</div></div>
-            <button onClick={()=>setCategoriaAtiva(null)} className="bg-white/10 px-4 py-2 rounded-full text-xs">Limpar ✕</button>
+      {/* EXPLICAÇÃO YOUTUBE vs INSTAGRAM */}
+      <div className="max-w-[1400px] mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 bg-white rounded-xl border p-5">
+          <h2 className="font-black text-lg text-[#0A2342]">📹 Estratégia de vídeo: YouTube + Instagram juntos</h2>
+          <div className="mt-4 grid md:grid-cols-2 gap-4 text-sm">
+            <div className="bg-[#0A2342] text-white rounded-xl p-4">
+              <div className="font-black text-[#FF6B00]">YOUTUBE - Base do portal</div>
+              <ul className="mt-2 space-y-1 text-xs text-slate-200">
+                <li>• Hospeda vídeo completo, entrevista, programa</li>
+                <li>• Google indexa e aparece no Search</li>
+                <li>• Embed no site sem custo de servidor</li>
+                <li>• Monetiza com Adsense</li>
+                <li>• Fica pra sempre (Instagram some no feed)</li>
+              </ul>
+            </div>
+            <div className="bg-orange-50 border border-[#FF6B00]/30 rounded-xl p-4">
+              <div className="font-black text-[#0A2342]">INSTAGRAM - Distribuição</div>
+              <ul className="mt-2 space-y-1 text-xs text-slate-700">
+                <li>• Corte de 30-60s com legenda grande</li>
+                <li>• CTA: "Veja completo no site - link bio"</li>
+                <li>• Leva tráfego pro portal (YouTube não leva)</li>
+                <li>• Stories com enquete + link</li>
+                <li>• Pacote comercial: corte + post no portal</li>
+              </ul>
+            </div>
           </div>
-        )}
-
-        <h2 className="font-black text-lg mb-4">🍔 ONDE IR • {lugaresFiltrados.length} lugares</h2>
-        <div className="grid md:grid-cols-3 gap-4 mb-10">
-          {lugaresFiltrados.map(l => (
-            <div key={l.id} className="bg-white rounded-xl p-4 border">
-              <div className="flex justify-between mb-2"><span className="bg-amber-400 text-black text-[10px] px-2 py-0.5 rounded-full font-bold">{l.cat}</span><span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">{l.status}</span></div>
-              <h3 className="font-bold">{l.nome}</h3>
-              <div className="text-[11px] text-slate-500 mt-1">⭐ {l.nota} • {l.cidade}</div>
-            </div>
-          ))}
+          <div className="mt-4 text-xs bg-amber-100 border border-amber-300 rounded-lg p-3">
+            <b>Fluxo ideal:</b> Grava entrevista completa → Sobe no YouTube → Embed automático em /videos/entrevista-X → Corta 3 cortes de 45s → Posta no Instagram Reels com "Assista completo em redenorte.com.br"
+          </div>
         </div>
-
-        <h2 className="font-black text-lg mb-4">💼 Vagas</h2>
-        <div className="grid md:grid-cols-2 gap-3 mb-10">
-          {vagasFiltradas.map(v => (
-            <div key={v.id} className="bg-white rounded-xl p-4 border flex justify-between items-center">
-              <div><div className="font-bold text-sm">{v.titulo}</div><div className="text-xs text-slate-500">{v.empresa} • {v.cidade}</div></div>
-              <button className="bg-amber-400 text-black text-xs font-bold px-4 py-1.5 rounded-full">Candidatar</button>
-            </div>
-          ))}
+        <div className="bg-[#0A2342] text-white rounded-xl p-5">
+          <div className="font-black">✅ RÁDIO JÁ PLUGADA</div>
+          <div className="text-xs mt-2 text-slate-300">Mesmo streaming funciona em 2 sites</div>
+          <div className="text-[10px] mt-3 font-mono bg-white/10 p-2 rounded break-all">{STREAM_URL}</div>
+          <button onClick={toggleRadio} className="mt-4 w-full bg-[#FF6B00] text-white font-black py-3 rounded-full text-sm">{isPlaying ? "⏸️ PAUSAR" : "▶ OUVIR AGORA"}</button>
         </div>
-      </main>
+      </div>
 
-      {/* PLAYER FIXO RODAPÉ - PERSISTENTE */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0F172A] text-white border-t-4 border-amber-500 z-[100] shadow-2xl">
+      {/* PLAYER FIXO */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#0A2342] text-white border-t-4 border-[#FF6B00] z-[100]">
         <div className="max-w-[1400px] mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={toggleRadio} className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-black transition-all ${isPlaying ? "bg-red-600 animate-pulse" : "bg-amber-400 text-black"}`}>{isPlaying ? "❚❚" : "▶"}</button>
+            <button onClick={toggleRadio} className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-black ${isPlaying ? "bg-[#FF6B00]" : "bg-white text-[#0A2342]"}`}>{isPlaying ? "❚❚" : "▶"}</button>
             <div>
-              <div className="font-black text-sm flex items-center gap-2"><span className={`w-2 h-2 bg-red-500 rounded-full ${isPlaying ? "animate-ping" : ""}`}></span>Radio Web Apucarana - AO VIVO</div>
-              <div className="text-[11px] text-slate-400">BRLOGIC Plus • {isPlaying ? "Tocando agora - streaming 128kbps" : "Clique para ouvir"} • {STREAM_URL.replace("https://","")}</div>
+              <div className="font-black text-sm">REDE NORTE • Rádio Web Apucarana</div>
+              <div className="text-[11px] text-slate-400">AO VIVO • BRLogic Plus • Pode usar nos 2 sites</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden md:block text-[11px] text-slate-400 text-right">
-              <div>Servidor 34-2 • 1GB / 1024GB</div>
-              <div className="text-emerald-400">● Online • Pode usar nos 2 sites</div>
-            </div>
-            <input type="range" min={0} max={1} step={0.1} defaultValue={0.8} onChange={e=>{ if(audioRef.current) audioRef.current.volume = parseFloat(e.target.value)}} className="w-24 accent-amber-400" />
-          </div>
+          <div className="text-[11px] text-slate-400">🔴 Ouça ao vivo sem parar ao navegar</div>
         </div>
       </div>
     </div>
