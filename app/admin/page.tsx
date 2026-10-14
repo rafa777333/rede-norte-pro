@@ -1,4 +1,74 @@
 "use client";
+import { useState, useEffect, useMemo } from "react"
+
+const SENHA_PADRAO = (typeof process !== "undefined" && (process as any).env?.NEXT_PUBLIC_ADMIN_PASSWORD) || "rede2025";
+
+export default function AdminPage(){
+  const [autenticado, setAutenticado] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  useEffect(()=>{
+    try{
+      const auth = localStorage.getItem("rn_admin_auth");
+      if(auth){
+        const data = JSON.parse(auth);
+        if(data.ok && data.exp > Date.now()) setAutenticado(true);
+      }
+    }catch{}
+  },[]);
+
+  const fazerLogin = () => {
+    if(senha === SENHA_PADRAO){
+      localStorage.setItem("rn_admin_auth", JSON.stringify({ok:true, exp: Date.now()+24*60*60*1000}));
+      setAutenticado(true);
+      setErro("");
+    }else{
+      setErro("Senha incorreta - padrão: rede2025");
+    }
+  };
+
+  const fazerLogout = () => {
+    localStorage.removeItem("rn_admin_auth");
+    setAutenticado(false);
+    setSenha("");
+  };
+
+  if(!autenticado){
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4" style={{fontFamily:"DM Sans, sans-serif"}}>
+        <div className="w-full max-w-[400px] bg-white rounded-[24px] border border-[#e2e8f0] p-8 shadow-xl">
+          <div className="w-12 h-10 bg-[#FF6B00] rounded-xl grid place-items-center font-black text-[#0A2342] mb-4">RN</div>
+          <h1 className="font-black text-[22px] tracking-[-0.02em] text-[#0A2342]">Acesso Restrito</h1>
+          <p className="text-[13px] text-[#64748b] mt-1">Redação Rede Norte</p>
+          <div className="mt-6">
+            <label className="text-[11px] font-bold tracking-[0.1em]">SENHA</label>
+            <div className="relative mt-1">
+              <input type={mostrarSenha?"text":"password"} value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&fazerLogin()} placeholder="••••••••" className="w-full h-[46px] px-4 pr-12 rounded-full border border-[#e2e8f0] bg-[#f8fafc] text-[14px] outline-none focus:border-[#0A2342]" />
+              <button onClick={()=>setMostrarSenha(!mostrarSenha)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-[#e2e8f0] grid place-items-center text-[12px]">{mostrarSenha?"🙈":"👁️"}</button>
+            </div>
+            {erro && <p className="text-[12px] text-red-600 mt-2 font-bold">{erro}</p>}
+            <button onClick={fazerLogin} className="w-full h-[46px] rounded-full bg-[#0A2342] text-white text-[12px] font-bold tracking-[0.08em] mt-4">ENTRAR</button>
+            <p className="text-[10px] text-[#64748b] mt-4 text-center">Padrão: rede2025 - Troque em Vercel &gt; Settings &gt; Env &gt; NEXT_PUBLIC_ADMIN_PASSWORD</p>
+            <a href="/" className="block text-center text-[11px] font-bold text-[#0A2342] mt-3">← Voltar ao site público</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="bg-[#0A2342] text-white px-6 h-[56px] flex items-center justify-between sticky top-0 z-20">
+        <div className="flex items-center gap-3"><div className="w-8 h-7 bg-[#FF6B00] rounded-lg grid place-items-center font-black text-[#0A2342] text-[10px]">RN</div><span className="font-black text-[14px]">ADMIN REDE NORTE</span></div>
+        <div className="flex gap-2"><a href="/" className="h-8 px-3 rounded-full bg-white text-[#0A2342] text-[11px] font-bold grid place-items-center">VER SITE →</a><button onClick={fazerLogout} className="h-8 px-3 rounded-full border border-white/20 text-[11px] font-bold">SAIR</button></div>
+      </div>
+      <AdminInner />
+    </div>
+  )
+}
+
 import React, { useEffect, useState, useRef } from 'react';
 
 type Status = "Rascunho" | "Em revisão" | "Publicado" | "Agendado";
@@ -766,3 +836,4 @@ const filtradas = noticias.filter(n =>
     </div>
   );
 }
+
