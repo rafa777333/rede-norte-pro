@@ -2,18 +2,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root{
-  --navy:#0A2342;
-  --orange:#FF6B00;
-  --surface:#ffffff;
-  --paper:#f8fafc;
-  --line:#e2e8f0;
-  --muted:#64748b;
-  --ink:#0f172a;
-}
-*{font-family:"DM Sans", ui-sans-serif, system-ui, sans-serif}
-.serif{font-family:"Fraunces", ui-serif, Georgia, serif}
-body{background:var(--paper); color:var(--ink)}
-::-webkit-scrollbar{width:8px; height:8px}
-::-webkit-scrollbar-thumb{background:#cbd5e1; border-radius:8px}
+:root{--navy:#0A2342;--orange:#FF6B00;--surface:#fff;--paper:#f8fafc;--line:#e2e8f0;--muted:#64748b;--ink:#0f172a}
+*{font-family:"DM Sans",sans-serif}
+.serif{font-family:"Fraunces",serif}
+body{background:var(--paper);color:var(--ink)}

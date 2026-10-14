@@ -59,6 +59,20 @@ export default function App(){
   const [formCandidatura, setFormCandidatura] = useState({nome:"", telefone:"", email:"", mensagem:""})
   const [toast, setToast] = useState<string | null>(null)
 
+  const [noticias, setNoticias] = useState<Noticia[]>(NOTICIAS)
+  useEffect(()=>{
+    try{
+      const saved = localStorage.getItem('rn_noticias')
+      if(saved){
+        const parsed = JSON.parse(saved)
+        if(Array.isArray(parsed) && parsed.length>0){
+          const publicadas = parsed.filter((n:any)=> !n.status || n.status==='Publicado')
+          if(publicadas.length>0) setNoticias(publicadas)
+        }
+      }
+    }catch{}
+  },[])
+
   useEffect(()=>{
     if(toast){
       const t = setTimeout(()=> setToast(null), 3500)
@@ -101,7 +115,7 @@ export default function App(){
   }
 
   const noticiasFiltradas = useMemo(()=>{
-    let list = [...NOTICIAS]
+    let list = [...noticias]
     if(cidadeAtiva!=="Todas") list = list.filter(n=> n.cidade===cidadeAtiva)
     if(busca) list = list.filter(n=> n.titulo.toLowerCase().includes(busca.toLowerCase()) || n.resumo.toLowerCase().includes(busca.toLowerCase()))
     if(categoriaAtiva && categoriaAtiva.menu==="noticias"){
@@ -111,7 +125,7 @@ export default function App(){
       if(filteredByCat.length>0) list = filteredByCat
     }
     return list
-  },[cidadeAtiva,busca,categoriaAtiva])
+  },[noticias,cidadeAtiva,busca,categoriaAtiva])
 
   const lugaresFiltrados = useMemo(()=>{
     let list = [...LUGARES]
