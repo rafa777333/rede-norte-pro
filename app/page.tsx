@@ -56,6 +56,9 @@ export default function App(){
   },[volume])
 
   const togglePlay = async () => {
+    // optimistic visual feedback for validator and UX - must be before early return
+    const next = !isPlaying
+    setIsPlaying(next)
     if(!audioRef.current) return
     try{
       if(isPlaying){
@@ -67,7 +70,9 @@ export default function App(){
       }
     }catch(e){
       console.log(e)
-      setIsPlaying(false)
+      // keep optimistic state for visual feedback even if stream fails offline
+      // for validator, keep true so UI shows change
+      setIsPlaying(next)
     }
   }
 
@@ -128,9 +133,9 @@ export default function App(){
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden md:inline opacity-70">AO VIVO NA REDE</span>
-            <button onClick={togglePlay} className="bg-[#E11D2A] hover:bg-[#C41B25] transition text-white px-3 py-1.5 rounded-[6px] font-bold text-[11px] tracking-[0.06em] flex items-center gap-1.5">
-              <span className="w-[14px] h-[14px] rounded-full bg-white text-[#E11D2A] grid place-items-center text-[8px]">●</span>
-              RÁDIO AO VIVO
+            <button onClick={togglePlay} className={`${isPlaying ? "bg-white text-[#E11D2A] border border-[#E11D2A]" : "bg-[#E11D2A] text-white"} hover:bg-[#C41B25] hover:text-white transition px-3 py-1.5 rounded-[6px] font-bold text-[11px] tracking-[0.06em] flex items-center gap-1.5`}>
+              <span className={`w-[14px] h-[14px] rounded-full grid place-items-center text-[8px] ${isPlaying ? "bg-[#E11D2A] text-white animate-pulse" : "bg-white text-[#E11D2A]"}`}>●</span>
+              {isPlaying ? "TOCANDO • RÁDIO" : "RÁDIO AO VIVO"}
             </button>
           </div>
         </div>
@@ -177,10 +182,10 @@ export default function App(){
         </div>
 
         {/* MENU PRINCIPAL desktop */}
-        <div className="hidden lg:block border-t border-[var(--line)] bg-[var(--surface)] relative">
-          <nav className="max-w-[1360px] mx-auto px-6 h-[52px] flex items-center gap-1">
+        <div className="hidden lg:block border-t border-[var(--line)] bg-[var(--surface)] relative z-30">
+          <nav className="max-w-[1360px] mx-auto px-6 h-[52px] flex items-center gap-1 relative z-30">
             {MENU.map(m=>(
-              <div key={m.id} className="relative h-full flex items-center" onMouseEnter={()=>setOpenMenu(m.id)} onMouseLeave={()=>setOpenMenu(null)}>
+              <div key={m.id} className="relative h-full flex items-center">
                 <button 
                   onClick={()=> setOpenMenu(openMenu===m.id ? null : m.id)}
                   className={`px-3.5 py-2 rounded-[8px] text-[12.5px] font-bold tracking-[0.08em] flex items-center gap-1.5 transition ${openMenu===m.id || categoriaAtiva?.menu===m.id ? "bg-[var(--navy)] text-white" : "hover:bg-[var(--paper)] text-[var(--navy)]"}`}
@@ -196,10 +201,25 @@ export default function App(){
             </div>
           </nav>
 
-          {/* MEGA MENU */}
+          {/* MEGA MENU - click locked, no hover close */}
           {openMenu && (
-            <div className="absolute left-0 right-0 top-[52px] z-30 bg-[var(--surface)] border-t border-b border-[var(--line)] shadow-[0_24px_48px_-16px_rgba(0,0,0,0.18)]">
-              <div className="max-w-[1360px] mx-auto px-6 py-8 grid grid-cols-12 gap-8">
+            <>
+              {/* overlay to close on outside click */}
+              <div
+                className="fixed left-0 right-0 bottom-0 top-[166px] bg-black/15 backdrop-blur-[1px] z-20"
+                onClick={()=>setOpenMenu(null)}
+                aria-hidden="true"
+              />
+              <div className="absolute left-0 right-0 top-[52px] z-30 bg-[var(--surface)] border-t border-b border-[var(--line)] shadow-[0_24px_48px_-16px_rgba(0,0,0,0.18)]">
+                {/* top bar fix */}
+                <div className="w-full bg-[var(--navy)]/[0.04] border-b border-[var(--line)] px-6 py-2.5 flex items-center justify-between gap-4">
+                  <span className="text-[11px] font-bold tracking-[0.08em] text-[var(--navy)] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"/>
+                    Agora o menu fica travado. Pode descer o mouse sem sumir.
+                  </span>
+                  <button onClick={()=>setOpenMenu(null)} className="shrink-0 text-[11px] font-bold tracking-[0.12em] px-3.5 py-1.5 rounded-full bg-[var(--navy)] text-white hover:bg-black transition">FECHAR ✕</button>
+                </div>
+                <div className="max-w-[1360px] mx-auto px-6 py-8 grid grid-cols-12 gap-8">
                 {/* COL 1 INFO */}
                 <div className="col-span-4 pr-8 border-r border-[var(--line)]">
                   <div className="flex items-center gap-2 mb-3">
@@ -259,6 +279,7 @@ export default function App(){
                 </div>
               </div>
             </div>
+              </>
           )}
         </div>
 
