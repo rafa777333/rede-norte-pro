@@ -1,1 +1,1 @@
-"use client"; export default function P(){return <div style={{padding:40}}>Placeholder [cidade]</div>}
+"use client"; export default function Page(){return <div style={padding:40, fontFamily:"sans-serif"}>REDE NORTE - [cidade] - em breve</div>}
