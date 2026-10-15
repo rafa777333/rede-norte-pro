@@ -1,1 +1,0 @@
-"use client"; export default function P(){return <div style={{padding:40}}>Placeholder [cidade]</div>}
