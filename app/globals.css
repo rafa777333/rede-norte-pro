@@ -1,8 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root{--navy:#0A2342;--orange:#FF6B00;--surface:#fff;--paper:#f8fafc;--line:#e2e8f0;--muted:#64748b;--ink:#0f172a}
-*{font-family:"DM Sans",sans-serif}
-.serif{font-family:"Fraunces",serif}
-body{background:var(--paper);color:var(--ink)}
+:root{--navy:#0A2342;--orange:#FF6B00;--paper:#f8f6f1;--line:#e5ddd1;--muted:#64748b}
