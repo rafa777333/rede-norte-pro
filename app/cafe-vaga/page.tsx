@@ -1,1 +1,1 @@
-"use client"; export default function Page(){return <div style={padding:40, fontFamily:"sans-serif"}>REDE NORTE - cafe-vaga - em breve</div>}
+"use client"; export default function Page(){return <div style={padding:40}>REDE NORTE - cafe-vaga</div>}

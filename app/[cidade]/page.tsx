@@ -1,1 +1,1 @@
-"use client"; export default function Page(){return <div style={padding:40, fontFamily:"sans-serif"}>REDE NORTE - [cidade] - em breve</div>}
+"use client"; export default function Page(){return <div style={padding:40}>REDE NORTE - [cidade]</div>}
