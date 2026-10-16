@@ -117,12 +117,16 @@ export default function Page() {
   const [noticiasAdmin, setNoticiasAdmin] = useState<any[]>([]);
   const [locaisAdmin, setLocaisAdmin] = useState<any[]>([]);
   const [vagasAdmin, setVagasAdmin] = useState<any[]>([]);
+  const [classifAdmin, setClassifAdmin] = useState<any[]>([]);
+  const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
 
   useEffect(() => {
     try {
       const n = localStorage.getItem("rn_noticias"); if (n) setNoticiasAdmin(JSON.parse(n));
       const l = localStorage.getItem("rn_locais"); if (l) setLocaisAdmin(JSON.parse(l));
       const v = localStorage.getItem("rn_vagas"); if (v) setVagasAdmin(JSON.parse(v));
+      const c = localStorage.getItem("rn_classif"); if (c) setClassifAdmin(JSON.parse(c));
+      const p = localStorage.getItem("rn_promocoes"); if (p) setPromocoesAdmin(JSON.parse(p));
     } catch { /* mantém conteúdo inicial */ }
   }, []);
 
@@ -186,9 +190,10 @@ export default function Page() {
         </section>
       </>}
 
-      {aba === "ondeir" && <section className="container utility-page"><span className="eyebrow">GUIA REGIONAL</span><h2>Onde ir em {cidade}</h2><div className="utility-list">{locaisAdmin.filter((l: any) => cidade === "Todas" || l.cidade === cidade).map((l: any) => <div key={l.id}><strong>{l.nome}</strong><span>{l.cidade}</span></div>)}{!locaisAdmin.length && <div className="empty-state">Em breve, lugares, serviços e experiências da região.</div>}</div></section>}
+      {aba === "ondeir" && <section className="container utility-page"><span className="eyebrow">GUIA REGIONAL</span><h2>Onde ir em {cidade}</h2><div className="public-list-grid">{locaisAdmin.filter((l: any) => cidade === "Todas" || l.cidade === cidade).map((l: any) => <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Norte", credit: "Imagem enviada pelo anunciante" })}><img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} /><span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span></button>)}{!locaisAdmin.length && <div className="empty-state">Em breve, lugares, serviços e experiências da região.</div>}</div></section>}
       {aba === "empregos" && <section className="container utility-page"><span className="eyebrow">OPORTUNIDADES</span><h2>Vagas em {cidade}</h2><div className="utility-list">{vagasAdmin.filter((v: any) => cidade === "Todas" || v.cidade === cidade).map((v: any) => <div key={v.id}><span><strong>{v.cargo}</strong><small>{v.empresa}</small></span><a href={`https://wa.me/${(v.zap || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer">Chamar</a></div>)}{!vagasAdmin.length && <div className="empty-state">Em breve, oportunidades de trabalho da região.</div>}</div></section>}
-      {(aba === "compras" || aba === "promocoes") && <section className="container utility-page"><span className="eyebrow">REDE NORTE</span><h2>{aba === "compras" ? "Compras e vendas" : "Promoções"}</h2><div className="empty-state">Esta área está sendo preparada. Em breve teremos novidades.</div></section>}
+      {aba === "compras" && <section className="container utility-page"><span className="eyebrow">CLASSIFICADOS REGIONAIS</span><h2>Compras e vendas em {cidade}</h2><div className="public-list-grid">{classifAdmin.filter((c: any) => cidade === "Todas" || c.cidade === cidade).map((c: any) => <button className="public-list-card" key={c.id} onClick={() => setSel({ id: c.id, titulo: c.titulo, cidade: c.cidade, cat: c.cat, sub: c.preco, resumo: c.detalhes || "Veja os detalhes deste anúncio.", texto: c.detalhes || "Veja os detalhes deste anúncio.", img: c.img || noticiasFixas[2].img, hora: "", autor: "Anunciante", credit: "Imagem enviada pelo anunciante" })}><img src={c.img || noticiasFixas[2].img} alt={`Imagem do anúncio: ${c.titulo}`} /><span><b>{c.cat}</b><strong>{c.titulo}</strong><small>{c.cidade} · {c.preco}</small></span></button>)}{!classifAdmin.length && <div className="empty-state">Ainda não há anúncios cadastrados.</div>}</div></section>}
+      {aba === "promocoes" && <section className="container utility-page"><span className="eyebrow">OFERTAS DA REGIÃO</span><h2>Promoções em {cidade}</h2><div className="public-list-grid">{promocoesAdmin.filter((p: any) => cidade === "Todas" || p.cidade === cidade).map((p: any) => <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || noticiasFixas[3].img, hora: "", autor: "Rede Norte", credit: "Imagem enviada pelo anunciante" })}><img src={p.img || noticiasFixas[3].img} alt={`Imagem da promoção: ${p.titulo}`} /><span><b>{p.categoria}</b><strong>{p.titulo}</strong><small>{p.cidade} · {p.validade}</small></span></button>)}{!promocoesAdmin.length && <div className="empty-state">Ainda não há promoções cadastradas.</div>}</div></section>}
 
       <footer className="site-footer"><div className="container footer-grid"><div><a className="brand brand--footer" href="/"><span className="brand-mark">RN</span><span>REDE NORTE</span></a><p>Jornalismo regional para Apucarana e todo o Norte do Paraná.</p></div><div><strong>Redação</strong><a href="/admin">Acesso da redação</a><a href="#">Quem somos</a><a href="#">Contato</a></div><div><strong>Transparência</strong><a href="#">Política de correções</a><a href="#">Privacidade e LGPD</a><a href="#">Publicidade</a></div></div><div className="container footer-bottom"><span>© 2026 Rede Norte do Paraná</span><span>Feito para informar a região.</span></div></footer>
     </main>
