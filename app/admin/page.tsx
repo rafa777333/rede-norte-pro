@@ -1,158 +1,82 @@
 "use client";
-import { useState, useEffect } from "react";
 
-type Tab = "noticias"|"ondeir"|"classificados"|"empregos"|"contato";
-type Noticia = {id:string, titulo:string, cidade:string, cat:string, resumo:string, img:string, destaque?:boolean};
-type Local = {id:string, nome:string, cidade:string, cat:string, end:string, zap:string};
-type Classif = {id:string, titulo:string, cidade:string, cat:string, preco:string, zap:string};
-type Vaga = {id:string, cargo:string, empresa:string, cidade:string, zap:string};
+import { useMemo, useState } from "react";
 
-const CIDADES = ["Apucarana","Arapongas","Ivaiporã","Jandaia do Sul","Faxinal","Jardim Alegre"];
-const CAT_NOT = ["Política","Cidade","Segurança","Economia","Eventos"];
-const CAT_ONDE = ["Lanchonetes","Pizzarias","Restaurantes","Bares","Cafés"];
-const CAT_CLASS = ["Imóveis","Veículos","Eletrônicos","Móveis"];
+type Tab = "noticias" | "ondeir" | "classificados" | "empregos" | "promocoes" | "contato";
+type Noticia = { id: string; titulo: string; cidade: string; cat: string; resumo: string; img: string; texto?: string; destaque?: boolean };
+type Local = { id: string; nome: string; cidade: string; cat: string; end: string; zap: string; img?: string; detalhes?: string };
+type Classif = { id: string; titulo: string; cidade: string; cat: string; preco: string; zap: string; img?: string; detalhes?: string };
+type Vaga = { id: string; cargo: string; empresa: string; cidade: string; zap: string; img?: string; detalhes?: string };
+type Promocao = { id: string; titulo: string; cidade: string; categoria: string; validade: string; contato: string; img?: string; detalhes?: string };
 
-function useLocal<T>(key:string, initial:T){
-  const [v,setV]=useState<T>(initial);
-  useEffect(()=>{ try{ const s=localStorage.getItem(key); if(s) setV(JSON.parse(s)); }catch{} },[key]);
-  useEffect(()=>{ try{ localStorage.setItem(key, JSON.stringify(v)); }catch{} },[key,v]);
-  return [v,setV] as const;
+const CIDADES = ["Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
+const CAT_NOT = ["Política", "Cidade", "Segurança", "Economia", "Eventos"];
+const CAT_ONDE = ["Restaurantes", "Lanchonetes", "Pizzarias", "Bares", "Cafés", "Serviços", "Lojas"];
+const CAT_CLASS = ["Imóveis", "Veículos", "Eletrônicos", "Móveis", "Celulares", "Outros"];
+const TABS: [Tab, string][] = [["noticias", "Notícias"], ["ondeir", "Onde Ir"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["contato", "Contato"]];
+
+function useLocal<T>(key: string, initial: T) {
+  const [v, setV] = useState<T>(() => {
+    if (typeof window === "undefined") return initial;
+    try { const saved = localStorage.getItem(key); return saved ? JSON.parse(saved) : initial; } catch { return initial; }
+  });
+  const update = (next: T | ((current: T) => T)) => setV((current) => {
+    const value = typeof next === "function" ? (next as (current: T) => T)(current) : next;
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* armazenamento opcional */ }
+    return value;
+  });
+  return [v, update] as const;
 }
 
-export default function Admin(){
-  const [tab,setTab]=useState<Tab>("noticias");
-  const [ok,setOk]=useState(false);
-  const [pass,setPass]=useState("");
-  const [noticias,setNoticias]=useLocal<Noticia[]>("rn_noticias",[]);
-  const [locais,setLocais]=useLocal<Local[]>("rn_locais",[]);
-  const [classif,setClassif]=useLocal<Classif[]>("rn_classif",[]);
-  const [vagas,setVagas]=useLocal<Vaga[]>("rn_vagas",[]);
+const empty = { titulo: "", cidade: "Apucarana", cat: "Política", resumo: "", img: "", texto: "" };
 
-  const [nForm,setNForm]=useState({titulo:"",cidade:"Apucarana",cat:"Política",resumo:"",img:""});
-  const [lForm,setLForm]=useState({nome:"",cidade:"Apucarana",cat:"Restaurantes",end:"",zap:""});
-  const [cForm,setCForm]=useState({titulo:"",cidade:"Apucarana",cat:"Imóveis",preco:"",zap:""});
-  const [vForm,setVForm]=useState({cargo:"",empresa:"",cidade:"Apucarana",zap:""});
+export default function Admin() {
+  const [tab, setTab] = useState<Tab>("noticias");
+  const [ok, setOk] = useState(false);
+  const [pass, setPass] = useState("");
+  const [citySearch, setCitySearch] = useState("");
+  const [selectedCity, setSelectedCity] = useState("Todas as cidades");
+  const [noticias, setNoticias] = useLocal<Noticia[]>("rn_noticias", []);
+  const [locais, setLocais] = useLocal<Local[]>("rn_locais", []);
+  const [classif, setClassif] = useLocal<Classif[]>("rn_classif", []);
+  const [vagas, setVagas] = useLocal<Vaga[]>("rn_vagas", []);
+  const [promocoes, setPromocoes] = useLocal<Promocao[]>("rn_promocoes", []);
+  const [nForm, setNForm] = useState(empty);
+  const [lForm, setLForm] = useState({ nome: "", cidade: "Apucarana", cat: "Restaurantes", end: "", zap: "", img: "", detalhes: "" });
+  const [cForm, setCForm] = useState({ titulo: "", cidade: "Apucarana", cat: "Imóveis", preco: "", zap: "", img: "", detalhes: "" });
+  const [vForm, setVForm] = useState({ cargo: "", empresa: "", cidade: "Apucarana", zap: "", img: "", detalhes: "" });
+  const [pForm, setPForm] = useState({ titulo: "", cidade: "Apucarana", categoria: "Comércio", validade: "", contato: "", img: "", detalhes: "" });
 
-  if(!ok){
-    return (
-      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f8f6f1"}}>
-        <div style={{background:"white",padding:32,borderRadius:16,border:"1px solid #e5ddd1",width:360}}>
-          <h1 style={{fontWeight:900,marginBottom:12}}>REDE NORTE - ADMIN</h1>
-          <input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Senha" style={{width:"100%",padding:"10px 12px",border:"1px solid #e5ddd1",borderRadius:8,marginBottom:12}}/>
-          <button onClick={()=>{if(pass==="norte123") setOk(true); else alert("Senha errada")}} style={{width:"100%",padding:"10px",background:"#0A2342",color:"white",borderRadius:8,fontWeight:700,border:0}}>Entrar</button>
-          <p style={{fontSize:12,color:"#64748b",marginTop:8}}>Senha: norte123</p>
-        </div>
-      </div>
-    )
-  }
+  const cidadesVisiveis = useMemo(() => CIDADES.filter((cidade) => cidade.toLowerCase().includes(citySearch.toLowerCase())), [citySearch]);
+  const filterByCity = <T extends { cidade: string }>(items: T[]) => selectedCity === "Todas as cidades" ? items : items.filter((item) => item.cidade === selectedCity);
+  const gen = () => Math.random().toString(36).slice(2, 9);
+  const save = (key: string) => { setSelectedCity(key); setCitySearch(""); };
 
-  const gen=()=>Math.random().toString(36).slice(2,9);
+  if (!ok) return <div className="admin-login"><div className="admin-login-card"><span className="admin-kicker">REDE NORTE PRO</span><h1>Área da redação</h1><p>Gerencie notícias, anúncios e oportunidades da região.</p><input value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (pass === "norte123" ? setOk(true) : alert("Senha errada"))} type="password" placeholder="Senha de acesso" /><button onClick={() => pass === "norte123" ? setOk(true) : alert("Senha errada")}>Entrar no painel</button><small>Ambiente de demonstração · senha: norte123</small></div></div>;
 
-  return (
-    <div style={{minHeight:"100vh",background:"#f8f6f1",fontFamily:"sans-serif"}}>
-      <header style={{background:"#0A2342",color:"white",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <b>REDE NORTE PRO - ADMIN</b>
-        <button onClick={()=>setOk(false)} style={{background:"#FF6B00",color:"white",padding:"6px 12px",borderRadius:6,border:0}}>Sair</button>
-      </header>
+  return <div className="admin-shell">
+    <header className="admin-header"><div><span className="admin-kicker">REDE NORTE PRO</span><h1>Painel da redação</h1></div><button onClick={() => setOk(false)}>Sair</button></header>
+    <nav className="admin-tabs">{TABS.map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</nav>
+    <div className="admin-city-filter"><div><span className="admin-kicker">FILTRAR CADASTROS</span><strong>{selectedCity}</strong></div><label><span>⌕</span><input value={citySearch} onChange={(e) => setCitySearch(e.target.value)} placeholder="Procurar cidade para filtrar" /></label><div className="city-results"><button className={selectedCity === "Todas as cidades" ? "selected" : ""} onClick={() => save("Todas as cidades")}>Todas</button>{cidadesVisiveis.map((cidade) => <button key={cidade} className={selectedCity === cidade ? "selected" : ""} onClick={() => save(cidade)}>{cidade}</button>)}</div></div>
 
-      <div style={{display:"flex",gap:8,padding:16,flexWrap:"wrap",background:"white",borderBottom:"1px solid #e5ddd1"}}>
-        {[
-          ["noticias","Notícias"],
-          ["ondeir","Onde Ir"],
-          ["classificados","Classificados"],
-          ["empregos","Empregos"],
-          ["contato","Contato"],
-        ].map(([id,label])=>(
-          <button key={id} onClick={()=>setTab(id as Tab)} style={{padding:"8px 14px",borderRadius:8,border:"1px solid #e5ddd1",background:tab===id?"#0A2342":"white",color:tab===id?"white":"#0A2342",fontWeight:700}}>{label as string}</button>
-        ))}
-      </div>
+    <main className="admin-main">
+      {tab === "noticias" && <AdminSection title="Cadastrar notícia" description="Publique informação local com imagem, resumo e texto completo."><FormInput placeholder="Título da notícia" value={nForm.titulo} onChange={(v) => setNForm({ ...nForm, titulo: v })} /><div className="form-row"><Select value={nForm.cidade} onChange={(v) => setNForm({ ...nForm, cidade: v })} options={CIDADES} /><Select value={nForm.cat} onChange={(v) => setNForm({ ...nForm, cat: v })} options={CAT_NOT} /></div><FormInput placeholder="Resumo / linha fina" value={nForm.resumo} onChange={(v) => setNForm({ ...nForm, resumo: v })} multiline /><FormInput placeholder="URL da imagem (https://...)" value={nForm.img} onChange={(v) => setNForm({ ...nForm, img: v })} /><FormInput placeholder="Texto completo da notícia" value={nForm.texto} onChange={(v) => setNForm({ ...nForm, texto: v })} multiline /><SaveButton label="Salvar notícia" onClick={() => { if (!nForm.titulo) return alert("Título obrigatório"); setNoticias((items) => [{ id: gen(), ...nForm }, ...items]); setNForm(empty); }} />{filterByCity(noticias).map((n) => <AdminItem key={n.id} title={n.titulo} meta={`${n.cidade} · ${n.cat}`} image={n.img} onDelete={() => setNoticias((items) => items.filter((x) => x.id !== n.id))} />)}</AdminSection>}
 
-      <main style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
-        {tab==="noticias" && (
-          <div>
-            <Box title="Cadastrar Notícia">
-              <div style={{display:"grid",gap:10}}>
-                <input placeholder="Título" value={nForm.titulo} onChange={e=>setNForm({...nForm,titulo:e.target.value})} style={inp}/>
-                <div style={{display:"flex",gap:8}}>
-                  <select value={nForm.cidade} onChange={e=>setNForm({...nForm,cidade:e.target.value})} style={inp}>{CIDADES.map(c=><option key={c}>{c}</option>)}</select>
-                  <select value={nForm.cat} onChange={e=>setNForm({...nForm,cat:e.target.value})} style={inp}>{CAT_NOT.map(c=><option key={c}>{c}</option>)}</select>
-                </div>
-                <textarea placeholder="Resumo" value={nForm.resumo} onChange={e=>setNForm({...nForm,resumo:e.target.value})} style={inp}/>
-                <input placeholder="URL da imagem" value={nForm.img} onChange={e=>setNForm({...nForm,img:e.target.value})} style={inp}/>
-                <button onClick={()=>{if(!nForm.titulo) return alert("Título obrigatório"); setNoticias([{id:gen(),...nForm},...noticias]); setNForm({titulo:"",cidade:"Apucarana",cat:"Política",resumo:"",img:""});}} style={btn}>Salvar Notícia</button>
-              </div>
-            </Box>
-            <div style={{marginTop:16,display:"grid",gap:8}}>{noticias.map(n=><div key={n.id} style={card}><b>{n.titulo}</b><div style={{fontSize:12,color:"#64748b"}}>{n.cidade} - {n.cat}</div><button onClick={()=>setNoticias(noticias.filter(x=>x.id!==n.id))} style={del}>Excluir</button></div>)}</div>
-          </div>
-        )}
+      {tab === "ondeir" && <AdminSection title="Cadastrar local em Onde Ir" description="Cadastre estabelecimentos e serviços. A imagem e os detalhes aparecerão em uma página própria para o visitante."><FormInput placeholder="Nome do local (ex.: Panela de Ferro)" value={lForm.nome} onChange={(v) => setLForm({ ...lForm, nome: v })} /><div className="form-row"><Select value={lForm.cidade} onChange={(v) => setLForm({ ...lForm, cidade: v })} options={CIDADES} /><Select value={lForm.cat} onChange={(v) => setLForm({ ...lForm, cat: v })} options={CAT_ONDE} /></div><FormInput placeholder="Endereço completo" value={lForm.end} onChange={(v) => setLForm({ ...lForm, end: v })} /><FormInput placeholder="WhatsApp para contato" value={lForm.zap} onChange={(v) => setLForm({ ...lForm, zap: v })} /><FormInput placeholder="URL da imagem do local" value={lForm.img} onChange={(v) => setLForm({ ...lForm, img: v })} /><FormInput placeholder="Descrição completa: horários, serviços, diferenciais..." value={lForm.detalhes} onChange={(v) => setLForm({ ...lForm, detalhes: v })} multiline /><SaveButton label="Salvar local" onClick={() => { if (!lForm.nome) return alert("Nome obrigatório"); setLocais((items) => [{ id: gen(), ...lForm }, ...items]); setLForm({ nome: "", cidade: "Apucarana", cat: "Restaurantes", end: "", zap: "", img: "", detalhes: "" }); }} />{filterByCity(locais).map((l) => <AdminItem key={l.id} title={l.nome} meta={`${l.cidade} · ${l.cat} · ${l.end}`} image={l.img} onDelete={() => setLocais((items) => items.filter((x) => x.id !== l.id))} />)}</AdminSection>}
 
-        {tab==="ondeir" && (
-          <div>
-            <Box title="Cadastrar Local - Onde Ir">
-              <div style={{display:"grid",gap:10}}>
-                <input placeholder="Nome do local" value={lForm.nome} onChange={e=>setLForm({...lForm,nome:e.target.value})} style={inp}/>
-                <div style={{display:"flex",gap:8}}>
-                  <select value={lForm.cidade} onChange={e=>setLForm({...lForm,cidade:e.target.value})} style={inp}>{CIDADES.map(c=><option key={c}>{c}</option>)}</select>
-                  <select value={lForm.cat} onChange={e=>setLForm({...lForm,cat:e.target.value})} style={inp}>{CAT_ONDE.map(c=><option key={c}>{c}</option>)}</select>
-                </div>
-                <input placeholder="Endereço" value={lForm.end} onChange={e=>setLForm({...lForm,end:e.target.value})} style={inp}/>
-                <input placeholder="WhatsApp" value={lForm.zap} onChange={e=>setLForm({...lForm,zap:e.target.value})} style={inp}/>
-                <button onClick={()=>{if(!lForm.nome) return alert("Nome obrigatório"); setLocais([{id:gen(),...lForm},...locais]); setLForm({nome:"",cidade:"Apucarana",cat:"Restaurantes",end:"",zap:""});}} style={btn}>Salvar Local</button>
-              </div>
-            </Box>
-            <div style={{marginTop:16,display:"grid",gap:8}}>{locais.map(l=><div key={l.id} style={card}><b>{l.nome}</b><div style={{fontSize:12,color:"#64748b"}}>{l.cidade} - {l.cat} - {l.end}</div><button onClick={()=>setLocais(locais.filter(x=>x.id!==l.id))} style={del}>Excluir</button></div>)}</div>
-          </div>
-        )}
+      {tab === "classificados" && <AdminSection title="Cadastrar compra ou venda" description="Anúncios com foto, preço, descrição e contato. Cada anúncio poderá abrir uma página detalhada."><FormInput placeholder="Título do anúncio" value={cForm.titulo} onChange={(v) => setCForm({ ...cForm, titulo: v })} /><div className="form-row"><Select value={cForm.cidade} onChange={(v) => setCForm({ ...cForm, cidade: v })} options={CIDADES} /><Select value={cForm.cat} onChange={(v) => setCForm({ ...cForm, cat: v })} options={CAT_CLASS} /></div><FormInput placeholder="Preço" value={cForm.preco} onChange={(v) => setCForm({ ...cForm, preco: v })} /><FormInput placeholder="WhatsApp do anunciante" value={cForm.zap} onChange={(v) => setCForm({ ...cForm, zap: v })} /><FormInput placeholder="URL da imagem do anúncio" value={cForm.img} onChange={(v) => setCForm({ ...cForm, img: v })} /><FormInput placeholder="Descrição completa do produto ou serviço" value={cForm.detalhes} onChange={(v) => setCForm({ ...cForm, detalhes: v })} multiline /><SaveButton label="Salvar anúncio" onClick={() => { if (!cForm.titulo) return alert("Título obrigatório"); setClassif((items) => [{ id: gen(), ...cForm }, ...items]); setCForm({ titulo: "", cidade: "Apucarana", cat: "Imóveis", preco: "", zap: "", img: "", detalhes: "" }); }} />{filterByCity(classif).map((c) => <AdminItem key={c.id} title={c.titulo} meta={`${c.cidade} · ${c.cat} · ${c.preco}`} image={c.img} onDelete={() => setClassif((items) => items.filter((x) => x.id !== c.id))} />)}</AdminSection>}
 
-        {tab==="classificados" && (
-          <div>
-            <Box title="Cadastrar Classificado">
-              <div style={{display:"grid",gap:10}}>
-                <input placeholder="Título" value={cForm.titulo} onChange={e=>setCForm({...cForm,titulo:e.target.value})} style={inp}/>
-                <div style={{display:"flex",gap:8}}>
-                  <select value={cForm.cidade} onChange={e=>setCForm({...cForm,cidade:e.target.value})} style={inp}>{CIDADES.map(c=><option key={c}>{c}</option>)}</select>
-                  <select value={cForm.cat} onChange={e=>setCForm({...cForm,cat:e.target.value})} style={inp}>{CAT_CLASS.map(c=><option key={c}>{c}</option>)}</select>
-                </div>
-                <input placeholder="Preço" value={cForm.preco} onChange={e=>setCForm({...cForm,preco:e.target.value})} style={inp}/>
-                <input placeholder="WhatsApp" value={cForm.zap} onChange={e=>setCForm({...cForm,zap:e.target.value})} style={inp}/>
-                <button onClick={()=>{if(!cForm.titulo) return alert("Título obrigatório"); setClassif([{id:gen(),...cForm},...classif]); setCForm({titulo:"",cidade:"Apucarana",cat:"Imóveis",preco:"",zap:""});}} style={btn}>Salvar Classificado</button>
-              </div>
-            </Box>
-            <div style={{marginTop:16,display:"grid",gap:8}}>{classif.map(c=><div key={c.id} style={card}><b>{c.titulo}</b><div style={{fontSize:12,color:"#64748b"}}>{c.cidade} - {c.cat} - {c.preco}</div><button onClick={()=>setClassif(classif.filter(x=>x.id!==c.id))} style={del}>Excluir</button></div>)}</div>
-          </div>
-        )}
+      {tab === "empregos" && <AdminSection title="Cadastrar vaga de emprego" description="Publique oportunidades com empresa, cidade, contato, imagem e descrição da vaga."><FormInput placeholder="Cargo / função" value={vForm.cargo} onChange={(v) => setVForm({ ...vForm, cargo: v })} /><FormInput placeholder="Nome da empresa" value={vForm.empresa} onChange={(v) => setVForm({ ...vForm, empresa: v })} /><div className="form-row"><Select value={vForm.cidade} onChange={(v) => setVForm({ ...vForm, cidade: v })} options={CIDADES} /><FormInput placeholder="WhatsApp" value={vForm.zap} onChange={(v) => setVForm({ ...vForm, zap: v })} /></div><FormInput placeholder="URL da imagem ou logo da empresa" value={vForm.img} onChange={(v) => setVForm({ ...vForm, img: v })} /><FormInput placeholder="Descrição, requisitos e como se candidatar" value={vForm.detalhes} onChange={(v) => setVForm({ ...vForm, detalhes: v })} multiline /><SaveButton label="Salvar vaga" onClick={() => { if (!vForm.cargo) return alert("Cargo obrigatório"); setVagas((items) => [{ id: gen(), ...vForm }, ...items]); setVForm({ cargo: "", empresa: "", cidade: "Apucarana", zap: "", img: "", detalhes: "" }); }} />{filterByCity(vagas).map((v) => <AdminItem key={v.id} title={`${v.cargo} · ${v.empresa}`} meta={`${v.cidade} · ${v.zap}`} image={v.img} onDelete={() => setVagas((items) => items.filter((x) => x.id !== v.id))} />)}</AdminSection>}
 
-        {tab==="empregos" && (
-          <div>
-            <Box title="Cadastrar Vaga">
-              <div style={{display:"grid",gap:10}}>
-                <input placeholder="Cargo" value={vForm.cargo} onChange={e=>setVForm({...vForm,cargo:e.target.value})} style={inp}/>
-                <input placeholder="Empresa" value={vForm.empresa} onChange={e=>setVForm({...vForm,empresa:e.target.value})} style={inp}/>
-                <div style={{display:"flex",gap:8}}>
-                  <select value={vForm.cidade} onChange={e=>setVForm({...vForm,cidade:e.target.value})} style={inp}>{CIDADES.map(c=><option key={c}>{c}</option>)}</select>
-                  <input placeholder="WhatsApp" value={vForm.zap} onChange={e=>setVForm({...vForm,zap:e.target.value})} style={inp}/>
-                </div>
-                <button onClick={()=>{if(!vForm.cargo) return alert("Cargo obrigatório"); setVagas([{id:gen(),...vForm},...vagas]); setVForm({cargo:"",empresa:"",cidade:"Apucarana",zap:""});}} style={btn}>Salvar Vaga</button>
-              </div>
-            </Box>
-            <div style={{marginTop:16,display:"grid",gap:8}}>{vagas.map(v=><div key={v.id} style={card}><b>{v.cargo} - {v.empresa}</b><div style={{fontSize:12,color:"#64748b"}}>{v.cidade} - {v.zap}</div><button onClick={()=>setVagas(vagas.filter(x=>x.id!==v.id))} style={del}>Excluir</button></div>)}</div>
-          </div>
-        )}
+      {tab === "promocoes" && <AdminSection title="Cadastrar promoção" description="Divulgue ofertas e campanhas com imagem, validade, contato e página detalhada."><FormInput placeholder="Título da promoção" value={pForm.titulo} onChange={(v) => setPForm({ ...pForm, titulo: v })} /><div className="form-row"><Select value={pForm.cidade} onChange={(v) => setPForm({ ...pForm, cidade: v })} options={CIDADES} /><FormInput placeholder="Categoria / loja" value={pForm.categoria} onChange={(v) => setPForm({ ...pForm, categoria: v })} /></div><FormInput placeholder="Validade da promoção" value={pForm.validade} onChange={(v) => setPForm({ ...pForm, validade: v })} /><FormInput placeholder="WhatsApp ou contato" value={pForm.contato} onChange={(v) => setPForm({ ...pForm, contato: v })} /><FormInput placeholder="URL da imagem da promoção" value={pForm.img} onChange={(v) => setPForm({ ...pForm, img: v })} /><FormInput placeholder="Detalhes, regras e condições" value={pForm.detalhes} onChange={(v) => setPForm({ ...pForm, detalhes: v })} multiline /><SaveButton label="Salvar promoção" onClick={() => { if (!pForm.titulo) return alert("Título obrigatório"); setPromocoes((items) => [{ id: gen(), ...pForm }, ...items]); setPForm({ titulo: "", cidade: "Apucarana", categoria: "Comércio", validade: "", contato: "", img: "", detalhes: "" }); }} />{filterByCity(promocoes).map((p) => <AdminItem key={p.id} title={p.titulo} meta={`${p.cidade} · ${p.categoria} · ${p.validade}`} image={p.img} onDelete={() => setPromocoes((items) => items.filter((x) => x.id !== p.id))} />)}</AdminSection>}
 
-        {tab==="contato" && (
-          <Box title="Contato">
-            <p>WhatsApp do site: (43) 99999-9999</p>
-            <p>Email: contato@redenorte.com</p>
-            <p style={{marginTop:12,fontSize:13,color:"#64748b"}}>As mensagens do formulário do site vão aparecer aqui quando conectar o banco. Por enquanto fica salvo no navegador.</p>
-          </Box>
-        )}
-      </main>
-    </div>
-  )
+      {tab === "contato" && <AdminSection title="Informações de contato" description="Dados que podem ser exibidos no rodapé e na página de contato."><div className="contact-info"><strong>WhatsApp da redação</strong><span>(43) 99999-9999</span><strong>E-mail</strong><span>contato@redenorte.com</span><strong>Sobre o armazenamento</strong><span>Os cadastros desta versão ficam salvos no navegador por meio do localStorage. Para vários administradores e publicação permanente, o próximo passo é conectar um banco de dados.</span></div></AdminSection>}
+    </main>
+  </div>;
 }
 
-const inp = {padding:"10px 12px",border:"1px solid #e5ddd1",borderRadius:8} as any;
-const btn = {padding:"10px",background:"#0A2342",color:"white",borderRadius:8,fontWeight:700,border:0} as any;
-const card = {background:"white",border:"1px solid #e5ddd1",borderRadius:10,padding:12,display:"flex",justifyContent:"space-between",alignItems:"center"} as any;
-const del = {background:"#fee2e2",color:"#b91c1c",border:0,padding:"6px 10px",borderRadius:6,fontWeight:700} as any;
-function Box({title,children}:{title:string,children:any}){ return <div style={{background:"white",border:"1px solid #e5ddd1",borderRadius:12,padding:20}}><h2 style={{fontWeight:900,marginBottom:12}}>{title}</h2>{children}</div> }
+function AdminSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section className="admin-section"><div className="admin-section-title"><span className="admin-kicker">GERENCIAMENTO</span><h2>{title}</h2><p>{description}</p></div><div className="admin-form">{children}</div></section>; }
+function FormInput({ placeholder, value, onChange, multiline = false }: { placeholder: string; value: string; onChange: (value: string) => void; multiline?: boolean }) { return multiline ? <textarea placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} /> : <input placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />; }
+function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: string[] }) { return <select value={value} onChange={(e) => onChange(e.target.value)}>{options.map((option) => <option key={option}>{option}</option>)}</select>; }
+function SaveButton({ label, onClick }: { label: string; onClick: () => void }) { return <button className="save-button" onClick={onClick}>{label}</button>; }
+function AdminItem({ title, meta, image, onDelete }: { title: string; meta: string; image?: string; onDelete: () => void }) { return <div className="admin-item">{image ? <img src={image} alt="" /> : <div className="admin-item-placeholder">RN</div>}<div className="admin-item-copy"><strong>{title}</strong><span>{meta}</span></div><button className="delete-button" onClick={onDelete}>Excluir</button></div>; }
