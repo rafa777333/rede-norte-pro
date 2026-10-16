@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getSupabase } from "../lib/supabase";
 
 type Noticia = {
   id: string;
@@ -128,6 +129,25 @@ export default function Page() {
       const c = localStorage.getItem("rn_classif"); if (c) setClassifAdmin(JSON.parse(c));
       const p = localStorage.getItem("rn_promocoes"); if (p) setPromocoesAdmin(JSON.parse(p));
     } catch { /* mantém conteúdo inicial */ }
+
+    const supabase = getSupabase();
+    if (!supabase) return;
+    (async () => {
+      const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }] = await Promise.all([
+        supabase.from("news").select("id,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor").eq("status", "published").order("published_at", { ascending: false }),
+        supabase.from("cities").select("slug,nome"),
+        supabase.from("service_providers").select("id,nome,categoria,cidade_slug,endereco,whatsapp,imagem,descricao").eq("verificado", true),
+        supabase.from("jobs").select("id,vaga,empresa,cidade_slug,contato,imagem,descricao").eq("status", "published"),
+        supabase.from("classified_ads").select("id,titulo,categoria,cidade_slug,preco,contato,imagem,descricao").eq("status", "published"),
+        supabase.from("promotions").select("id,titulo,categoria,cidade_slug,validade,contato,imagem,detalhes").eq("status", "published"),
+      ]);
+      const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
+      if (news?.length) setNoticiasAdmin(news.map((n: any) => ({ id: n.id, cidade: cityMap.get(n.cidade_slug) || "Apucarana", cat: n.categoria || "Cidade", titulo: n.titulo, resumo: n.resumo || n.conteudo?.slice(0, 140) || "", texto: n.conteudo || n.resumo || "", img: n.imagem || "", autor: n.autor || "Redação Rede Norte" })));
+      if (services?.length) setLocaisAdmin(services.map((item: any) => ({ id: item.id, nome: item.nome, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, end: item.endereco || "", zap: item.whatsapp || "", img: item.imagem || "", detalhes: item.descricao || "" })));
+      if (jobs?.length) setVagasAdmin(jobs.map((item: any) => ({ id: item.id, cargo: item.vaga, empresa: item.empresa, cidade: cityMap.get(item.cidade_slug) || "Apucarana", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
+      if (ads?.length) setClassifAdmin(ads.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, preco: item.preco || "", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
+      if (promotions?.length) setPromocoesAdmin(promotions.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", categoria: item.categoria, validade: item.validade || "", contato: item.contato || "", img: item.imagem || "", detalhes: item.detalhes || "" })));
+    })();
   }, []);
 
   const todas = noticiasAdmin.length ? formatarNoticiasAdmin(noticiasAdmin) : noticiasFixas;
