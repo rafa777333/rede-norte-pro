@@ -16,7 +16,7 @@ type Noticia = {
   credit?: string;
 };
 
-const cidades = ["Todas", "Apucarana", "Arapongas", "Ivaiporã", "Jandaia do Sul", "Faxinal"];
+const cidades = ["Todas", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const categorias = ["Todas", "Política", "Cidade", "Segurança", "Mídia", "Esportes"];
 
 const noticiasFixas: Noticia[] = [
