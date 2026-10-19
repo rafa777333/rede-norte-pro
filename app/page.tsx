@@ -115,6 +115,7 @@ export default function Page() {
   const [categoria, setCategoria] = useState("Todas");
   const [sel, setSel] = useState<Noticia | null>(null);
   const [busca, setBusca] = useState("");
+  const [carregandoNoticias, setCarregandoNoticias] = useState(true);
   const [noticiasAdmin, setNoticiasAdmin] = useState<any[]>([]);
   const [locaisAdmin, setLocaisAdmin] = useState<any[]>([]);
   const [vagasAdmin, setVagasAdmin] = useState<any[]>([]);
@@ -131,10 +132,14 @@ export default function Page() {
     } catch { /* mantém conteúdo inicial */ }
 
     const supabase = getSupabase();
-    if (!supabase) return;
-    (async () => {
+    if (!supabase) {
+      setCarregandoNoticias(false);
+      return;
+    }
+
+    const carregarDados = async () => {
       const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }] = await Promise.all([
-        supabase.from("news").select("id,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor").eq("status", "published").order("published_at", { ascending: false }),
+        supabase.from("news").select("id,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at").eq("status", "published").order("published_at", { ascending: false }),
         supabase.from("cities").select("slug,nome"),
         supabase.from("service_providers").select("id,nome,categoria,cidade_slug,endereco,whatsapp,imagem,descricao").eq("verificado", true),
         supabase.from("jobs").select("id,vaga,empresa,cidade_slug,contato,imagem,descricao").eq("status", "published"),
@@ -142,15 +147,35 @@ export default function Page() {
         supabase.from("promotions").select("id,titulo,categoria,cidade_slug,validade,contato,imagem,detalhes").eq("status", "published"),
       ]);
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
-      if (news?.length) setNoticiasAdmin(news.map((n: any) => ({ id: n.id, cidade: cityMap.get(n.cidade_slug) || "Apucarana", cat: n.categoria || "Cidade", titulo: n.titulo, resumo: n.resumo || n.conteudo?.slice(0, 140) || "", texto: n.conteudo || n.resumo || "", img: n.imagem || "", autor: n.autor || "Redação Rede Norte" })));
+      if (news) setNoticiasAdmin(news.map((n: any) => ({
+        id: n.id,
+        cidade: cityMap.get(n.cidade_slug) || "Apucarana",
+        cat: n.categoria || "Cidade",
+        titulo: n.titulo,
+        resumo: n.resumo || n.conteudo?.slice(0, 140) || "",
+        texto: n.conteudo || n.resumo || "",
+        img: n.imagem || "",
+        hora: n.published_at ? new Date(n.published_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Agora",
+        autor: n.autor || "Redação Rede Norte",
+      })));
       if (services?.length) setLocaisAdmin(services.map((item: any) => ({ id: item.id, nome: item.nome, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, end: item.endereco || "", zap: item.whatsapp || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (jobs?.length) setVagasAdmin(jobs.map((item: any) => ({ id: item.id, cargo: item.vaga, empresa: item.empresa, cidade: cityMap.get(item.cidade_slug) || "Apucarana", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (ads?.length) setClassifAdmin(ads.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, preco: item.preco || "", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (promotions?.length) setPromocoesAdmin(promotions.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", categoria: item.categoria, validade: item.validade || "", contato: item.contato || "", img: item.imagem || "", detalhes: item.detalhes || "" })));
-    })();
+      setCarregandoNoticias(false);
+    };
+
+    carregarDados().catch(() => setCarregandoNoticias(false));
+    const intervalo = window.setInterval(() => { void carregarDados(); }, 60_000);
+    const aoVoltarParaPagina = () => { if (document.visibilityState === "visible") void carregarDados(); };
+    document.addEventListener("visibilitychange", aoVoltarParaPagina);
+    return () => {
+      window.clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", aoVoltarParaPagina);
+    };
   }, []);
 
-  const todas = noticiasAdmin.length ? formatarNoticiasAdmin(noticiasAdmin) : noticiasFixas;
+  const todas = carregandoNoticias ? [] : (noticiasAdmin.length ? formatarNoticiasAdmin(noticiasAdmin) : noticiasFixas);
   const filtradas = useMemo(() => todas.filter((n) => {
     const passaCidade = cidade === "Todas" || n.cidade === cidade;
     const passaCategoria = categoria === "Todas" || n.cat === categoria;
@@ -202,7 +227,7 @@ export default function Page() {
         <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>
         <section className="container content-grid">
           <div className="main-column">
-            {destaque ? <button className="hero-story" onClick={() => setSel(destaque)}><img src={destaque.img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa →</small></span></button> : <div className="empty-state">Nenhuma notícia encontrada para os filtros selecionados.</div>}
+            {destaque ? <button className="hero-story" onClick={() => setSel(destaque)}><img className="hero-image" src={destaque.img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa →</small></span></button> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
             {menores.length > 0 && <section className="news-section"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} />)}</div></section>}
             <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-list" id="ultimas">{ultimas.map((n) => <button key={n.id} onClick={() => setSel(n)}><span className="latest-time">{n.hora}</span><span><b>{n.cat}</b>{n.titulo}<small>{n.cidade}</small></span><span className="latest-arrow">→</span></button>)}</div></section>
           </div>
