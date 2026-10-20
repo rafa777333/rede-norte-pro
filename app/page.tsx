@@ -75,6 +75,16 @@ const noticiasFixas: Noticia[] = [
   },
 ];
 
+function resumoSeguro(conteudo: unknown, resumo: unknown): string {
+  if (typeof resumo === "string" && resumo.trim()) return resumo.trim().slice(0, 180);
+  let texto = typeof conteudo === "string" ? conteudo : "";
+  try {
+    const parsed = JSON.parse(texto);
+    if (Array.isArray(parsed)) texto = parsed.filter((part) => typeof part === "string").join(" ");
+  } catch { /* usa o texto recebido */ }
+  return texto.replace(/\\n/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+}
+
 function formatarNoticiasAdmin(items: any[]): Noticia[] {
   return items.map((n: any, index) => ({
     id: String(n.id ?? `admin-${index}`),
@@ -149,10 +159,10 @@ export default function Page() {
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
       if (news) setNoticiasAdmin(news.map((n: any) => ({
         id: n.id,
-        cidade: cityMap.get(n.cidade_slug) || "Apucarana",
+        cidade: cityMap.get(n.cidade_slug) || n.cidade_slug || "Geral",
         cat: n.categoria || "Cidade",
         titulo: n.titulo,
-        resumo: n.resumo || n.conteudo?.slice(0, 140) || "",
+        resumo: resumoSeguro(n.conteudo, n.resumo),
         texto: n.conteudo || n.resumo || "",
         img: n.imagem || "",
         hora: n.published_at ? new Date(n.published_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Agora",
