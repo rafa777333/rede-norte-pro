@@ -6,4 +6,4 @@
 - [x] Faixa do site preparada para consumir primeiro o Supabase.
 - [x] Fallback direto para Open-Meteo preservado.
 - [x] Gatilho manual de teste criado no n8n.
-- [ ] Confirmar a primeira gravação no Supabase quando o túnel n8n estiver novamente acessível.
+- [x] Execução validada: 27 cidades gravadas no Supabase.
