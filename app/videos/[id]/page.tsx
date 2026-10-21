@@ -1,80 +1,42 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
+import type { Metadata } from "next";
 import { getSupabase } from "../../../lib/supabase";
+import VideoPageClient from "./VideoPageClient";
 
-type Video = {
-  id: string;
-  titulo: string;
-  descricao: string;
-  video_url: string | null;
-  thumbnail_url: string | null;
-  instagram_url: string | null;
-  cidade_slug: string | null;
-  categoria: string;
-  materia_url: string | null;
-  tipo: "upload" | "instagram";
-  published_at: string;
-};
+export const revalidate = 60;
 
-function instagramEmbedUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    const match = parsed.pathname.match(/\/(reel|p|tv)\/([^/]+)/i);
-    return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed` : url;
-  } catch {
-    return url;
-  }
+type Props = { params: { id: string } };
+
+async function getVideo(id: string) {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.from("videos").select("id,titulo,descricao,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,published_at").eq("id", id).eq("status", "published").maybeSingle();
+  return data;
 }
 
-export default function VideoPage({ params }: { params: { id: string } }) {
-  const [video, setVideo] = useState<Video | null>(null);
-  const [cidade, setCidade] = useState("Rede Norte");
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState("");
-  const [copiado, setCopiado] = useState(false);
-
-  useEffect(() => {
-    const carregar = async () => {
-      const supabase = getSupabase();
-      if (!supabase) { setErro("A conexão com o portal não está disponível."); setCarregando(false); return; }
-      const [{ data, error }, { data: city }] = await Promise.all([
-        supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,published_at").eq("id", params.id).eq("status", "published").maybeSingle(),
-        supabase.from("cities").select("slug,nome").limit(100),
-      ]);
-      if (error || !data) setErro("Vídeo não encontrado ou ainda não publicado.");
-      else {
-        setVideo(data as Video);
-        const found = (city || []).find((item: { slug: string; nome: string }) => item.slug === data.cidade_slug);
-        if (found) setCidade(found.nome);
-      }
-      setCarregando(false);
-    };
-    void carregar();
-  }, [params.id]);
-
-  const url = useMemo(() => typeof window === "undefined" ? "" : window.location.href, []);
-  const compartilhar = async () => {
-    if (!video) return;
-    const shareData = { title: video.titulo, text: video.descricao || video.titulo, url };
-    if (navigator.share) { try { await navigator.share(shareData); return; } catch { /* cancelado */ } }
-    await copiarLink();
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const video = await getVideo(params.id);
+  const title = video?.titulo || "Vídeo Rede Norte";
+  const description = video?.descricao || "Assista ao vídeo da Rede Norte do Paraná.";
+  const image = video?.thumbnail_url || `https://www.redeapucarana.com.br/videos/${params.id}/opengraph-image`;
+  const url = `https://www.redeapucarana.com.br/videos/${params.id}`;
+  return {
+    title: `${title} | Rede Norte`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "Rede Norte do Paraná",
+      locale: "pt_BR",
+      type: "article",
+      publishedTime: video?.published_at || undefined,
+      images: [{ url: image, width: 1200, height: 630, alt: title }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
   };
-  const copiarLink = async () => {
-    if (!url) return;
-    try { await navigator.clipboard.writeText(url); setCopiado(true); window.setTimeout(() => setCopiado(false), 2200); } catch { window.prompt("Copie o link do vídeo:", url); }
-  };
+}
 
-  if (carregando) return <main className="video-detail-page"><div className="video-detail-loading">Carregando vídeo…</div></main>;
-  if (erro || !video) return <main className="video-detail-page"><div className="video-detail-error"><span className="eyebrow">REDE NORTE</span><h1>{erro || "Vídeo indisponível"}</h1><a className="video-back-link" href="/">Voltar para o portal</a></div></main>;
-
-  return <main className="video-detail-page">
-    <header className="video-detail-header"><a className="brand brand--small" href="/"><span className="brand-mark">RN</span><span>REDE NORTE</span></a><a className="video-back-link" href="/">← Voltar</a></header>
-    <div className="video-detail-layout">
-      <section className="video-detail-player">
-        {video.tipo === "instagram" && video.instagram_url ? <div className="video-detail-embed"><iframe src={instagramEmbedUrl(video.instagram_url)} title={video.titulo} allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen /><a href={video.instagram_url} target="_blank" rel="noreferrer">Abrir origem da publicação ↗</a></div> : <video controls playsInline preload="metadata" poster={video.thumbnail_url || undefined}><source src={video.video_url || ""} type="video/mp4" />Seu navegador não suporta vídeo HTML5.</video>}
-      </section>
-      <article className="video-detail-copy"><span className="card-kicker"><span className="news-badge">{video.categoria}</span><span>{cidade}</span></span><h1>{video.titulo}</h1><p>{video.descricao || "Confira este corte da Rede Norte."}</p><small>Publicado em {new Date(video.published_at).toLocaleDateString("pt-BR")}</small><div className="video-share-actions"><button className="share-primary" onClick={() => void compartilhar()}>Compartilhar vídeo</button><button className="share-secondary" onClick={() => void copiarLink()}>{copiado ? "Link copiado" : "Copiar link"}</button><a className="share-whatsapp" href={`https://wa.me/?text=${encodeURIComponent(`${video.titulo} ${url}`)}`} target="_blank" rel="noreferrer">Enviar pelo WhatsApp</a></div>{video.materia_url && <a className="video-materia-link" href={video.materia_url}>Ler a matéria relacionada →</a>}</article>
-    </div>
-  </main>;
+export default function VideoPage({ params }: Props) {
+  return <VideoPageClient params={params} />;
 }
