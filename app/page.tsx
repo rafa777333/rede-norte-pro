@@ -142,7 +142,7 @@ export default function Page() {
 
   useEffect(() => {
     try {
-      const n = localStorage.getItem("rn_noticias"); if (n) setNoticiasAdmin(JSON.parse(n));
+      const n = localStorage.getItem("rn_noticias"); if (n) setNoticiasAdmin(JSON.parse(n).filter(noticiaValida));
       const l = localStorage.getItem("rn_locais"); if (l) setLocaisAdmin(JSON.parse(l));
       const v = localStorage.getItem("rn_vagas"); if (v) setVagasAdmin(JSON.parse(v));
       const c = localStorage.getItem("rn_classif"); if (c) setClassifAdmin(JSON.parse(c));
@@ -193,7 +193,7 @@ export default function Page() {
     };
   }, []);
 
-  const todas = carregandoNoticias ? [] : (noticiasAdmin.length ? formatarNoticiasAdmin(noticiasAdmin) : noticiasFixas);
+  const todas = carregandoNoticias ? [] : (noticiasAdmin.length ? formatarNoticiasAdmin(noticiasAdmin.filter(noticiaValida)) : noticiasFixas);
   const filtradas = useMemo(() => todas.filter((n) => {
     const passaCidade = cidade === "Todas" || n.cidade === cidade;
     const passaCategoria = categoria === "Todas" || n.cat === categoria;
