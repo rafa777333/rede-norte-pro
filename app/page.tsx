@@ -126,7 +126,7 @@ function Badge({ children }: { children: React.ReactNode }) {
 function NewsCard({ noticia, onOpen, compact = false }: { noticia: Noticia; onOpen: (n: Noticia) => void; compact?: boolean }) {
   return (
     <button className={`news-card ${compact ? "news-card--compact" : ""}`} onClick={() => onOpen(noticia)}>
-      <img src={noticia.img} alt={`Imagem ilustrativa da notícia: ${noticia.titulo}`} loading="lazy" />
+      <img src={noticia.img || noticiasFixas[0].img} alt={`Imagem ilustrativa da notícia: ${noticia.titulo}`} loading="lazy" />
       <span className="card-content">
         <span className="card-kicker"><Badge>{noticia.cat}</Badge><span>{noticia.cidade}</span></span>
         <strong>{noticia.titulo}</strong>
@@ -299,7 +299,7 @@ export default function Page() {
         <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>
         <section className="container content-grid">
           <div className="main-column">
-            {destaque ? <button className="hero-story" onClick={() => setSel(destaque)}><img className="hero-image" src={destaque.img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa →</small></span></button> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
+            {destaque ? <button className="hero-story" onClick={() => setSel(destaque)}><img className="hero-image" src={destaque.img || noticiasFixas[0].img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></button> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
             {menores.length > 0 && <section className="news-section"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} />)}</div></section>}
             <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-list" id="ultimas">{ultimas.map((n) => <button key={n.id} onClick={() => setSel(n)}><span className="latest-time">{n.hora}</span><span><b>{n.cat}</b>{n.titulo}<small>{n.cidade}</small></span><span className="latest-arrow">→</span></button>)}</div></section>
           </div>
