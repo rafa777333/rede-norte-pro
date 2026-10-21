@@ -16,10 +16,19 @@ type Noticia = {
   autor?: string;
   credit?: string;
 };
+type Video = { id: string; titulo: string; descricao: string; cidade: string; categoria: string; videoUrl: string; thumbnailUrl: string; instagramUrl: string; materiaUrl: string; tipo: "upload" | "instagram"; publishedAt?: string };
 
 const cidades = ["Todas", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const categorias = ["Todas", "Política", "Cidade", "Segurança", "Mídia", "Esportes"];
 const RADIO_STREAM_URL = "https://servidor34-2.brlogic.com:7016/live?source=website";
+
+function instagramEmbedUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/(reel|p|tv)\/([^/]+)/i);
+    return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed` : url;
+  } catch { return url; }
+}
 
 const noticiasFixas: Noticia[] = [
   {
@@ -128,6 +137,13 @@ function NewsCard({ noticia, onOpen, compact = false }: { noticia: Noticia; onOp
   );
 }
 
+function VideoPlayer({ video }: { video: Video }) {
+  if (video.tipo === "instagram" && video.instagramUrl) {
+    return <div className="video-embed-wrap"><iframe src={instagramEmbedUrl(video.instagramUrl)} title={video.titulo} allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen /><a href={video.instagramUrl} target="_blank" rel="noreferrer">Abrir publicação original no Instagram ↗</a></div>;
+  }
+  return <video className="video-native" controls playsInline preload="metadata" poster={video.thumbnailUrl || undefined}><source src={video.videoUrl} type="video/mp4" />Seu navegador não suporta vídeo HTML5.</video>;
+}
+
 export default function Page() {
   const [cidade, setCidade] = useState("Todas");
   const [aba, setAba] = useState("noticias");
@@ -140,6 +156,7 @@ export default function Page() {
   const [vagasAdmin, setVagasAdmin] = useState<any[]>([]);
   const [classifAdmin, setClassifAdmin] = useState<any[]>([]);
   const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
+  const [videosAdmin, setVideosAdmin] = useState<Video[]>([]);
   const [radioTocando, setRadioTocando] = useState(false);
   const radioRef = useRef<HTMLAudioElement>(null);
 
@@ -159,13 +176,14 @@ export default function Page() {
     }
 
     const carregarDados = async () => {
-      const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }] = await Promise.all([
+      const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }, { data: videos }] = await Promise.all([
         supabase.from("news").select("id,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at").eq("status", "published").order("published_at", { ascending: false }),
         supabase.from("cities").select("slug,nome"),
         supabase.from("service_providers").select("id,nome,categoria,cidade_slug,endereco,whatsapp,imagem,descricao").eq("verificado", true),
         supabase.from("jobs").select("id,vaga,empresa,cidade_slug,contato,imagem,descricao").eq("status", "published"),
         supabase.from("classified_ads").select("id,titulo,categoria,cidade_slug,preco,contato,imagem,descricao").eq("status", "published"),
         supabase.from("promotions").select("id,titulo,categoria,cidade_slug,validade,contato,imagem,detalhes").eq("status", "published"),
+        supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,published_at").eq("status", "published").order("published_at", { ascending: false }),
       ]);
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
       if (news) setNoticiasAdmin(news.filter(noticiaValida).map((n: any) => ({
@@ -183,6 +201,7 @@ export default function Page() {
       if (jobs?.length) setVagasAdmin(jobs.map((item: any) => ({ id: item.id, cargo: item.vaga, empresa: item.empresa, cidade: cityMap.get(item.cidade_slug) || "Apucarana", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (ads?.length) setClassifAdmin(ads.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, preco: item.preco || "", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (promotions?.length) setPromocoesAdmin(promotions.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", categoria: item.categoria, validade: item.validade || "", contato: item.contato || "", img: item.imagem || "", detalhes: item.detalhes || "" })));
+      setVideosAdmin((videos || []).map((item: any) => ({ id: item.id, titulo: item.titulo, descricao: item.descricao || "Confira este corte da Rede Norte.", cidade: cityMap.get(item.cidade_slug) || "Geral", categoria: item.categoria || "Matéria", videoUrl: item.video_url || "", thumbnailUrl: item.thumbnail_url || "", instagramUrl: item.instagram_url || "", materiaUrl: item.materia_url || "", tipo: item.tipo === "instagram" ? "instagram" : "upload", publishedAt: item.published_at })));
       setCarregandoNoticias(false);
     };
 
@@ -253,7 +272,7 @@ export default function Page() {
       <div className="topline"><div className="container topline-inner"><span>SEXTA-FEIRA, 16 DE OUTUBRO DE 2026</span><span>Apucarana e região</span><a href="/admin">Acesso da redação</a></div></div>
       <header className="site-header">
         <div className="container header-main"><a className="brand" href="/"><span className="brand-mark">RN</span><span className="brand-name">REDE NORTE <em>DO PARANÁ</em></span></a><div className="header-actions"><button className={`live-pill ${radioTocando ? "is-playing" : ""}`} onClick={alternarRadio} aria-pressed={radioTocando}><i /> {radioTocando ? "RÁDIO TOCANDO" : "OUVIR RÁDIO"}</button><label className="search-box"><span>⌕</span><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar notícia" aria-label="Buscar notícia" /></label><button className="menu-button" aria-label="Abrir menu">☰</button></div></div>
-        <nav className="main-nav"><div className="container nav-inner">{[["noticias", "Notícias"], ["ondeir", "Onde ir"], ["empregos", "Empregos"], ["compras", "Compras e vendas"], ["promocoes", "Promoções"]].map(([id, label]) => <button className={aba === id ? "active" : ""} key={id} onClick={() => setAba(id)}>{label}</button>)}<a className="nav-link" href="/tv-online">TV online</a></div></nav>
+        <nav className="main-nav"><div className="container nav-inner">{[["noticias", "Notícias"], ["videos", "Vídeos"], ["ondeir", "Onde ir"], ["empregos", "Empregos"], ["compras", "Compras e vendas"], ["promocoes", "Promoções"]].map(([id, label]) => <button className={aba === id ? "active" : ""} key={id} onClick={() => setAba(id as typeof aba)}>{label}</button>)}<a className="nav-link" href="/tv-online">TV online</a></div></nav>
       </header>
       <audio ref={radioRef} preload="none" src={RADIO_STREAM_URL} onPause={() => setRadioTocando(false)} onEnded={() => setRadioTocando(false)} aria-label="Rádio Apucarana ao vivo" />
 
@@ -272,6 +291,8 @@ export default function Page() {
           <aside className="sidebar"><div className="live-card"><div className="live-card-head"><span><i /> TV Apucarana ao vivo</span><b>TV ONLINE</b></div><a className="tv-teaser" href="/tv-online"><span className="play">▶</span><strong>Assista à nossa TV online.</strong><small>Programação regional direto no Rede Norte</small></a><a href="/tv-online">Abrir transmissão →</a></div><div className="flash-card"><span className="flash-label">FLASH</span><strong>Quando começa a valer a escala 5x2?</strong><p>Acompanhe as principais atualizações ao longo do dia.</p></div><div className="newsletter-card"><span className="eyebrow">RECEBA AS NOTÍCIAS</span><strong>Informação local no seu e-mail.</strong><p>As principais notícias de Apucarana e região, sem excesso.</p><button>Quero receber</button></div></aside>
         </section>
       </>}
+
+      {aba === "videos" && <section className="container utility-page video-page"><span className="eyebrow">CORTES DA REDE NORTE</span><h2>Vídeos que contam o que acontece.</h2><p className="video-page-intro">Assista aos cortes das matérias diretamente no portal. Vídeos enviados pela redação e publicações públicas do Instagram aparecem aqui sem você precisar sair da página.</p><div className="video-grid">{videosAdmin.filter((v) => cidade === "Todas" || v.cidade === cidade).map((video) => <article className="video-card" key={video.id}><VideoPlayer video={video} /><div className="video-card-copy"><span className="card-kicker"><Badge>{video.categoria}</Badge><span>{video.cidade}</span></span><h3>{video.titulo}</h3><p>{video.descricao}</p><small>{video.publishedAt ? new Date(video.publishedAt).toLocaleDateString("pt-BR") : "Agora"}{video.materiaUrl && <> · <a href={video.materiaUrl}>Ler matéria</a></>}</small></div></article>)}{!videosAdmin.length && <div className="empty-state">Ainda não há vídeos publicados. A redação pode cadastrar cortes pelo painel administrativo.</div>}</div></section>}
 
       {aba === "ondeir" && <section className="container utility-page"><span className="eyebrow">GUIA REGIONAL</span><h2>Onde ir em {cidade}</h2><div className="public-list-grid">{locaisAdmin.filter((l: any) => cidade === "Todas" || l.cidade === cidade).map((l: any) => <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Norte", credit: "Imagem enviada pelo anunciante" })}><img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} /><span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span></button>)}{!locaisAdmin.length && <div className="empty-state">Em breve, lugares, serviços e experiências da região.</div>}</div></section>}
       {aba === "empregos" && <section className="container utility-page"><span className="eyebrow">OPORTUNIDADES</span><h2>Vagas em {cidade}</h2><div className="public-list-grid">{vagasAdmin.filter((v: any) => cidade === "Todas" || v.cidade === cidade).map((v: any) => <button className="public-list-card" key={v.id} onClick={() => setSel({ id: v.id, titulo: v.cargo, cidade: v.cidade, cat: "Emprego", sub: v.empresa, resumo: v.detalhes || "Confira os detalhes desta oportunidade.", texto: v.detalhes || "Confira os detalhes desta oportunidade.", img: v.img || noticiasFixas[1].img, hora: "", autor: v.empresa || "Rede Norte", credit: v.img ? "Imagem enviada pelo anunciante" : "Imagem ilustrativa" })}><img src={v.img || noticiasFixas[1].img} alt={`Imagem da vaga: ${v.cargo}`} /><span><b>Emprego</b><strong>{v.cargo}</strong><small>{v.empresa} · {v.cidade}</small><small>{v.detalhes || "Clique para ver detalhes"}</small><a href={`https://wa.me/${(v.zap || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Chamar no WhatsApp</a></span></button>)}{!vagasAdmin.length && <div className="empty-state">Em breve, oportunidades de trabalho da região.</div>}</div></section>}
