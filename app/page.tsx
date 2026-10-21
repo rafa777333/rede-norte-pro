@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "../lib/supabase";
 
 type Noticia = {
@@ -19,6 +19,7 @@ type Noticia = {
 
 const cidades = ["Todas", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const categorias = ["Todas", "Política", "Cidade", "Segurança", "Mídia", "Esportes"];
+const RADIO_STREAM_URL = "https://servidor34-2.brlogic.com:7016/live?source=website";
 
 const noticiasFixas: Noticia[] = [
   {
@@ -139,6 +140,8 @@ export default function Page() {
   const [vagasAdmin, setVagasAdmin] = useState<any[]>([]);
   const [classifAdmin, setClassifAdmin] = useState<any[]>([]);
   const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
+  const [radioTocando, setRadioTocando] = useState(false);
+  const radioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     try {
@@ -202,6 +205,22 @@ export default function Page() {
     return passaCidade && passaCategoria && passaBusca;
   }), [todas, cidade, categoria, busca]);
 
+  const alternarRadio = async () => {
+    const audio = radioRef.current;
+    if (!audio) return;
+    if (radioTocando) {
+      audio.pause();
+      setRadioTocando(false);
+      return;
+    }
+    try {
+      await audio.play();
+      setRadioTocando(true);
+    } catch {
+      setRadioTocando(false);
+    }
+  };
+
   if (sel) {
     return (
       <main className="article-page">
@@ -233,9 +252,10 @@ export default function Page() {
     <main className="site-shell">
       <div className="topline"><div className="container topline-inner"><span>SEXTA-FEIRA, 16 DE OUTUBRO DE 2026</span><span>Apucarana e região</span><a href="/admin">Acesso da redação</a></div></div>
       <header className="site-header">
-        <div className="container header-main"><a className="brand" href="/"><span className="brand-mark">RN</span><span className="brand-name">REDE NORTE <em>DO PARANÁ</em></span></a><div className="header-actions"><button className="live-pill" onClick={() => setAba("noticias")}><i /> AO VIVO</button><label className="search-box"><span>⌕</span><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar notícia" aria-label="Buscar notícia" /></label><button className="menu-button" aria-label="Abrir menu">☰</button></div></div>
+        <div className="container header-main"><a className="brand" href="/"><span className="brand-mark">RN</span><span className="brand-name">REDE NORTE <em>DO PARANÁ</em></span></a><div className="header-actions"><button className={`live-pill ${radioTocando ? "is-playing" : ""}`} onClick={alternarRadio} aria-pressed={radioTocando}><i /> {radioTocando ? "RÁDIO TOCANDO" : "OUVIR RÁDIO"}</button><label className="search-box"><span>⌕</span><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar notícia" aria-label="Buscar notícia" /></label><button className="menu-button" aria-label="Abrir menu">☰</button></div></div>
         <nav className="main-nav"><div className="container nav-inner">{[["noticias", "Notícias"], ["ondeir", "Onde ir"], ["empregos", "Empregos"], ["compras", "Compras e vendas"], ["promocoes", "Promoções"]].map(([id, label]) => <button className={aba === id ? "active" : ""} key={id} onClick={() => setAba(id)}>{label}</button>)}<a className="nav-link" href="/tv-online">TV online</a></div></nav>
       </header>
+      <audio ref={radioRef} preload="none" src={RADIO_STREAM_URL} onPause={() => setRadioTocando(false)} onEnded={() => setRadioTocando(false)} aria-label="Rádio Apucarana ao vivo" />
 
       <div className="city-nav"><div className="container city-scroll">{cidades.map((c) => <button key={c} className={cidade === c ? "active" : ""} onClick={() => setCidade(c)}>{c}</button>)}</div></div>
 
