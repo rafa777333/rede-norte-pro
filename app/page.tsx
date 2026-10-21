@@ -17,6 +17,7 @@ type Noticia = {
   credit?: string;
 };
 type Video = { id: string; titulo: string; descricao: string; cidade: string; categoria: string; videoUrl: string; thumbnailUrl: string; instagramUrl: string; materiaUrl: string; tipo: "upload" | "instagram"; publishedAt?: string };
+type Sponsor = { id: string; titulo: string; imagem: string; linkUrl: string; ordem: number };
 
 const cidades = ["Todas", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const categorias = ["Todas", "Política", "Cidade", "Segurança", "Mídia", "Esportes"];
@@ -81,6 +82,25 @@ function WeatherTicker() {
   const [icon, condition] = atual ? weatherLabel(atual.code) : ["◌", "Atualizando previsão"];
 
   return <div className="weather-ticker"><span className="ticker-brand">REDE NORTE DO PARANÁ <b>·</b> CONECTANDO TODO O VALE DO IVAÍ</span><span className="ticker-date">{dataCapitalizada} · {hora}</span><span className="ticker-weather"><span className="ticker-live">AGORA</span><i>{icon}</i><strong>{atual?.cidade || "Vale do Ivaí"}</strong>{atual?.temperatura !== null && atual?.temperatura !== undefined ? <b>{atual.temperatura}°C</b> : <small>{condition}</small>}<em>{condition}</em></span></div>;
+}
+
+function WeatherShowcase() {
+  const [weather, setWeather] = useState<{ cidade: string; temperatura: number; code: number }[]>([]);
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const carregar = async () => {
+      const supabase = getSupabase();
+      const { data } = supabase ? await supabase.from("weather_current").select("cidade_nome,temperatura,codigo_tempo").order("cidade_nome").limit(27) : { data: null };
+      if (data?.length) setWeather(data.map((item: any) => ({ cidade: item.cidade_nome, temperatura: Math.round(Number(item.temperatura)), code: Number(item.codigo_tempo || 0) })));
+    };
+    void carregar();
+    const refresh = window.setInterval(() => void carregar(), 15 * 60_000);
+    return () => window.clearInterval(refresh);
+  }, []);
+  useEffect(() => { if (!weather.length) return; const timer = window.setInterval(() => setActive((index) => (index + 1) % weather.length), 4_500); return () => window.clearInterval(timer); }, [weather.length]);
+  const atual = weather[active];
+  const [icon, condition] = atual ? weatherLabel(atual.code) : ["◌", "Atualizando previsão"];
+  return <section className="weather-showcase" aria-label="Previsão do tempo do Vale do Ivaí"><div><span className="eyebrow">TEMPO AGORA · VALE DO IVAÍ</span><strong>{icon} {atual?.cidade || "Carregando cidades"}</strong><small>{condition} · atualização automática a cada 15 minutos</small></div><b>{atual ? `${atual.temperatura}°C` : "--"}</b><span className="weather-dots">{weather.slice(0, 9).map((item, index) => <i key={item.cidade} className={index === active % 9 ? "active" : ""} />)}</span></section>;
 }
 
 function instagramEmbedUrl(url: string) {
@@ -218,6 +238,8 @@ export default function Page() {
   const [classifAdmin, setClassifAdmin] = useState<any[]>([]);
   const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
   const [videosAdmin, setVideosAdmin] = useState<Video[]>([]);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [grupoWhatsApp, setGrupoWhatsApp] = useState("");
   const [classifForm, setClassifForm] = useState({ titulo: "", cidade: "Apucarana", categoria: "Outros", preco: "", contato: "", descricao: "", imagem: "" });
   const [enviandoClassif, setEnviandoClassif] = useState(false);
   const [classifEnviado, setClassifEnviado] = useState(false);
@@ -243,7 +265,7 @@ export default function Page() {
     }
 
     const carregarDados = async () => {
-      const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }, { data: videos }] = await Promise.all([
+      const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }, { data: videos }, { data: sponsorData }, { data: settingData }] = await Promise.all([
         supabase.from("news").select("id,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at").eq("status", "published").order("published_at", { ascending: false }),
         supabase.from("cities").select("slug,nome"),
         supabase.from("service_providers").select("id,nome,categoria,cidade_slug,endereco,whatsapp,imagem,descricao").eq("verificado", true),
@@ -251,6 +273,8 @@ export default function Page() {
         supabase.from("classified_ads").select("id,titulo,categoria,cidade_slug,preco,contato,imagem,descricao").eq("status", "published"),
         supabase.from("promotions").select("id,titulo,categoria,cidade_slug,validade,contato,imagem,detalhes").eq("status", "published"),
         supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,published_at").eq("status", "published").order("published_at", { ascending: false }),
+        supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").eq("ativo", true).order("ordem").limit(12),
+        supabase.from("site_settings").select("key,value").eq("key", "whatsapp_group_url").maybeSingle(),
       ]);
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
       if (news) setNoticiasAdmin(news.filter(noticiaValida).map((n: any) => ({
@@ -269,6 +293,8 @@ export default function Page() {
       if (ads?.length) setClassifAdmin(ads.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, preco: item.preco || "", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (promotions?.length) setPromocoesAdmin(promotions.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", categoria: item.categoria, validade: item.validade || "", contato: item.contato || "", img: item.imagem || "", detalhes: item.detalhes || "" })));
       setVideosAdmin((videos || []).map((item: any) => ({ id: item.id, titulo: item.titulo, descricao: item.descricao || "Confira este corte da Rede Norte.", cidade: cityMap.get(item.cidade_slug) || "Geral", categoria: item.categoria || "Matéria", videoUrl: item.video_url || "", thumbnailUrl: item.thumbnail_url || "", instagramUrl: item.instagram_url || "", materiaUrl: item.materia_url || "", tipo: item.tipo === "instagram" ? "instagram" : "upload", publishedAt: item.published_at })));
+      setSponsors((sponsorData || []).map((item: any) => ({ id: item.id, titulo: item.titulo, imagem: item.imagem, linkUrl: item.link_url || "", ordem: item.ordem || 0 })));
+      setGrupoWhatsApp(settingData?.value || "");
       setCarregandoNoticias(false);
     };
 
@@ -381,9 +407,10 @@ export default function Page() {
               {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} compact />)}</div>}
             </div>
             {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} />)}</div></section>}
+            <WeatherShowcase />
             <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-visual-grid" id="ultimas">{ultimas.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} />)}</div></section>
           </div>
-          <aside className="sidebar"><div className="ad-loop-card"><div className="live-card-head"><span><i /> Espaço Rede Norte</span><b>PUBLICIDADE</b></div>{anuncioLoop ? <video className="ad-loop-video" src={anuncioLoop.videoUrl} autoPlay muted loop playsInline preload="metadata" aria-label="Publicidade em vídeo" /> : <div className="ad-loop-empty"><span>VÍDEO EM LOOP</span><strong>Seu anúncio em destaque.</strong><small>Cadastre um vídeo com a categoria “Publicidade” no painel da redação.</small></div>}<div className="tv-mini-copy"><strong>Publicidade sem som e sem interrupção.</strong><small>O vídeo roda automaticamente em loop, de forma discreta.</small></div><a href="/admin">Carregar vídeo no painel →</a></div><div className="ad-slot"><span>ESPAÇO COMERCIAL</span><strong>Sua marca aparece aqui.</strong><p>Use este espaço para campanhas, ofertas e vídeos dos parceiros da Rede Norte.</p><a href="mailto:comercial@redenorte.com.br">Falar com a redação →</a></div><div className="flash-card"><span className="flash-label">FLASH</span><strong>Informação regional em movimento.</strong><p>Notícias, serviços e oportunidades para acompanhar ao longo do dia.</p></div><div className="newsletter-card"><span className="eyebrow">RECEBA AS NOTÍCIAS</span><strong>Informação local no seu e-mail.</strong><p>As principais notícias de Apucarana e região, sem excesso.</p><button>Quero receber</button></div></aside>
+          <aside className="sidebar"><div className="ad-loop-card"><div className="live-card-head"><span><i /> Espaço Rede Norte</span><b>PUBLICIDADE</b></div>{anuncioLoop ? <video className="ad-loop-video" src={anuncioLoop.videoUrl} autoPlay muted loop playsInline preload="metadata" aria-label="Publicidade em vídeo" /> : <div className="ad-loop-empty"><span>VÍDEO EM LOOP</span><strong>Seu anúncio em destaque.</strong><small>Cadastre um vídeo com a categoria “Publicidade” no painel da redação.</small></div>}<div className="tv-mini-copy"><strong>Publicidade sem som e sem interrupção.</strong><small>O vídeo roda automaticamente em loop, de forma discreta.</small></div><a href="/admin">Carregar vídeo no painel →</a></div><div className="ad-slot"><span>ESPAÇO COMERCIAL</span><strong>Sua marca aparece aqui.</strong><p>Use este espaço para campanhas, ofertas e vídeos dos parceiros da Rede Norte.</p><a href="mailto:comercial@redenorte.com.br">Falar com a redação →</a></div><div className="sponsor-rail"><div className="section-heading"><span>Patrocinadores</span><i /></div><div className="sponsor-slider">{sponsors.map((sponsor) => <a href={sponsor.linkUrl || "#"} target={sponsor.linkUrl ? "_blank" : undefined} rel="noreferrer" key={sponsor.id}><img src={sponsor.imagem} alt={sponsor.titulo} /></a>)}</div></div>{grupoWhatsApp && <a className="whatsapp-card" href={grupoWhatsApp} target="_blank" rel="noreferrer"><span>COMUNIDADE REDE NORTE</span><strong>Entre no grupo do WhatsApp</strong><small>Receba avisos e notícias importantes da região.</small><b>Entrar no grupo →</b></a>}<div className="flash-card"><span className="flash-label">FLASH</span><strong>Informação regional em movimento.</strong><p>Notícias, serviços e oportunidades para acompanhar ao longo do dia.</p></div><div className="newsletter-card"><span className="eyebrow">RECEBA AS NOTÍCIAS</span><strong>Informação local no seu e-mail.</strong><p>As principais notícias de Apucarana e região, sem excesso.</p><button>Quero receber</button></div></aside>
         </section>
       </>}
 

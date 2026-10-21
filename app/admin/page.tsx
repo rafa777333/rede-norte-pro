@@ -3,19 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
 
-type Tab = "noticias" | "videos" | "ondeir" | "classificados" | "empregos" | "promocoes" | "contato";
+type Tab = "noticias" | "videos" | "ondeir" | "classificados" | "empregos" | "promocoes" | "publicidade" | "contato";
 type Noticia = { id: string; titulo: string; cidade: string; cat: string; resumo: string; img: string; texto?: string };
 type Local = { id: string; nome: string; cidade: string; cat: string; end: string; zap: string; img?: string; detalhes?: string };
 type Classif = { id: string; titulo: string; cidade: string; cat: string; preco: string; zap: string; img?: string; detalhes?: string; status?: string };
 type Vaga = { id: string; cargo: string; empresa: string; cidade: string; zap: string; img?: string; detalhes?: string; status?: string };
 type Promocao = { id: string; titulo: string; cidade: string; categoria: string; validade: string; contato: string; img?: string; detalhes?: string };
 type VideoAdmin = { id: string; titulo: string; descricao: string; cidade: string; categoria: string; videoUrl: string; thumbnailUrl: string; instagramUrl: string; materiaUrl: string; tipo: "upload" | "instagram" };
+type SponsorAdmin = { id: string; titulo: string; imagem: string; linkUrl: string; ordem: number };
 
 const CIDADES = ["Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const CAT_NOT = ["Política", "Cidade", "Segurança", "Economia", "Eventos"];
 const CAT_ONDE = ["Restaurantes", "Lanchonetes", "Pizzarias", "Bares", "Cafés", "Serviços", "Lojas"];
 const CAT_CLASS = ["Imóveis", "Veículos", "Eletrônicos", "Móveis", "Celulares", "Outros"];
-const TABS: [Tab, string][] = [["noticias", "Notícias"], ["videos", "Vídeos"], ["ondeir", "Onde Ir"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["contato", "Contato"]];
+const TABS: [Tab, string][] = [["noticias", "Notícias"], ["videos", "Vídeos"], ["ondeir", "Onde Ir"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["publicidade", "Publicidade"], ["contato", "Contato"]];
 
 async function uploadImagem(valor: string, pasta: string) {
   const supabase = getSupabase();
@@ -55,6 +56,9 @@ export default function Admin() {
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [promocoes, setPromocoes] = useState<Promocao[]>([]);
   const [videos, setVideos] = useState<VideoAdmin[]>([]);
+  const [sponsors, setSponsors] = useState<SponsorAdmin[]>([]);
+  const [sponsorForm, setSponsorForm] = useState({ titulo: "", img: "", linkUrl: "", ordem: "0" });
+  const [grupoWhatsApp, setGrupoWhatsApp] = useState("");
   const [nForm, setNForm] = useState(emptyNews);
   const [lForm, setLForm] = useState({ nome: "", cidade: "Apucarana", cat: "Restaurantes", end: "", zap: "", img: "", detalhes: "" });
   const [cForm, setCForm] = useState({ titulo: "", cidade: "Apucarana", cat: "Imóveis", preco: "", zap: "", img: "", detalhes: "" });
@@ -72,7 +76,7 @@ export default function Admin() {
     const supabase = getSupabase();
     if (!supabase) return;
     setLoading(true);
-    const [{ data: cities }, { data: news }, { data: services }, { data: ads }, { data: jobs }, { data: promotions }, { data: videosData }] = await Promise.all([
+    const [{ data: cities }, { data: news }, { data: services }, { data: ads }, { data: jobs }, { data: promotions }, { data: videosData }, { data: sponsorData }, { data: settingData }] = await Promise.all([
       supabase.from("cities").select("slug,nome"),
       supabase.from("news").select("id,titulo,categoria,resumo,conteudo,imagem,cidade_slug").order("created_at", { ascending: false }),
       supabase.from("service_providers").select("id,nome,categoria,endereco,whatsapp,imagem,descricao,cidade_slug").order("created_at", { ascending: false }),
@@ -80,6 +84,8 @@ export default function Admin() {
       supabase.from("jobs").select("id,vaga,empresa,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }),
       supabase.from("promotions").select("id,titulo,categoria,validade,contato,imagem,detalhes,cidade_slug").order("created_at", { ascending: false }),
       supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,status").order("created_at", { ascending: false }),
+      supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").order("ordem"),
+      supabase.from("site_settings").select("key,value").eq("key", "whatsapp_group_url").maybeSingle(),
     ]);
     const cityMap = new Map((cities || []).map((c: any) => [c.slug, c.nome]));
     setNoticias((news || []).map((n: any) => ({ id: n.id, titulo: n.titulo, cidade: cityMap.get(n.cidade_slug) || "Apucarana", cat: n.categoria || "Cidade", resumo: n.resumo || "", texto: n.conteudo || "", img: n.imagem || "" })));
@@ -88,6 +94,8 @@ export default function Admin() {
     setVagas((jobs || []).map((x: any) => ({ id: x.id, cargo: x.vaga, empresa: x.empresa, cidade: cityMap.get(x.cidade_slug) || "Apucarana", zap: x.contato || "", img: x.imagem || "", detalhes: x.descricao || "", status: x.status || "published" })));
     setPromocoes((promotions || []).map((x: any) => ({ id: x.id, titulo: x.titulo, cidade: cityMap.get(x.cidade_slug) || "Apucarana", categoria: x.categoria, validade: x.validade || "", contato: x.contato || "", img: x.imagem || "", detalhes: x.detalhes || "" })));
     setVideos((videosData || []).map((x: any) => ({ id: x.id, titulo: x.titulo, descricao: x.descricao || "", cidade: cityMap.get(x.cidade_slug) || "Geral", categoria: x.categoria || "Matéria", videoUrl: x.video_url || "", thumbnailUrl: x.thumbnail_url || "", instagramUrl: x.instagram_url || "", materiaUrl: x.materia_url || "", tipo: x.tipo === "instagram" ? "instagram" : "upload" })));
+    setSponsors((sponsorData || []).map((x: any) => ({ id: x.id, titulo: x.titulo, imagem: x.imagem || "", linkUrl: x.link_url || "", ordem: x.ordem || 0 })));
+    setGrupoWhatsApp(settingData?.value || "");
     setLoading(false);
   };
 
@@ -133,6 +141,19 @@ export default function Admin() {
       setVideoForm(emptyVideo); setVideoFile(null); setEditId(null); await carregarTudo();
     } catch (e: any) { const message = String(e?.message || ""); alert(message.toLowerCase().includes("maximum allowed size") || message.toLowerCase().includes("file size") ? "Este projeto aceita arquivos de até 50 MB no Supabase. Escolha um vídeo menor que 50 MB, de preferência até 48 MB." : `Não foi possível salvar o vídeo: ${message || "erro de conexão"}`); } finally { setLoading(false); }
   };
+  const salvarPatrocinador = async () => {
+    if (!sponsorForm.titulo.trim() || !sponsorForm.img.trim()) return alert("Informe o nome e a imagem do patrocinador.");
+    await salvar("site_sponsors", { titulo: sponsorForm.titulo.trim(), link_url: sponsorForm.linkUrl.trim() || null, ordem: Number(sponsorForm.ordem) || 0, ativo: true }, sponsorForm.img, "sponsors", () => setSponsorForm({ titulo: "", img: "", linkUrl: "", ordem: "0" }), editId);
+  };
+  const salvarWhatsApp = async () => {
+    const supabase = getSupabase();
+    if (!supabase) return alert("Supabase não configurado.");
+    setLoading(true);
+    const { error } = await supabase.from("site_settings").upsert({ key: "whatsapp_group_url", value: grupoWhatsApp.trim() || null, updated_at: new Date().toISOString() });
+    setLoading(false);
+    if (error) return alert(`Não foi possível salvar: ${error.message}`);
+    alert("Link do grupo salvo.");
+  };
   const excluir = async (table: string, id: string) => {
     if (!confirm("Excluir este cadastro do banco?")) return;
     const supabase = getSupabase(); if (!supabase) return;
@@ -154,6 +175,18 @@ export default function Admin() {
       {tab === "classificados" && <AdminSection title="Cadastrar compra ou venda" description="Anúncios com foto e dados persistidos no Supabase. Envios públicos aparecem como pendentes até você salvar como publicado."><FormInput placeholder="Título do anúncio" value={cForm.titulo} onChange={(v) => setCForm({ ...cForm, titulo: v })} /><div className="form-row"><Select value={cForm.cidade} onChange={(v) => setCForm({ ...cForm, cidade: v })} options={CIDADES} /><Select value={cForm.cat} onChange={(v) => setCForm({ ...cForm, cat: v })} options={CAT_CLASS} /></div><FormInput placeholder="Preço" value={cForm.preco} onChange={(v) => setCForm({ ...cForm, preco: v })} /><FormInput placeholder="WhatsApp do anunciante" value={cForm.zap} onChange={(v) => setCForm({ ...cForm, zap: v })} /><ImageField value={cForm.img} onChange={(v) => setCForm({ ...cForm, img: v })} /><FormInput placeholder="Descrição completa" value={cForm.detalhes} onChange={(v) => setCForm({ ...cForm, detalhes: v })} multiline /><SaveButton label={editId ? "Aprovar / atualizar anúncio" : "Salvar anúncio no banco"} onClick={() => { if (!cForm.titulo) return alert("Título obrigatório"); void salvar("classified_ads", { titulo: cForm.titulo, categoria: cForm.cat, cidade_slug: cidadeSlug(cForm.cidade), preco: cForm.preco, contato: cForm.zap, descricao: cForm.detalhes, status: "published" }, cForm.img, "classifieds", () => setCForm({ titulo: "", cidade: "Apucarana", cat: "Imóveis", preco: "", zap: "", img: "", detalhes: "" }), editId); }} />{filterByCity(classif).map((x) => <AdminItem key={x.id} title={x.titulo} meta={`${x.cidade} · ${x.cat} · ${x.preco} · ${x.status === "pending" ? "AGUARDANDO APROVAÇÃO" : "Publicado"}`} image={x.img} onEdit={() => { setEditId(x.id); setCForm({ titulo: x.titulo, cidade: x.cidade, cat: x.cat, preco: x.preco, zap: x.zap, img: x.img || "", detalhes: x.detalhes || "" }); }} onDelete={() => void excluir("classified_ads", x.id)} />)}</AdminSection>}
       {tab === "empregos" && <AdminSection title="Cadastrar vaga de emprego" description="Vagas persistidas no banco. Envios públicos aparecem como pendentes até a redação aprovar."><FormInput placeholder="Cargo / função" value={vForm.cargo} onChange={(v) => setVForm({ ...vForm, cargo: v })} /><FormInput placeholder="Nome da empresa" value={vForm.empresa} onChange={(v) => setVForm({ ...vForm, empresa: v })} /><div className="form-row"><Select value={vForm.cidade} onChange={(v) => setVForm({ ...vForm, cidade: v })} options={CIDADES} /><FormInput placeholder="WhatsApp" value={vForm.zap} onChange={(v) => setVForm({ ...vForm, zap: v })} /></div><ImageField value={vForm.img} onChange={(v) => setVForm({ ...vForm, img: v })} /><FormInput placeholder="Descrição, requisitos e candidatura" value={vForm.detalhes} onChange={(v) => setVForm({ ...vForm, detalhes: v })} multiline /><SaveButton label={editId ? "Aprovar / atualizar vaga" : "Salvar vaga no banco"} onClick={() => { if (!vForm.cargo) return alert("Cargo obrigatório"); void salvar("jobs", { vaga: vForm.cargo, empresa: vForm.empresa, cidade_slug: cidadeSlug(vForm.cidade), contato: vForm.zap, descricao: vForm.detalhes, imagem: vForm.img || "https://www.redeapucarana.com.br/vagas-padrao.svg", status: "published" }, vForm.img, "jobs", () => setVForm({ cargo: "", empresa: "", cidade: "Apucarana", zap: "", img: "", detalhes: "" }), editId); }} />{filterByCity(vagas).map((x) => <AdminItem key={x.id} title={`${x.cargo} · ${x.empresa}`} meta={`${x.cidade} · ${x.zap} · ${x.status === "pending" ? "AGUARDANDO APROVAÇÃO" : "Publicado"}`} image={x.img} onEdit={() => { setEditId(x.id); setVForm({ cargo: x.cargo, empresa: x.empresa, cidade: x.cidade, zap: x.zap, img: x.img || "", detalhes: x.detalhes || "" }); }} onDelete={() => void excluir("jobs", x.id)} />)}</AdminSection>}
       {tab === "promocoes" && <AdminSection title="Cadastrar promoção" description="Promoções persistidas no banco e atualizadas pelo painel."><FormInput placeholder="Título da promoção" value={pForm.titulo} onChange={(v) => setPForm({ ...pForm, titulo: v })} /><div className="form-row"><Select value={pForm.cidade} onChange={(v) => setPForm({ ...pForm, cidade: v })} options={CIDADES} /><FormInput placeholder="Categoria / loja" value={pForm.categoria} onChange={(v) => setPForm({ ...pForm, categoria: v })} /></div><FormInput placeholder="Validade" value={pForm.validade} onChange={(v) => setPForm({ ...pForm, validade: v })} /><FormInput placeholder="WhatsApp ou contato" value={pForm.contato} onChange={(v) => setPForm({ ...pForm, contato: v })} /><ImageField value={pForm.img} onChange={(v) => setPForm({ ...pForm, img: v })} /><FormInput placeholder="Detalhes, regras e condições" value={pForm.detalhes} onChange={(v) => setPForm({ ...pForm, detalhes: v })} multiline /><SaveButton label={editId ? "Atualizar promoção" : "Salvar promoção no banco"} onClick={() => { if (!pForm.titulo) return alert("Título obrigatório"); void salvar("promotions", { titulo: pForm.titulo, categoria: pForm.categoria, cidade_slug: cidadeSlug(pForm.cidade), validade: pForm.validade, contato: pForm.contato, detalhes: pForm.detalhes, status: "published" }, pForm.img, "promotions", () => setPForm({ titulo: "", cidade: "Apucarana", categoria: "Comércio", validade: "", contato: "", img: "", detalhes: "" }), editId); }} />{filterByCity(promocoes).map((x) => <AdminItem key={x.id} title={x.titulo} meta={`${x.cidade} · ${x.categoria} · ${x.validade}`} image={x.img} onEdit={() => { setEditId(x.id); setPForm({ titulo: x.titulo, cidade: x.cidade, categoria: x.categoria, validade: x.validade, contato: x.contato, img: x.img || "", detalhes: x.detalhes || "" }); }} onDelete={() => void excluir("promotions", x.id)} />)}</AdminSection>}
+      {tab === "publicidade" && <>
+        <AdminSection title="Publicidade e comunidade" description="Configure o vídeo silencioso em loop, imagens de patrocinadores e o convite para o grupo de WhatsApp da Rede Norte.">
+          <div className="contact-info"><strong>Vídeo em loop</strong><span>Para carregar o vídeo: abra a aba Vídeos, escolha Upload e selecione a categoria Publicidade. Ele será exibido automaticamente na lateral da home, sem som e em loop.</span><button className="admin-inline-button" onClick={() => setTab("videos")}>Ir para cadastro de vídeos →</button></div>
+          <FormInput placeholder="Nome do patrocinador" value={sponsorForm.titulo} onChange={(v) => setSponsorForm({ ...sponsorForm, titulo: v })} />
+          <ImageField label="Imagem / logo do patrocinador" value={sponsorForm.img} onChange={(v) => setSponsorForm({ ...sponsorForm, img: v })} />
+          <div className="form-row"><FormInput placeholder="Link do patrocinador (opcional)" value={sponsorForm.linkUrl} onChange={(v) => setSponsorForm({ ...sponsorForm, linkUrl: v })} /><FormInput placeholder="Ordem (0, 1, 2...)" value={sponsorForm.ordem} onChange={(v) => setSponsorForm({ ...sponsorForm, ordem: v })} /></div>
+          <SaveButton label={editId ? "Atualizar patrocinador" : "Adicionar patrocinador"} onClick={() => void salvarPatrocinador()} />
+          {sponsors.map((x) => <AdminItem key={x.id} title={x.titulo} meta={`Ordem ${x.ordem}${x.linkUrl ? " · com link" : ""}`} image={x.imagem} onEdit={() => { setEditId(x.id); setSponsorForm({ titulo: x.titulo, img: x.imagem, linkUrl: x.linkUrl, ordem: String(x.ordem) }); }} onDelete={() => void excluir("site_sponsors", x.id)} />)}
+          <FormInput placeholder="Link do grupo de WhatsApp (https://chat.whatsapp.com/...)" value={grupoWhatsApp} onChange={setGrupoWhatsApp} />
+          <SaveButton label="Salvar link do grupo" onClick={() => void salvarWhatsApp()} />
+        </AdminSection>
+      </>}
       {tab === "contato" && <AdminSection title="Informações de contato" description="O painel está operando com dados centralizados no Supabase."><div className="contact-info"><strong>Fonte dos cadastros</strong><span>Supabase · banco central do portal</span><strong>Imagens</strong><span>Storage rede-norte-media</span><strong>Operação</strong><span>Use o botão Atualizar dados para recarregar o conteúdo diretamente do banco.</span></div></AdminSection>}
     </main>
   </div>;
