@@ -85,6 +85,14 @@ function resumoSeguro(conteudo: unknown, resumo: unknown): string {
   return texto.replace(/\\n/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
+function noticiaValida(item: any): boolean {
+  const titulo = typeof item?.titulo === "string" ? item.titulo.trim() : "";
+  if (titulo.length < 5 || titulo.length > 220) return false;
+  if (titulo.startsWith("[") || titulo.startsWith("{") || titulo.includes("\"Offline") || titulo.includes("https://") || titulo.includes("http://")) return false;
+  if (/\b(offline|whatsapp|instagram\.com|facebook\.com|youtube\.com)\b/i.test(titulo)) return false;
+  return Boolean(item?.conteudo || item?.resumo);
+}
+
 function formatarNoticiasAdmin(items: any[]): Noticia[] {
   return items.map((n: any, index) => ({
     id: String(n.id ?? `admin-${index}`),
@@ -157,7 +165,7 @@ export default function Page() {
         supabase.from("promotions").select("id,titulo,categoria,cidade_slug,validade,contato,imagem,detalhes").eq("status", "published"),
       ]);
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
-      if (news) setNoticiasAdmin(news.map((n: any) => ({
+      if (news) setNoticiasAdmin(news.filter(noticiaValida).map((n: any) => ({
         id: n.id,
         cidade: cityMap.get(n.cidade_slug) || n.cidade_slug || "Geral",
         cat: n.categoria || "Cidade",
