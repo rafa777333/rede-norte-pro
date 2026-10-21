@@ -21,6 +21,59 @@ type Video = { id: string; titulo: string; descricao: string; cidade: string; ca
 const cidades = ["Todas", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const categorias = ["Todas", "Política", "Cidade", "Segurança", "Mídia", "Esportes"];
 const RADIO_STREAM_URL = "https://servidor34-2.brlogic.com:7016/live?source=website";
+const weatherLocations = [
+  ["Apucarana", -23.55, -51.46], ["Arapongas", -23.42, -51.42], ["Arapuã", -24.30, -51.79], ["Ariranha do Ivaí", -24.39, -51.58], ["Bom Sucesso", -23.71, -51.77], ["Borrazópolis", -23.94, -51.59], ["Califórnia", -23.65, -51.35], ["Cambira", -23.59, -51.58], ["Cruzmaltina", -24.02, -51.45], ["Faxinal", -24.00, -51.32], ["Godoy Moreira", -24.17, -51.92], ["Grandes Rios", -24.15, -51.50], ["Ivaiporã", -24.25, -51.67], ["Jandaia do Sul", -23.60, -51.64], ["Jardim Alegre", -24.18, -51.69], ["Kaloré", -23.82, -51.66], ["Lidianópolis", -24.11, -51.65], ["Lunardelli", -24.08, -51.73], ["Marilândia do Sul", -23.74, -51.31], ["Marumbi", -23.70, -51.64], ["Mauá da Serra", -23.90, -51.23], ["Novo Itacolomi", -23.76, -51.51], ["Rio Bom", -23.76, -51.41], ["Rio Branco do Ivaí", -24.32, -51.32], ["Rosário do Ivaí", -24.27, -51.28], ["São João do Ivaí", -23.98, -51.82], ["São Pedro do Ivaí", -23.86, -51.86],
+] as const;
+
+function weatherLabel(code: number) {
+  if (code === 0) return ["☀", "Céu limpo"];
+  if (code <= 3) return ["⛅", "Parcialmente nublado"];
+  if (code <= 48) return ["🌫", "Névoa"];
+  if (code <= 67) return ["🌦", "Chuva leve"];
+  if (code <= 77) return ["❄", "Frio"];
+  if (code <= 82) return ["🌧", "Pancadas de chuva"];
+  return ["⛈", "Trovoada"];
+}
+
+function WeatherTicker() {
+  const [agora, setAgora] = useState(new Date());
+  const [weather, setWeather] = useState<{ cidade: string; temperatura: number | null; code: number }[]>([]);
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setAgora(new Date()), 30_000);
+    return () => window.clearInterval(tick);
+  }, []);
+  useEffect(() => {
+    const carregarTempo = async () => {
+      try {
+        const latitudes = weatherLocations.map((item) => item[1]).join(",");
+        const longitudes = weatherLocations.map((item) => item[2]).join(",");
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitudes}&longitude=${longitudes}&current=temperature_2m,weather_code&timezone=America%2FSao_Paulo`, { headers: { Accept: "application/json" } });
+        if (!response.ok) throw new Error("weather unavailable");
+        const payload = await response.json();
+        const items = Array.isArray(payload) ? payload : [payload];
+        setWeather(items.map((item: any, index: number) => ({ cidade: weatherLocations[index][0], temperatura: typeof item?.current?.temperature_2m === "number" ? Math.round(item.current.temperature_2m) : null, code: Number(item?.current?.weather_code ?? 0) })));
+      } catch { setWeather([]); }
+    };
+    void carregarTempo();
+    const refresh = window.setInterval(() => void carregarTempo(), 15 * 60_000);
+    return () => window.clearInterval(refresh);
+  }, []);
+  useEffect(() => {
+    if (!weather.length) return;
+    const slide = window.setInterval(() => setActive((index) => (index + 1) % weather.length), 5_500);
+    return () => window.clearInterval(slide);
+  }, [weather.length]);
+
+  const data = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long" }).format(agora);
+  const dataCapitalizada = data.charAt(0).toUpperCase() + data.slice(1);
+  const hora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(agora);
+  const atual = weather[active];
+  const [icon, condition] = atual ? weatherLabel(atual.code) : ["◌", "Atualizando previsão"];
+
+  return <div className="weather-ticker"><span className="ticker-brand">REDE NORTE DO PARANÁ <b>·</b> CONECTANDO TODO O VALE DO IVAÍ</span><span className="ticker-date">{dataCapitalizada} · {hora}</span><span className="ticker-weather"><i>{icon}</i><strong>{atual?.cidade || "Vale do Ivaí"}</strong>{atual?.temperatura !== null && atual?.temperatura !== undefined ? <b>{atual.temperatura}°C</b> : <small>{condition}</small>}<em>{condition}</em></span></div>;
+}
 
 function instagramEmbedUrl(url: string) {
   try {
@@ -284,7 +337,7 @@ export default function Page() {
 
   return (
     <main className="site-shell">
-      <div className="topline"><div className="container topline-inner"><span>SEXTA-FEIRA, 16 DE OUTUBRO DE 2026</span><span>Apucarana e região</span><a href="/admin">Acesso da redação</a></div></div>
+      <div className="topline"><div className="container topline-inner"><WeatherTicker /><a href="/admin">Acesso da redação</a></div></div>
       <header className="site-header">
         <div className="container header-main"><a className="brand" href="/"><span className="brand-mark">RN</span><span className="brand-name">REDE NORTE <em>DO PARANÁ</em></span></a><div className="header-actions"><button className={`live-pill ${radioTocando ? "is-playing" : ""}`} onClick={alternarRadio} aria-pressed={radioTocando}><i /> {radioTocando ? "RÁDIO TOCANDO" : "OUVIR RÁDIO"}</button><label className="search-box"><span>⌕</span><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar notícia" aria-label="Buscar notícia" /></label><button className="menu-button" aria-label="Abrir menu">☰</button></div></div>
         <nav className="main-nav"><div className="container nav-inner">{[["noticias", "Notícias"], ["videos", "Vídeos"], ["ondeir", "Onde ir"], ["empregos", "Empregos"], ["compras", "Compras e vendas"], ["promocoes", "Promoções"]].map(([id, label]) => <button className={aba === id ? "active" : ""} key={id} onClick={() => setAba(id as typeof aba)}>{label}</button>)}<a className="nav-link" href="/tv-online">TV online</a></div></nav>
