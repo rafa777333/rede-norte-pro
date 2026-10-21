@@ -80,7 +80,7 @@ function WeatherTicker() {
   const atual = weather[active];
   const [icon, condition] = atual ? weatherLabel(atual.code) : ["◌", "Atualizando previsão"];
 
-  return <div className="weather-ticker"><span className="ticker-brand">REDE NORTE DO PARANÁ <b>·</b> CONECTANDO TODO O VALE DO IVAÍ</span><span className="ticker-date">{dataCapitalizada} · {hora}</span><span className="ticker-weather"><i>{icon}</i><strong>{atual?.cidade || "Vale do Ivaí"}</strong>{atual?.temperatura !== null && atual?.temperatura !== undefined ? <b>{atual.temperatura}°C</b> : <small>{condition}</small>}<em>{condition}</em></span></div>;
+  return <div className="weather-ticker"><span className="ticker-brand">REDE NORTE DO PARANÁ <b>·</b> CONECTANDO TODO O VALE DO IVAÍ</span><span className="ticker-date">{dataCapitalizada} · {hora}</span><span className="ticker-weather"><span className="ticker-live">AGORA</span><i>{icon}</i><strong>{atual?.cidade || "Vale do Ivaí"}</strong>{atual?.temperatura !== null && atual?.temperatura !== undefined ? <b>{atual.temperatura}°C</b> : <small>{condition}</small>}<em>{condition}</em></span></div>;
 }
 
 function instagramEmbedUrl(url: string) {
