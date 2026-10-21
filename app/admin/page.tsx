@@ -38,7 +38,7 @@ async function uploadArquivo(file: File, pasta: string) {
 }
 
 const emptyNews = { titulo: "", cidade: "Apucarana", cat: "Política", resumo: "", img: "", texto: "" };
-const VIDEO_CATEGORIAS = ["Matéria", "Entrevista", "Política", "Cidade", "Segurança", "Esportes", "Serviço"];
+  const VIDEO_CATEGORIAS = ["Matéria", "Entrevista", "Política", "Cidade", "Segurança", "Esportes", "Serviço", "Publicidade"];
 const emptyVideo = { titulo: "", descricao: "", cidade: "Apucarana", categoria: "Matéria", tipo: "upload" as "upload" | "instagram", videoUrl: "", instagramUrl: "", thumbnailUrl: "", materiaUrl: "", status: "published" };
 
 export default function Admin() {
