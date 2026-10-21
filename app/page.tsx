@@ -47,6 +47,14 @@ function WeatherTicker() {
   useEffect(() => {
     const carregarTempo = async () => {
       try {
+        const supabase = getSupabase();
+        if (supabase) {
+          const { data: dadosSalvos } = await supabase.from("weather_current").select("cidade_slug,cidade_nome,temperatura,codigo_tempo,condicao").order("cidade_nome").limit(100);
+          if (dadosSalvos?.length) {
+            setWeather(dadosSalvos.map((item: any) => ({ cidade: item.cidade_nome, temperatura: typeof item.temperatura === "number" ? Math.round(item.temperatura) : null, code: Number(item.codigo_tempo ?? 0) })));
+            return;
+          }
+        }
         const latitudes = weatherLocations.map((item) => item[1]).join(",");
         const longitudes = weatherLocations.map((item) => item[2]).join(",");
         const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitudes}&longitude=${longitudes}&current=temperature_2m,weather_code&timezone=America%2FSao_Paulo`, { headers: { Accept: "application/json" } });

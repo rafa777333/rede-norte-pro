@@ -1,9 +1,9 @@
 # TODO — Rede Norte
 
-- [x] A capa principal usa imagem em tela cheia, degradê, selo editorial, cidade, título, resumo e CTA.
-- [x] Filtros, Supabase, n8n, painel, vídeos, classificados e rotas foram preservados.
-- [x] A faixa superior mostra a frase regional da Rede Norte.
-- [x] Data e hora locais são atualizadas automaticamente.
-- [x] A previsão meteorológica alterna pelas localidades do portal e atualiza periodicamente.
-- [x] Existe fallback elegante quando a meteorologia não responde.
-- [x] Build validado após o upgrade.
+- [x] Workflow n8n meteorológico criado para as 27 localidades.
+- [x] Agenda configurada para executar a cada 15 minutos.
+- [x] Tabela `weather_current` criada no Supabase com leitura pública.
+- [x] Faixa do site preparada para consumir primeiro o Supabase.
+- [x] Fallback direto para Open-Meteo preservado.
+- [x] Gatilho manual de teste criado no n8n.
+- [ ] Confirmar a primeira gravação no Supabase quando o túnel n8n estiver novamente acessível.
