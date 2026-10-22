@@ -5,6 +5,7 @@ import { getSupabase } from "../lib/supabase";
 
 type Noticia = {
   id: string;
+  slug?: string;
   cidade: string;
   cat: string;
   titulo: string;
@@ -187,6 +188,7 @@ function noticiaValida(item: any): boolean {
 function formatarNoticiasAdmin(items: any[]): Noticia[] {
   return items.map((n: any, index) => ({
     id: String(n.id ?? `admin-${index}`),
+    slug: n.slug || String(n.id ?? `admin-${index}`),
     cidade: n.cidade || "Apucarana",
     cat: n.cat || "Cidade",
     titulo: n.titulo || "Nova notícia",
@@ -204,9 +206,10 @@ function Badge({ children }: { children: React.ReactNode }) {
   return <span className="news-badge">{children}</span>;
 }
 
-function NewsCard({ noticia, onOpen, compact = false }: { noticia: Noticia; onOpen: (n: Noticia) => void; compact?: boolean }) {
+function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: boolean }) {
+  const href = `/noticias/${encodeURIComponent(noticia.slug || noticia.id)}`;
   return (
-    <button className={`news-card ${compact ? "news-card--compact" : ""}`} onClick={() => onOpen(noticia)}>
+    <a className={`news-card ${compact ? "news-card--compact" : ""}`} href={href}>
       <img src={noticia.img || noticiasFixas[0].img} alt={`Imagem ilustrativa da notícia: ${noticia.titulo}`} loading="lazy" />
       <span className="card-content">
         <span className="card-kicker"><Badge>{noticia.cat}</Badge><span>{noticia.cidade}</span></span>
@@ -214,7 +217,7 @@ function NewsCard({ noticia, onOpen, compact = false }: { noticia: Noticia; onOp
         {!compact && <span className="card-summary">{noticia.sub}</span>}
         <span className="card-meta">{noticia.hora || "Agora"} · {noticia.autor || "Redação Rede Norte"}</span>
       </span>
-    </button>
+    </a>
   );
 }
 
@@ -266,7 +269,7 @@ export default function Page() {
 
     const carregarDados = async () => {
       const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }, { data: videos }, { data: sponsorData }, { data: settingData }] = await Promise.all([
-        supabase.from("news").select("id,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at").eq("status", "published").order("published_at", { ascending: false }),
+        supabase.from("news").select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at").eq("status", "published").order("published_at", { ascending: false }).limit(100),
         supabase.from("cities").select("slug,nome"),
         supabase.from("service_providers").select("id,nome,categoria,cidade_slug,endereco,whatsapp,imagem,descricao").eq("verificado", true),
         supabase.from("jobs").select("id,vaga,empresa,cidade_slug,contato,imagem,descricao").eq("status", "published"),
@@ -279,6 +282,7 @@ export default function Page() {
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
       if (news) setNoticiasAdmin(news.filter(noticiaValida).map((n: any) => ({
         id: n.id,
+        slug: n.slug || n.id,
         cidade: cityMap.get(n.cidade_slug) || n.cidade_slug || "Geral",
         cat: n.categoria || "Cidade",
         titulo: n.titulo,
@@ -374,7 +378,7 @@ export default function Page() {
           <figure className="article-figure"><img src={sel.img} alt={`Imagem ilustrativa da notícia: ${sel.titulo}`} /><figcaption>{sel.credit || "Imagem ilustrativa"}</figcaption></figure>
           <div className="article-body">{sel.texto.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>
           <div className="article-footer-note"><strong>Encontrou um erro?</strong><span> Fale com a redação para solicitar uma correção ou enviar informação.</span></div>
-          <section className="related"><div className="section-heading"><span>Leia também</span><i /></div><div className="related-grid">{todas.filter((n) => n.id !== sel.id).slice(0, 3).map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} compact />)}</div></section>
+          <section className="related"><div className="section-heading"><span>Leia também</span><i /></div><div className="related-grid">{todas.filter((n) => n.id !== sel.id).slice(0, 3).map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div></section>
         </article>
       </main>
     );
@@ -382,7 +386,7 @@ export default function Page() {
 
   const destaque = filtradas[0];
   const menores = filtradas.slice(1, 4);
-  const ultimas = filtradas.slice(1, 8);
+  const ultimas = filtradas.slice(1, 31);
   const anuncioLoop = videosAdmin.find((video) => video.tipo === "upload" && video.categoria === "Publicidade" && video.videoUrl);
 
   return (
@@ -403,12 +407,14 @@ export default function Page() {
         <section className="container content-grid">
           <div className="main-column">
             <div className="headline-layout">
-              {destaque ? <button className="hero-story" onClick={() => setSel(destaque)}><img className="hero-image" src={destaque.img || noticiasFixas[0].img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></button> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
-              {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} compact />)}</div>}
+              {destaque ? <a className="hero-story" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}><img className="hero-image" src={destaque.img || noticiasFixas[0].img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></a> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
+              {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div>}
             </div>
-            {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} />)}</div></section>}
+            {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
             <WeatherShowcase />
-            <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-visual-grid" id="ultimas">{ultimas.map((n) => <NewsCard key={n.id} noticia={n} onOpen={setSel} />)}</div></section>
+            <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-visual-grid" id="ultimas">{ultimas.slice(0, 12).map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>
+            {todas.filter((n) => n.cat.toLowerCase() === "esportes" && (cidade === "Todas" || n.cidade === cidade)).length > 0 && <section className="news-section sports-break"><div className="section-heading"><span>Esportes</span><i /><a href="#esportes">Ver todas →</a></div><div className="latest-visual-grid" id="esportes">{todas.filter((n) => n.cat.toLowerCase() === "esportes" && (cidade === "Todas" || n.cidade === cidade)).slice(0, 6).map((n) => <NewsCard key={`esporte-${n.id}`} noticia={n} />)}</div></section>}
+            {ultimas.length > 12 && <section className="news-section visual-news-section"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="latest-visual-grid">{ultimas.slice(12).map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
           </div>
           <aside className="sidebar"><div className="ad-loop-card"><div className="live-card-head"><span><i /> Espaço Rede Norte</span><b>PUBLICIDADE</b></div>{anuncioLoop ? <video className="ad-loop-video" src={anuncioLoop.videoUrl} autoPlay muted loop playsInline preload="metadata" aria-label="Publicidade em vídeo" /> : <div className="ad-loop-empty"><span>VÍDEO EM LOOP</span><strong>Seu anúncio em destaque.</strong><small>Cadastre um vídeo com a categoria “Publicidade” no painel da redação.</small></div>}<div className="tv-mini-copy"><strong>Publicidade sem som e sem interrupção.</strong><small>O vídeo roda automaticamente em loop, de forma discreta.</small></div><a href="/admin">Carregar vídeo no painel →</a></div><div className="ad-slot"><span>ESPAÇO COMERCIAL</span><strong>Sua marca aparece aqui.</strong><p>Use este espaço para campanhas, ofertas e vídeos dos parceiros da Rede Norte.</p><a href="mailto:comercial@redenorte.com.br">Falar com a redação →</a></div><div className="sponsor-rail"><div className="section-heading"><span>Patrocinadores</span><i /></div><div className="sponsor-slider">{sponsors.map((sponsor) => <a href={sponsor.linkUrl || "#"} target={sponsor.linkUrl ? "_blank" : undefined} rel="noreferrer" key={sponsor.id}><img src={sponsor.imagem} alt={sponsor.titulo} /></a>)}</div></div>{grupoWhatsApp && <a className="whatsapp-card" href={grupoWhatsApp} target="_blank" rel="noreferrer"><span>COMUNIDADE REDE NORTE</span><strong>Entre no grupo do WhatsApp</strong><small>Receba avisos e notícias importantes da região.</small><b>Entrar no grupo →</b></a>}<div className="flash-card"><span className="flash-label">FLASH</span><strong>Informação regional em movimento.</strong><p>Notícias, serviços e oportunidades para acompanhar ao longo do dia.</p></div><div className="newsletter-card"><span className="eyebrow">RECEBA AS NOTÍCIAS</span><strong>Informação local no seu e-mail.</strong><p>As principais notícias de Apucarana e região, sem excesso.</p><button>Quero receber</button></div></aside>
         </section>
