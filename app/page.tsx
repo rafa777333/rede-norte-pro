@@ -19,6 +19,7 @@ type Noticia = {
 };
 type Video = { id: string; titulo: string; descricao: string; cidade: string; categoria: string; videoUrl: string; thumbnailUrl: string; instagramUrl: string; materiaUrl: string; tipo: "upload" | "instagram"; publishedAt?: string };
 type Sponsor = { id: string; titulo: string; imagem: string; linkUrl: string; ordem: number };
+type MainAd = { imagem: string; linkUrl: string; titulo: string };
 
 const cidades = ["Todas", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const categorias = ["Todas", "Política", "Cidade", "Segurança", "Mídia", "Esportes"];
@@ -242,6 +243,7 @@ export default function Page() {
   const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
   const [videosAdmin, setVideosAdmin] = useState<Video[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [mainAd, setMainAd] = useState<MainAd>({ imagem: "", linkUrl: "", titulo: "Espaço comercial principal" });
   const [grupoWhatsApp, setGrupoWhatsApp] = useState("");
   const [classifForm, setClassifForm] = useState({ titulo: "", cidade: "Apucarana", categoria: "Outros", preco: "", contato: "", descricao: "", imagem: "" });
   const [enviandoClassif, setEnviandoClassif] = useState(false);
@@ -268,7 +270,7 @@ export default function Page() {
     }
 
     const carregarDados = async () => {
-      const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }, { data: videos }, { data: sponsorData }, { data: settingData }] = await Promise.all([
+      const [{ data: news }, { data: cities }, { data: services }, { data: jobs }, { data: ads }, { data: promotions }, { data: videos }, { data: sponsorData }, { data: settingsData }] = await Promise.all([
         supabase.from("news").select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at").eq("status", "published").order("published_at", { ascending: false }).limit(100),
         supabase.from("cities").select("slug,nome"),
         supabase.from("service_providers").select("id,nome,categoria,cidade_slug,endereco,whatsapp,imagem,descricao").eq("verificado", true),
@@ -277,7 +279,7 @@ export default function Page() {
         supabase.from("promotions").select("id,titulo,categoria,cidade_slug,validade,contato,imagem,detalhes").eq("status", "published"),
         supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,published_at").eq("status", "published").order("published_at", { ascending: false }),
         supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").eq("ativo", true).order("ordem").limit(12),
-        supabase.from("site_settings").select("key,value").eq("key", "whatsapp_group_url").maybeSingle(),
+        supabase.from("site_settings").select("key,value").in("key", ["whatsapp_group_url", "homepage_main_ad_image", "homepage_main_ad_link", "homepage_main_ad_title"]),
       ]);
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
       if (news) setNoticiasAdmin(news.filter(noticiaValida).map((n: any) => ({
@@ -298,7 +300,9 @@ export default function Page() {
       if (promotions?.length) setPromocoesAdmin(promotions.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", categoria: item.categoria, validade: item.validade || "", contato: item.contato || "", img: item.imagem || "", detalhes: item.detalhes || "" })));
       setVideosAdmin((videos || []).map((item: any) => ({ id: item.id, titulo: item.titulo, descricao: item.descricao || "Confira este corte da Rede Norte.", cidade: cityMap.get(item.cidade_slug) || "Geral", categoria: item.categoria || "Matéria", videoUrl: item.video_url || "", thumbnailUrl: item.thumbnail_url || "", instagramUrl: item.instagram_url || "", materiaUrl: item.materia_url || "", tipo: item.tipo === "instagram" ? "instagram" : "upload", publishedAt: item.published_at })));
       setSponsors((sponsorData || []).map((item: any) => ({ id: item.id, titulo: item.titulo, imagem: item.imagem, linkUrl: item.link_url || "", ordem: item.ordem || 0 })));
-      setGrupoWhatsApp(settingData?.value || "");
+      const settings = new Map((settingsData || []).map((item: any) => [item.key, item.value || ""]));
+      setGrupoWhatsApp(String(settings.get("whatsapp_group_url") || ""));
+      setMainAd({ imagem: String(settings.get("homepage_main_ad_image") || ""), linkUrl: String(settings.get("homepage_main_ad_link") || ""), titulo: String(settings.get("homepage_main_ad_title") || "Espaço comercial principal") });
       setCarregandoNoticias(false);
     };
 
@@ -410,6 +414,7 @@ export default function Page() {
               {destaque ? <a className="hero-story" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}><img className="hero-image" src={destaque.img || noticiasFixas[0].img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></a> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
               {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div>}
             </div>
+            <div className="homepage-main-ad" aria-label="Espaço comercial principal">{mainAd.imagem ? <a href={mainAd.linkUrl || "/admin"} target={mainAd.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={mainAd.imagem} alt={mainAd.titulo} /><span>PUBLICIDADE</span></a> : <div><span>ESPAÇO COMERCIAL PRINCIPAL</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>Cadastre uma imagem grande na aba Publicidade do painel.</small><a href="/admin">Configurar espaço →</a></div>}</div>
             {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
             <WeatherShowcase />
             <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-visual-grid" id="ultimas">{ultimas.slice(0, 12).map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>
