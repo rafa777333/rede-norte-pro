@@ -392,7 +392,6 @@ export default function Page() {
   const menores = filtradas.slice(1, 4);
   const ultimas = filtradas.slice(1, 31);
   const anuncioLoop = videosAdmin.find((video) => video.tipo === "upload" && video.categoria === "Publicidade" && video.videoUrl);
-  const fallbackAd = ultimas[0] || destaque;
 
   return (
     <main className="site-shell">
@@ -415,7 +414,7 @@ export default function Page() {
               {destaque ? <a className="hero-story" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}><img className="hero-image" src={destaque.img || noticiasFixas[0].img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></a> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
               {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div>}
             </div>
-            <div className="homepage-main-ad" aria-label="Espaço comercial principal">{mainAd.imagem ? <a href={mainAd.linkUrl || "/admin"} target={mainAd.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={mainAd.imagem} alt={mainAd.titulo} /><span>PUBLICIDADE</span></a> : fallbackAd ? <a className="homepage-main-ad-news" href={`/noticias/${encodeURIComponent(fallbackAd.slug || fallbackAd.id)}`}><img src={fallbackAd.img || noticiasFixas[0].img} alt={fallbackAd.titulo} /><span><small>DESTAQUE REDE NORTE</small><strong>{fallbackAd.titulo}</strong><em>Leia a matéria completa →</em></span></a> : <div><span>ESPAÇO COMERCIAL PRINCIPAL</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>Cadastre uma imagem grande na aba Publicidade do painel.</small><a href="/admin">Configurar espaço →</a></div>}</div>
+            <div className="homepage-main-ad" aria-label="Espaço comercial principal">{mainAd.imagem ? <a href={mainAd.linkUrl || "/admin"} target={mainAd.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={mainAd.imagem} alt={mainAd.titulo} /><span>PUBLICIDADE</span></a> : <div><span>ESPAÇO COMERCIAL PRINCIPAL</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>Cadastre uma imagem grande na aba Publicidade do painel.</small><a href="/admin">Configurar espaço →</a></div>}</div>
             {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
             <WeatherShowcase />
             <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-visual-grid" id="ultimas">{ultimas.slice(0, 12).map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>
