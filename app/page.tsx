@@ -211,7 +211,7 @@ function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: bo
   const href = `/noticias/${encodeURIComponent(noticia.slug || noticia.id)}`;
   return (
     <a className={`news-card ${compact ? "news-card--compact" : ""}`} href={href}>
-      <img src={noticia.img || noticiasFixas[0].img} alt={`Imagem ilustrativa da notícia: ${noticia.titulo}`} loading="lazy" />
+      {noticia.img ? <img src={noticia.img} alt={`Imagem da notícia: ${noticia.titulo}`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="news-card-placeholder" aria-label="Imagem não fornecida pela fonte"><span>RN</span><small>Imagem não fornecida pela fonte</small></div>}
       <span className="card-content">
         <span className="card-kicker"><Badge>{noticia.cat}</Badge><span>{noticia.cidade}</span></span>
         <strong>{noticia.titulo}</strong>
@@ -411,7 +411,7 @@ export default function Page() {
         <section className="container content-grid">
           <div className="main-column">
             <div className="headline-layout">
-              {destaque ? <a className="hero-story" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}><img className="hero-image" src={destaque.img || noticiasFixas[0].img} alt={`Imagem ilustrativa: ${destaque.titulo}`} /><span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></a> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
+              {destaque ? <a className="hero-story" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>{destaque.img ? <img className="hero-image" src={destaque.img} alt={`Imagem da notícia: ${destaque.titulo}`} onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="hero-image hero-image--empty" aria-label="Imagem não fornecida pela fonte"><span>Imagem não fornecida pela fonte</span></div>}<span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></a> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
               {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div>}
             </div>
             <div className="homepage-main-ad" aria-label="Espaço comercial principal">{mainAd.imagem ? <a href={mainAd.linkUrl || "/admin"} target={mainAd.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={mainAd.imagem} alt={mainAd.titulo} /><span>PUBLICIDADE</span></a> : <div><span>ESPAÇO COMERCIAL PRINCIPAL</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>Cadastre uma imagem grande na aba Publicidade do painel.</small><a href="/admin">Configurar espaço →</a></div>}</div>
