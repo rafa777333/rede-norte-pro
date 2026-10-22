@@ -52,12 +52,14 @@ export default async function CityPage({ params }: { params: { slug: string } })
   const cityName = CITY_NAMES[slug];
   if (!cityName) notFound();
   const supabase = getSupabase();
-  const { data } = await supabase?.from("news")
-    .select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at,fonte")
-    .eq("status", "published")
-    .eq("cidade_slug", slug)
-    .order("published_at", { ascending: false })
-    .limit(100) || { data: [] };
+  const { data } = supabase
+    ? await supabase.from("news")
+      .select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at,fonte")
+      .eq("status", "published")
+      .eq("cidade_slug", slug)
+      .order("published_at", { ascending: false })
+      .limit(100)
+    : { data: [] };
   const news = (data || []) as News[];
 
   return <main className="site-shell city-page">
