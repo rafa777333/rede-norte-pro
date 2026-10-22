@@ -36,6 +36,13 @@ function paragraphs(value: string | null) {
   return value.replace(/\\n/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function textValue(value: unknown, fallback = "") {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.filter((item) => typeof item === "string").join(" ");
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return value == null ? fallback : String(value);
+}
+
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const slug = decodeURIComponent(params.slug);
   const name = CITY_NAMES[slug];
@@ -52,19 +59,25 @@ export default async function CityPage({ params }: { params: { slug: string } })
   const cityName = CITY_NAMES[slug];
   if (!cityName) notFound();
   const supabase = getSupabase();
-  const { data } = supabase
-    ? await supabase.from("news")
-      .select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at,fonte")
-      .eq("status", "published")
-      .eq("cidade_slug", slug)
-      .order("published_at", { ascending: false })
-      .limit(100)
-    : { data: [] };
+  let data: News[] = [];
+  try {
+    if (supabase) {
+      const result = await supabase.from("news")
+        .select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at,fonte")
+        .eq("status", "published")
+        .eq("cidade_slug", slug)
+        .order("published_at", { ascending: false })
+        .limit(100);
+      data = (result.data || []) as News[];
+    }
+  } catch {
+    data = [];
+  }
   const news = (data || []) as News[];
 
   return <main className="site-shell city-page">
     <header className="article-header"><a className="brand brand--small" href="/"><span className="brand-mark">RN</span><span>REDE NORTE</span></a><a className="video-back-link" href="/">← Voltar ao Geral</a><span className="article-header-status"><i /> Área municipal</span></header>
     <section className="container city-page-header"><span className="eyebrow">REDE NORTE · ÁREA MUNICIPAL</span><h1>Notícias de {cityName}</h1><p>Informação local, comunicados oficiais e acontecimentos de {cityName}. Esta área é independente da página Geral.</p><a className="city-general-link" href="/">Ver notícias gerais →</a></section>
-    <section className="container news-section city-news-section"><div className="section-heading"><span>Últimas de {cityName}</span><i /></div>{news.length ? <div className="latest-visual-grid">{news.map((item) => <a className="news-card" href={`/noticias/${encodeURIComponent(item.slug || item.id)}`} key={item.id}>{item.imagem ? <img src={item.imagem} alt={item.titulo} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="news-card-placeholder"><span>RN</span><small>Imagem não fornecida pela fonte</small></div>}<span className="card-content"><span className="card-kicker"><span className="news-badge">{item.categoria || "Cidade"}</span><span>{cityName}</span></span><strong>{item.titulo}</strong><span className="card-summary">{item.resumo || paragraphs(item.conteudo).slice(0, 180)}</span><span className="card-meta">{item.published_at ? new Date(item.published_at).toLocaleString("pt-BR") : "Rede Norte"}</span></span></a>)}</div> : <div className="empty-state">Ainda não há notícias publicadas para {cityName}.</div>}</section>
+    <section className="container news-section city-news-section"><div className="section-heading"><span>Últimas de {cityName}</span><i /></div>{news.length ? <div className="latest-visual-grid">{news.map((item) => { const title = textValue(item.titulo, "Notícia da cidade"); const image = textValue(item.imagem); const summary = textValue(item.resumo) || paragraphs(textValue(item.conteudo)).slice(0, 180); return <a className="news-card" href={`/noticias/${encodeURIComponent(textValue(item.slug, item.id))}`} key={item.id}>{image ? <img src={image} alt={title} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="news-card-placeholder"><span>RN</span><small>Imagem não fornecida pela fonte</small></div>}<span className="card-content"><span className="card-kicker"><span className="news-badge">{textValue(item.categoria, "Cidade")}</span><span>{cityName}</span></span><strong>{title}</strong><span className="card-summary">{summary}</span><span className="card-meta">{item.published_at ? new Date(item.published_at).toLocaleString("pt-BR") : "Rede Norte"}</span></span></a>; })}</div> : <div className="empty-state">Ainda não há notícias publicadas para {cityName}.</div>}</section>
   </main>;
 }
