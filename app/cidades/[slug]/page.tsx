@@ -43,6 +43,21 @@ function textValue(value: unknown, fallback = "") {
   return value == null ? fallback : String(value);
 }
 
+async function imageFromSource(source: string | null) {
+  if (!source || !/^https?:\/\//i.test(source)) return "";
+  try {
+    const response = await fetch(source, { headers: { "user-agent": "Rede Norte/1.0" }, next: { revalidate: 3600 } });
+    if (!response.ok) return "";
+    const html = await response.text();
+    const match = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["'][^>]*>/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*>/i);
+    if (!match?.[1]) return "";
+    return new URL(match[1], source).toString();
+  } catch {
+    return "";
+  }
+}
+
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const slug = decodeURIComponent(params.slug);
   const name = CITY_NAMES[slug];
@@ -73,7 +88,12 @@ export default async function CityPage({ params }: { params: { slug: string } })
   } catch {
     data = [];
   }
-  const news = (data || []) as News[];
+  const news = await Promise.all((data || []).map(async (item) => {
+    const current = item as News;
+    if (textValue(current.imagem)) return current;
+    const imagem = await imageFromSource(current.fonte);
+    return imagem ? { ...current, imagem } : current;
+  }));
 
   return <main className="site-shell city-page">
     <header className="article-header"><a className="brand brand--small" href="/"><span className="brand-mark">RN</span><span>REDE NORTE</span></a><a className="video-back-link" href="/">← Voltar ao Geral</a><span className="article-header-status"><i /> Área municipal</span></header>
