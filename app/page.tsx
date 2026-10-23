@@ -404,7 +404,7 @@ export default function Page() {
 
       <div className="city-nav"><div className="container city-scroll"><a className={cidade === "Geral" ? "active" : ""} href="/">Geral</a>{cidades.filter((c) => c !== "Geral").map((c) => <a key={c} href={`/cidades/${c.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`}>{c}</a>)}</div></div>
 
-      <section className="container editorial-intro"><div><span className="eyebrow">REDE NORTE · JORNALISMO REGIONAL</span><h1>O que acontece perto de você.</h1></div><p>Informação local, serviço e notícias do Paraná com apuração e contexto.</p></section>
+      <section className="container top-banner" aria-label="Banner Rede Norte do Paraná"><img src="/rede-norte-banner-site.png" alt="Rede Norte do Paraná — Jornalismo, Podcast, Rádio, Web TV e Portal" /></section>
 
       {aba === "noticias" && <>
         <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>
