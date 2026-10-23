@@ -389,7 +389,7 @@ export default function Page() {
   }
 
   const destaque = filtradas[0];
-  const menores = filtradas.slice(1, 4);
+  const menores = filtradas.slice(1, 3);
   const ultimas = filtradas.slice(1, 31);
   const anunciosLoop = videosAdmin.filter((video) => video.tipo === "upload" && video.categoria === "Publicidade" && video.videoUrl).slice(0, 3);
   const horoscopeSigns = ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"];
