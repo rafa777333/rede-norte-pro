@@ -393,6 +393,10 @@ export default function Page() {
   const ultimas = filtradas.slice(1, 31);
   const anunciosLoop = videosAdmin.filter((video) => video.tipo === "upload" && video.categoria === "Publicidade" && video.videoUrl).slice(0, 3);
   const horoscopeSigns = ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"];
+  const renderTvLoop = (index: number) => {
+    const video = anunciosLoop[index];
+    return <div className="ad-loop-card" key={`tv-loop-${index}`}><div className="live-card-head"><span><i /> TV LOOP {index + 1}</span><b>PUBLICIDADE</b></div>{video ? <video className="ad-loop-video" src={video.videoUrl} autoPlay muted loop playsInline preload="metadata" aria-label={`TV Loop ${index + 1}`} /> : <div className="ad-loop-empty"><span>TV LOOP {index + 1}</span><strong>Espaço para vídeo ou imagem</strong><small>Cadastre uma mídia de publicidade no painel da redação.</small></div>}<a href="/admin">Gerenciar este loop →</a></div>;
+  };
 
   return (
     <main className="site-shell">
@@ -424,19 +428,14 @@ export default function Page() {
           </div>
           <aside className="sidebar">
             <div className="lateral-heading"><span>CONTEÚDO LATERAL</span><a href="/admin">Configurar no painel →</a></div>
-            {[0, 1, 2].map((index) => {
-              const video = anunciosLoop[index];
-              return <div className="ad-loop-card" key={`tv-loop-${index}`}><div className="live-card-head"><span><i /> TV LOOP {index + 1}</span><b>PUBLICIDADE</b></div>{video ? <video className="ad-loop-video" src={video.videoUrl} autoPlay muted loop playsInline preload="metadata" aria-label={`TV Loop ${index + 1}`} /> : <div className="ad-loop-empty"><span>TV LOOP {index + 1}</span><strong>Espaço para vídeo ou imagem</strong><small>Cadastre uma mídia de publicidade no painel da redação.</small></div>}<a href="/admin">Gerenciar este loop →</a></div>;
-            })}
-            <div className="lateral-slot-stack">
-              <div className="lateral-slot lateral-slot--l1g"><span>IMAGEM L1 G</span><strong>Publicidade lateral grande</strong><small>Formato configurável no painel</small></div>
-              <div className="lateral-slot lateral-slot--l1m"><span>IMAGEM L1 M</span><strong>Publicidade lateral média</strong><small>Formato configurável no painel</small></div>
-              <div className="lateral-slot lateral-slot--l2g"><span>IMAGEM L2 G</span><strong>Espaço do parceiro</strong><small>Imagem ou campanha</small></div>
-              <div className="lateral-slot lateral-slot--l2m"><span>IMAGEM L2 M</span><strong>Espaço de divulgação</strong><small>Imagem ou campanha</small></div>
-              <div className="lateral-slot lateral-slot--l3m"><span>IMAGEM L3 M</span><strong>Patrocínio regional</strong><small>Imagem ou campanha</small></div>
-            </div>
+            {renderTvLoop(0)}
+            <div className="lateral-slot-stack lateral-break"><div className="lateral-slot lateral-slot--l1g"><span>IMAGEM L1 G</span><strong>Publicidade lateral grande</strong><small>Espaço entre os conteúdos</small></div><div className="lateral-slot lateral-slot--l1m"><span>IMAGEM L1 M</span><strong>Publicidade lateral média</strong><small>Formato configurável no painel</small></div></div>
+            {renderTvLoop(1)}
+            <div className="lateral-slot-stack lateral-break"><div className="lateral-slot lateral-slot--l2g"><span>IMAGEM L2 G</span><strong>Espaço do parceiro</strong><small>Imagem ou campanha</small></div><div className="lateral-slot lateral-slot--l2m"><span>IMAGEM L2 M</span><strong>Espaço de divulgação</strong><small>Imagem ou campanha</small></div></div>
             <div className="lateral-carousel sponsor-rail"><div className="section-heading"><span>LOOP CARROSSEL</span><i /></div><div className="sponsor-slider">{sponsors.length ? sponsors.map((sponsor) => <a href={sponsor.linkUrl || "#"} target={sponsor.linkUrl ? "_blank" : undefined} rel="noreferrer" key={sponsor.id}><img src={sponsor.imagem} alt={sponsor.titulo} /></a>) : <div className="carousel-empty">Patrocinadores e imagens em rotação</div>}</div></div>
             <a className="horoscope-card" href="/horoscopo" id="horoscopo"><span className="eyebrow">PREVISÃO DO DIA</span><strong>Horóscopo</strong><div className="horoscope-signs">{horoscopeSigns.map((sign) => <span key={sign}>{sign}</span>)}</div><b>Ver os 12 signos →</b></a>
+            {renderTvLoop(2)}
+            <div className="lateral-slot-stack lateral-break"><div className="lateral-slot lateral-slot--l3m"><span>IMAGEM L3 M</span><strong>Patrocínio regional</strong><small>Espaço próximo ao final da página</small></div></div>
             <div className="ad-slot"><span>ESPAÇO COMERCIAL</span><strong>Sua marca aparece aqui.</strong><p>Use este espaço para campanhas, ofertas e vídeos dos parceiros da Rede Norte.</p><a href="mailto:comercial@redenorte.com.br">Falar com a redação →</a></div>
             {grupoWhatsApp && <a className="whatsapp-card" href={grupoWhatsApp} target="_blank" rel="noreferrer"><span>COMUNIDADE REDE NORTE</span><strong>Entre no grupo do WhatsApp</strong><small>Receba avisos e notícias importantes da região.</small><b>Entrar no grupo →</b></a>}
             <div className="flash-card"><span className="flash-label">FLASH</span><strong>Informação regional em movimento.</strong><p>Notícias, serviços e oportunidades para acompanhar ao longo do dia.</p></div>
