@@ -399,7 +399,7 @@ export default function Page() {
   const horoscopeSigns = ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"];
   const renderTvLoop = (index: number) => {
     const video = anunciosLoop[index];
-    return <div className="ad-loop-card" key={`tv-loop-${index}`}><div className="live-card-head"><span><i /> TV LOOP {index + 1}</span><b>PUBLICIDADE</b></div>{video ? <video className="ad-loop-video" src={video.videoUrl} autoPlay muted loop playsInline preload="metadata" aria-label={`TV Loop ${index + 1}`} /> : <div className="ad-loop-empty"><span>TV LOOP {index + 1}</span><strong>Espaço para vídeo ou imagem</strong><small>Cadastre uma mídia de publicidade no painel da redação.</small></div>}<a href="/admin">Gerenciar este loop →</a></div>;
+    return <div className="ad-loop-card" key={`tv-loop-${index}`} aria-label={`Área de TV ${index + 1}`}>{video ? <video className="ad-loop-video" src={video.videoUrl} autoPlay muted loop playsInline preload="metadata" aria-label={`Área de TV ${index + 1}`} /> : <div className="ad-loop-empty" aria-label={`Área de TV ${index + 1}`} />}</div>;
   };
 
   return (
