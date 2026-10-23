@@ -58,7 +58,7 @@ export default function Admin() {
   const [videos, setVideos] = useState<VideoAdmin[]>([]);
   const [sponsors, setSponsors] = useState<SponsorAdmin[]>([]);
   const [sponsorForm, setSponsorForm] = useState({ titulo: "", img: "", linkUrl: "", ordem: "0" });
-  const [mainAdForm, setMainAdForm] = useState({ titulo: "Espaço comercial principal", img: "", linkUrl: "" });
+  const [mainAdsForm, setMainAdsForm] = useState([1, 2, 3].map((position) => ({ titulo: `Publicidade Principal ${position}`, img: "", linkUrl: "" })));
   const [grupoWhatsApp, setGrupoWhatsApp] = useState("");
   const [nForm, setNForm] = useState(emptyNews);
   const [lForm, setLForm] = useState({ nome: "", cidade: "Apucarana", cat: "Restaurantes", end: "", zap: "", img: "", detalhes: "" });
@@ -86,7 +86,7 @@ export default function Admin() {
       supabase.from("promotions").select("id,titulo,categoria,validade,contato,imagem,detalhes,cidade_slug").order("created_at", { ascending: false }),
       supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,status").order("created_at", { ascending: false }),
       supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").order("ordem"),
-        supabase.from("site_settings").select("key,value").in("key", ["whatsapp_group_url", "homepage_main_ad_image", "homepage_main_ad_link", "homepage_main_ad_title"]),
+        supabase.from("site_settings").select("key,value").in("key", ["whatsapp_group_url", "homepage_main_ad_image", "homepage_main_ad_link", "homepage_main_ad_title", "homepage_main_ad_2_image", "homepage_main_ad_2_link", "homepage_main_ad_2_title", "homepage_main_ad_3_image", "homepage_main_ad_3_link", "homepage_main_ad_3_title"]),
     ]);
     const cityMap = new Map((cities || []).map((c: any) => [c.slug, c.nome]));
     setNoticias((news || []).map((n: any) => ({ id: n.id, titulo: n.titulo, cidade: cityMap.get(n.cidade_slug) || "Apucarana", cat: n.categoria || "Cidade", resumo: n.resumo || "", texto: n.conteudo || "", img: n.imagem || "" })));
@@ -98,7 +98,11 @@ export default function Admin() {
     setSponsors((sponsorData || []).map((x: any) => ({ id: x.id, titulo: x.titulo, imagem: x.imagem || "", linkUrl: x.link_url || "", ordem: x.ordem || 0 })));
     const settings = new Map((settingsData || []).map((item: any) => [item.key, item.value || ""]));
     setGrupoWhatsApp(String(settings.get("whatsapp_group_url") || ""));
-    setMainAdForm({ titulo: String(settings.get("homepage_main_ad_title") || "Espaço comercial principal"), img: String(settings.get("homepage_main_ad_image") || ""), linkUrl: String(settings.get("homepage_main_ad_link") || "") });
+    setMainAdsForm([1, 2, 3].map((position) => ({
+      titulo: String(settings.get(position === 1 ? "homepage_main_ad_title" : `homepage_main_ad_${position}_title`) || `Publicidade Principal ${position}`),
+      img: String(settings.get(position === 1 ? "homepage_main_ad_image" : `homepage_main_ad_${position}_image`) || ""),
+      linkUrl: String(settings.get(position === 1 ? "homepage_main_ad_link" : `homepage_main_ad_${position}_link`) || ""),
+    })));
     setLoading(false);
   };
 
@@ -157,23 +161,28 @@ export default function Admin() {
     if (error) return alert(`Não foi possível salvar: ${error.message}`);
     alert("Link do grupo salvo.");
   };
-  const salvarAnuncioPrincipal = async () => {
+  const salvarAnunciosPrincipais = async () => {
     const supabase = getSupabase();
     if (!supabase) return alert("Supabase não configurado.");
-    if (!mainAdForm.titulo.trim() || !mainAdForm.img.trim()) return alert("Informe o título e carregue a imagem do anúncio principal.");
     setLoading(true);
     try {
-      const imagem = await uploadImagem(mainAdForm.img, "homepage-ads");
-      const rows = [
-        { key: "homepage_main_ad_image", value: imagem, updated_at: new Date().toISOString() },
-        { key: "homepage_main_ad_link", value: mainAdForm.linkUrl.trim(), updated_at: new Date().toISOString() },
-        { key: "homepage_main_ad_title", value: mainAdForm.titulo.trim(), updated_at: new Date().toISOString() },
-      ];
+      const rows: { key: string; value: string; updated_at: string }[] = [];
+      for (let index = 0; index < mainAdsForm.length; index += 1) {
+        const position = index + 1;
+        const form = mainAdsForm[index];
+        if (!form.titulo.trim() || !form.img.trim()) throw new Error(`Preencha o título e a imagem da Publicidade Principal ${position}.`);
+        const imagem = await uploadImagem(form.img, "homepage-ads");
+        rows.push(
+          { key: position === 1 ? "homepage_main_ad_image" : `homepage_main_ad_${position}_image`, value: imagem, updated_at: new Date().toISOString() },
+          { key: position === 1 ? "homepage_main_ad_link" : `homepage_main_ad_${position}_link`, value: form.linkUrl.trim(), updated_at: new Date().toISOString() },
+          { key: position === 1 ? "homepage_main_ad_title" : `homepage_main_ad_${position}_title`, value: form.titulo.trim(), updated_at: new Date().toISOString() },
+        );
+      }
       const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
-      alert("Espaço comercial principal atualizado.");
+      alert("As três publicidades principais foram atualizadas.");
       await carregarTudo();
-    } catch (e: any) { alert(`Não foi possível salvar o anúncio: ${e.message || "erro de conexão"}`); } finally { setLoading(false); }
+    } catch (e: any) { alert(`Não foi possível salvar as publicidades: ${e.message || "erro de conexão"}`); } finally { setLoading(false); }
   };
   const excluir = async (table: string, id: string) => {
     if (!confirm("Excluir este cadastro do banco?")) return;
@@ -198,7 +207,7 @@ export default function Admin() {
       {tab === "promocoes" && <AdminSection title="Cadastrar promoção" description="Promoções persistidas no banco e atualizadas pelo painel."><FormInput placeholder="Título da promoção" value={pForm.titulo} onChange={(v) => setPForm({ ...pForm, titulo: v })} /><div className="form-row"><Select value={pForm.cidade} onChange={(v) => setPForm({ ...pForm, cidade: v })} options={CIDADES} /><FormInput placeholder="Categoria / loja" value={pForm.categoria} onChange={(v) => setPForm({ ...pForm, categoria: v })} /></div><FormInput placeholder="Validade" value={pForm.validade} onChange={(v) => setPForm({ ...pForm, validade: v })} /><FormInput placeholder="WhatsApp ou contato" value={pForm.contato} onChange={(v) => setPForm({ ...pForm, contato: v })} /><ImageField value={pForm.img} onChange={(v) => setPForm({ ...pForm, img: v })} /><FormInput placeholder="Detalhes, regras e condições" value={pForm.detalhes} onChange={(v) => setPForm({ ...pForm, detalhes: v })} multiline /><SaveButton label={editId ? "Atualizar promoção" : "Salvar promoção no banco"} onClick={() => { if (!pForm.titulo) return alert("Título obrigatório"); void salvar("promotions", { titulo: pForm.titulo, categoria: pForm.categoria, cidade_slug: cidadeSlug(pForm.cidade), validade: pForm.validade, contato: pForm.contato, detalhes: pForm.detalhes, status: "published" }, pForm.img, "promotions", () => setPForm({ titulo: "", cidade: "Apucarana", categoria: "Comércio", validade: "", contato: "", img: "", detalhes: "" }), editId); }} />{filterByCity(promocoes).map((x) => <AdminItem key={x.id} title={x.titulo} meta={`${x.cidade} · ${x.categoria} · ${x.validade}`} image={x.img} onEdit={() => { setEditId(x.id); setPForm({ titulo: x.titulo, cidade: x.cidade, categoria: x.categoria, validade: x.validade, contato: x.contato, img: x.img || "", detalhes: x.detalhes || "" }); }} onDelete={() => void excluir("promotions", x.id)} />)}</AdminSection>}
       {tab === "publicidade" && <>
         <AdminSection title="Publicidade e comunidade" description="Configure o vídeo silencioso em loop, imagens de patrocinadores e o convite para o grupo de WhatsApp da Rede Norte.">
-          <div className="contact-info"><strong>Espaço comercial principal</strong><span>Este anúncio aparece no espaço grande entre a manchete principal e a meteorologia. Prefira uma arte horizontal ou quadrada bem definida; ela ocupará todo o bloco sem interferir nas notícias.</span><FormInput placeholder="Título / texto alternativo do anúncio" value={mainAdForm.titulo} onChange={(v) => setMainAdForm({ ...mainAdForm, titulo: v })} /><ImageField label="Imagem grande do anunciante" value={mainAdForm.img} onChange={(v) => setMainAdForm({ ...mainAdForm, img: v })} /><FormInput placeholder="Link de destino do anúncio (opcional)" value={mainAdForm.linkUrl} onChange={(v) => setMainAdForm({ ...mainAdForm, linkUrl: v })} /><SaveButton label="Atualizar espaço principal" onClick={() => void salvarAnuncioPrincipal()} /></div>
+          <div className="contact-info"><strong>Publicidades Principais 1, 2 e 3</strong><span>Os três quadrados grandes aparecem no início, no meio e no final da página. Cada posição tem imagem, título e link próprios.</span>{mainAdsForm.map((form, index) => <div className="admin-ad-form" key={`main-ad-form-${index}`}><strong>Publicidade Principal {index + 1}</strong><FormInput placeholder={`Título / texto alternativo da Publicidade ${index + 1}`} value={form.titulo} onChange={(v) => setMainAdsForm(mainAdsForm.map((item, itemIndex) => itemIndex === index ? { ...item, titulo: v } : item))} /><ImageField label={`Imagem da Publicidade Principal ${index + 1}`} value={form.img} onChange={(v) => setMainAdsForm(mainAdsForm.map((item, itemIndex) => itemIndex === index ? { ...item, img: v } : item))} /><FormInput placeholder="Link de destino (opcional)" value={form.linkUrl} onChange={(v) => setMainAdsForm(mainAdsForm.map((item, itemIndex) => itemIndex === index ? { ...item, linkUrl: v } : item))} /></div>)}<SaveButton label="Atualizar as três publicidades" onClick={() => void salvarAnunciosPrincipais()} /></div>
           <div className="contact-info"><strong>Vídeo em loop</strong><span>Para carregar o vídeo: abra a aba Vídeos, escolha Upload e selecione a categoria Publicidade. Ele será exibido automaticamente na lateral da home, sem som e em loop.</span><button className="admin-inline-button" onClick={() => setTab("videos")}>Ir para cadastro de vídeos →</button></div>
           <FormInput placeholder="Nome do patrocinador" value={sponsorForm.titulo} onChange={(v) => setSponsorForm({ ...sponsorForm, titulo: v })} />
           <ImageField label="Imagem / logo do patrocinador" value={sponsorForm.img} onChange={(v) => setSponsorForm({ ...sponsorForm, img: v })} />

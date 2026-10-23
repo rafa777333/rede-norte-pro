@@ -243,7 +243,7 @@ export default function Page() {
   const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
   const [videosAdmin, setVideosAdmin] = useState<Video[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
-  const [mainAd, setMainAd] = useState<MainAd>({ imagem: "", linkUrl: "", titulo: "Espaço comercial principal" });
+  const [mainAds, setMainAds] = useState<MainAd[]>([1, 2, 3].map((position) => ({ imagem: "", linkUrl: "", titulo: `Publicidade Principal ${position}` })));
   const [grupoWhatsApp, setGrupoWhatsApp] = useState("");
   const [classifForm, setClassifForm] = useState({ titulo: "", cidade: "Apucarana", categoria: "Outros", preco: "", contato: "", descricao: "", imagem: "" });
   const [enviandoClassif, setEnviandoClassif] = useState(false);
@@ -279,7 +279,7 @@ export default function Page() {
         supabase.from("promotions").select("id,titulo,categoria,cidade_slug,validade,contato,imagem,detalhes").eq("status", "published"),
         supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,published_at").eq("status", "published").order("published_at", { ascending: false }),
         supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").eq("ativo", true).order("ordem").limit(12),
-        supabase.from("site_settings").select("key,value").in("key", ["whatsapp_group_url", "homepage_main_ad_image", "homepage_main_ad_link", "homepage_main_ad_title"]),
+        supabase.from("site_settings").select("key,value").in("key", ["whatsapp_group_url", "homepage_main_ad_image", "homepage_main_ad_link", "homepage_main_ad_title", "homepage_main_ad_2_image", "homepage_main_ad_2_link", "homepage_main_ad_2_title", "homepage_main_ad_3_image", "homepage_main_ad_3_link", "homepage_main_ad_3_title"]),
       ]);
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
       if (news) setNoticiasAdmin(news.filter((n: any) => noticiaValida(n) && (!n.cidade_slug || n.cidade_slug === "geral" || n.categoria === "Destaque")).map((n: any) => ({
@@ -302,7 +302,11 @@ export default function Page() {
       setSponsors((sponsorData || []).map((item: any) => ({ id: item.id, titulo: item.titulo, imagem: item.imagem, linkUrl: item.link_url || "", ordem: item.ordem || 0 })));
       const settings = new Map((settingsData || []).map((item: any) => [item.key, item.value || ""]));
       setGrupoWhatsApp(String(settings.get("whatsapp_group_url") || ""));
-      setMainAd({ imagem: String(settings.get("homepage_main_ad_image") || ""), linkUrl: String(settings.get("homepage_main_ad_link") || ""), titulo: String(settings.get("homepage_main_ad_title") || "Espaço comercial principal") });
+      setMainAds([1, 2, 3].map((position) => ({
+        imagem: String(settings.get(position === 1 ? "homepage_main_ad_image" : `homepage_main_ad_${position}_image`) || ""),
+        linkUrl: String(settings.get(position === 1 ? "homepage_main_ad_link" : `homepage_main_ad_${position}_link`) || ""),
+        titulo: String(settings.get(position === 1 ? "homepage_main_ad_title" : `homepage_main_ad_${position}_title`) || `Publicidade Principal ${position}`),
+      })));
       setCarregandoNoticias(false);
     };
 
@@ -419,12 +423,14 @@ export default function Page() {
               {destaque ? <a className="hero-story" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>{destaque.img ? <img className="hero-image" src={destaque.img} alt={`Imagem da notícia: ${destaque.titulo}`} onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="hero-image hero-image--empty" aria-label="Imagem não fornecida pela fonte"><span>Imagem não fornecida pela fonte</span></div>}<span className="hero-copy"><span className="hero-featured-label">DESTAQUE DA REDAÇÃO</span><span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span><strong>{destaque.titulo}</strong><span>{destaque.sub}</span><small>Leia a matéria completa <b>→</b></small></span></a> : <div className="empty-state">{carregandoNoticias ? "Carregando notícias mais recentes…" : "Nenhuma notícia encontrada para os filtros selecionados."}</div>}
               {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div>}
             </div>
-            <div className="homepage-main-ad" aria-label="Espaço comercial principal">{mainAd.imagem ? <a href={mainAd.linkUrl || "/admin"} target={mainAd.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={mainAd.imagem} alt={mainAd.titulo} /><span>PUBLICIDADE</span></a> : <div><span>ESPAÇO COMERCIAL PRINCIPAL</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>Cadastre uma imagem grande na aba Publicidade do painel.</small><a href="/admin">Configurar espaço →</a></div>}</div>
+            {(() => { const ad = mainAds[0]; return <div className="homepage-main-ad" aria-label="Publicidade Principal 1">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 1</span></a> : <div><span>PUBLICIDADE PRINCIPAL 1</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>Cadastre uma imagem grande na aba Publicidade do painel.</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
             {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
             <WeatherShowcase />
             <section className="news-section latest-section"><div className="section-heading"><span>Últimas notícias</span><i /><a href="#ultimas">Ver todas →</a></div><div className="latest-visual-grid" id="ultimas">{ultimas.slice(0, 12).map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>
+            {(() => { const ad = mainAds[1]; return <div className="homepage-main-ad homepage-main-ad--middle" aria-label="Publicidade Principal 2">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 2</span></a> : <div><span>PUBLICIDADE PRINCIPAL 2</span><strong>Espaço comercial do meio da página.</strong><small>Configure a imagem no painel da redação.</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
             {todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade === cidade)).length > 0 && <section className="news-section sports-break"><div className="section-heading"><span>Esportes</span><i /><a href="#esportes">Ver todas →</a></div><div className="latest-visual-grid" id="esportes">{todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade === cidade)).slice(0, 6).map((n) => <NewsCard key={`esporte-${n.id}`} noticia={n} />)}</div></section>}
             {ultimas.length > 12 && <section className="news-section visual-news-section"><div className="section-heading"><span>Mais notícias</span><i /></div><div className="latest-visual-grid">{ultimas.slice(12).map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
+            {(() => { const ad = mainAds[2]; return <div className="homepage-main-ad homepage-main-ad--bottom" aria-label="Publicidade Principal 3">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 3</span></a> : <div><span>PUBLICIDADE PRINCIPAL 3</span><strong>Espaço comercial no final da página.</strong><small>Configure a imagem no painel da redação.</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
           </div>
           <aside className="sidebar">
             <div className="lateral-heading"><span>CONTEÚDO LATERAL</span><a href="/admin">Configurar no painel →</a></div>
