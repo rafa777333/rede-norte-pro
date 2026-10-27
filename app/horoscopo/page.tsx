@@ -14,5 +14,26 @@ const signos = [
 ];
 
 export default function HoroscopoPage() {
-  return <main className="utility-page horoscope-page"><div className="container"><a className="eyebrow" href="/">← Voltar para a Rede Norte</a><span className="eyebrow horoscope-kicker">PREVISÃO DO DIA · REDE NORTE</span><h1>Horóscopo</h1><p className="horoscope-intro">Confira as previsões dos 12 signos e acompanhe as atualizações diárias da Rede Norte.</p><div className="horoscope-page-grid">{signos.map(([nome, texto]) => <article className="horoscope-page-card" key={nome}><span className="horoscope-glyph">✦</span><h2>{nome}</h2><p>{texto}</p><small>Previsão de hoje</small></article>)}</div></div></main>;
+  return (
+    <main className="utility-page horoscope-page">
+      <div className="container">
+        <a className="eyebrow" href="/">← Voltar para a Rede Apucarana</a>
+        <span className="eyebrow horoscope-kicker">PREVISÃO DO DIA · REDE APUCARANA</span>
+        <h1>Horóscopo</h1>
+        <p className="horoscope-intro">
+          Confira as previsões dos 12 signos e acompanhe as atualizações diárias da Rede Apucarana.
+        </p>
+        <div className="horoscope-page-grid">
+          {signos.map(([nome, texto]) => (
+            <article className="horoscope-page-card" key={nome}>
+              <span className="horoscope-glyph">✦</span>
+              <h2>{nome}</h2>
+              <p>{texto}</p>
+              <small>Previsão de hoje</small>
+            </article>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
 }
