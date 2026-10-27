@@ -6,3 +6,4 @@ out/
 .env*
 !.env.example
 *.tsbuildinfo
+SUBIR_SITE_VERCEL.bat

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cidadeSlug, getSupabase } from "../lib/supabase";
+import { getHoroscopoDoDia, type SignoPrevisao } from "../lib/horoscope";
+import HoroscopeModal from "../components/HoroscopeModal";
 
 type Noticia = {
   id: string;
@@ -375,6 +377,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
   const [enviandoJob, setEnviandoJob] = useState(false);
   const [jobEnviado, setJobEnviado] = useState(false);
   const [radioTocando, setRadioTocando] = useState(false);
+  const [signoAberto, setSignoAberto] = useState<SignoPrevisao | null>(null);
   const radioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -496,6 +499,17 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
     const passaBusca = !termo || `${n.titulo} ${n.resumo} ${n.cidade} ${n.cat}`.toLowerCase().includes(termo);
     return passaCidade && passaCategoria && passaBusca;
   }), [todas, cidade, categoria, busca]);
+
+  const horoscopoSignos = useMemo<SignoPrevisao[]>(() => {
+    const customStr = settingsMap.get("horoscopo_diario");
+    if (customStr) {
+      try {
+        const parsed = JSON.parse(customStr);
+        return getHoroscopoDoDia(parsed);
+      } catch {}
+    }
+    return getHoroscopoDoDia();
+  }, [settingsMap]);
 
   // Propagandas Principais inteligentes: busca primeiro da cidade atual; se vazio, usa a Geral
   const currentMainAds = useMemo<MainAd[]>(() => {
@@ -834,6 +848,34 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
             </div>
             <LargeSponsorCarousel sponsors={sponsors} />
             {renderTvLoop(2)}
+
+            {/* HORÓSCOPO INTERATIVO */}
+            <div className="horoscope-sidebar-card" id="horoscopo">
+              <div className="horoscope-sidebar-head">
+                <span className="eyebrow">PREVISÃO DO DIA</span>
+                <strong>Horóscopo do Dia</strong>
+                <p>Clique no seu signo para abrir a previsão de hoje:</p>
+              </div>
+              <div className="horoscope-signs-grid">
+                {horoscopoSignos.map((s) => (
+                  <button
+                    key={s.slug}
+                    type="button"
+                    className="horoscope-sign-btn"
+                    onClick={() => setSignoAberto(s)}
+                    title={`Ver previsão de ${s.nome}`}
+                  >
+                    <span className="horoscope-sign-glyph">{s.simbolo}</span>
+                    <span className="horoscope-sign-name">{s.nome}</span>
+                    <span className="horoscope-sign-date">{s.periodo.split(" a ")[0]}</span>
+                  </button>
+                ))}
+              </div>
+              <a href="/horoscopo" className="horoscope-sidebar-footer">
+                Ver todos os 12 signos na íntegra →
+              </a>
+            </div>
+
             <div className="lateral-slot-stack lateral-break"><div className="lateral-slot lateral-slot--l3m"><span>IMAGEM L3 M</span><strong>Patrocínio regional</strong><small>Espaço próximo ao final da página</small></div></div>
             <div className="ad-slot"><span>ESPAÇO COMERCIAL</span><strong>Sua marca aparece aqui.</strong><p>Use este espaço para campanhas, ofertas e vídeos dos parceiros da Rede Apucarana.</p><a href="mailto:comercial@redeapucarana.com.br">Falar com a redação →</a></div>
             {grupoWhatsApp && <a className="whatsapp-card" href={grupoWhatsApp} target="_blank" rel="noreferrer"><span>COMUNIDADE REDE APUCARANA</span><strong>Entre no grupo do WhatsApp</strong><small>Receba avisos e notícias importantes da região.</small><b>Entrar no grupo →</b></a>}
@@ -854,6 +896,13 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
       {aba === "promocoes" && <section className="container utility-page"><span className="eyebrow">OFERTAS DA REGIÃO</span><h2>Promoções em {cidade}</h2><div className="public-list-grid">{promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).map((p: any) => <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || noticiasFixas[3].img, hora: "", autor: "Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={p.img || noticiasFixas[3].img} alt={`Imagem da promoção: ${p.titulo}`} /><span><b>{p.categoria}</b><strong>{p.titulo}</strong><small>{p.cidade} · {p.validade}</small></span></button>)}{!promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Ainda não há promoções cadastradas para {cidade}.</div>}</div></section>}
 
       <footer className="site-footer"><div className="container footer-grid"><div><a className="brand brand--footer" href="/"><img src="/logo-rede-apucarana.jpg" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "40px", height: "40px", padding: 0 }} /><span>REDE APUCARANA</span></a><p>Jornalismo regional para Apucarana e todo o Norte do Paraná.</p></div><div><strong>Redação</strong><a href="/admin">Acesso da redação</a><a href="#">Quem somos</a><a href="#">Contato</a></div><div><strong>Transparência</strong><a href="#">Política de correções</a><a href="#">Privacidade e LGPD</a><a href="#">Publicidade</a></div></div><div className="container footer-bottom"><span>© 2026 Rede Apucarana de Comunicação</span><span>Feito para informar a região.</span></div></footer>
+
+      <HoroscopeModal
+        signo={signoAberto}
+        signos={horoscopoSignos}
+        onClose={() => setSignoAberto(null)}
+        onSelectSigno={(s) => setSignoAberto(s)}
+      />
     </main>
   );
 }

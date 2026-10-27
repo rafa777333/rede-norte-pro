@@ -389,3 +389,58 @@
   border-radius: 99px;
   border: 1px solid var(--line);
 }
+
+/* HORÓSCOPO INTERATIVO */
+.horoscope-sidebar-card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 16px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.horoscope-sidebar-head{margin-bottom:14px}
+.horoscope-sidebar-head .eyebrow{display:block;font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--red);margin-bottom:4px}
+.horoscope-sidebar-head strong{display:block;font-size:18px;line-height:1.2;color:var(--ink);margin-bottom:4px}
+.horoscope-sidebar-head p{font-size:12px;color:var(--muted);margin:0;line-height:1.4}
+.horoscope-signs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.horoscope-sign-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;border:1px solid #e5e8ec;border-radius:6px;background:#f9fafb;cursor:pointer;transition:all .15s ease;text-align:center}
+.horoscope-sign-btn:hover{background:#fff;border-color:var(--red);transform:translateY(-2px);box-shadow:0 4px 12px rgba(181,31,44,.12)}
+.horoscope-sign-glyph{font-size:22px;line-height:1;margin-bottom:4px}
+.horoscope-sign-name{font-size:12px;font-weight:800;color:var(--ink);line-height:1.1}
+.horoscope-sign-date{font-size:9px;color:var(--muted);margin-top:2px}
+.horoscope-sidebar-footer{display:block;text-align:center;margin-top:14px;padding-top:10px;border-top:1px dashed #e5e8ec;font-size:12px;font-weight:800;color:var(--red);text-decoration:none}
+.horoscope-sidebar-footer:hover{text-decoration:underline}
+
+/* MODAL / CAIXINHA DO SIGNO */
+.horoscope-modal-backdrop{position:fixed;inset:0;background:rgba(10,17,28,.75);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.horoscope-modal-card{background:#fff;color:var(--ink);width:min(580px,100%);max-height:90vh;display:flex;flex-direction:column;border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;border:1px solid #dfe3e7;animation:horoscopeModalIn .2s cubic-bezier(.16,1,.3,1)}
+@keyframes horoscopeModalIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.horoscope-modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 22px 16px;border-bottom:1px solid #eef1f4;background:#fafbfc}
+.horoscope-modal-title-row{display:flex;align-items:center;gap:14px}
+.horoscope-modal-glyph{display:grid;place-items:center;width:52px;height:52px;border-radius:10px;background:#172536;color:#fff;font-size:30px;box-shadow:0 4px 12px rgba(23,37,54,.2)}
+.horoscope-modal-kicker{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--muted);margin-bottom:2px}
+.horoscope-element-pill{padding:2px 7px;border-radius:99px;font-size:9px;font-weight:800;text-transform:uppercase}
+.element-fogo{background:#fee9eb;color:#b51f2c}
+.element-terra{background:#e8f7ee;color:#1e824c}
+.element-ar{background:#e8f4fd;color:#1b6ca8}
+.element-água,.element-agua{background:#eef2ff;color:#3f51b5}
+.horoscope-modal-header h2{font-size:24px;line-height:1;margin:0 0 4px;font-weight:900;letter-spacing:-.03em}
+.horoscope-modal-periodo{font-size:12px;color:var(--muted)}
+.horoscope-modal-close{border:0;background:#f0f2f5;color:#5a6572;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:grid;place-items:center;transition:background .15s}
+.horoscope-modal-close:hover{background:#e2e5e9;color:#101114}
+.horoscope-modal-date-bar{background:#f3f6f9;padding:9px 22px;border-bottom:1px solid #eef1f4;font-size:12px;font-weight:700;color:#52606d}
+.horoscope-modal-body{padding:20px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.horoscope-section{background:#fcfdfe;border:1px solid #eef1f4;border-radius:8px;padding:14px 16px}
+.horoscope-section-title{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.horoscope-section-title span{font-size:16px}
+.horoscope-section-title strong{font-size:13px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
+.horoscope-section p{margin:0;font-size:14px;line-height:1.55;color:#39424e}
+.horoscope-section--general{background:#fff;border-left:4px solid var(--red)}
+.horoscope-section--love{border-left:4px solid #e85d21}
+.horoscope-section--work{border-left:4px solid #172536}
+.horoscope-dual-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.horoscope-dual-grid{grid-template-columns:1fr}}
+.horoscope-lucky-bar{display:flex;align-items:center;justify-content:space-around;background:#f8fafc;border:1px solid #e9edf2;border-radius:8px;padding:12px 16px;text-align:center}
+.lucky-item small{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
+.lucky-item strong{display:block;font-size:16px;font-weight:900;color:var(--ink)}
+.lucky-divider{width:1px;height:32px;background:#dfe4ea}
+.horoscope-modal-footer{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-top:1px solid #eef1f4;background:#fafbfc;gap:10px}
+.horoscope-nav-btn{background:#fff;border:1px solid #d8dee4;color:#445160;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+.horoscope-nav-btn:hover{background:#f0f3f6;border-color:#b8c2cc;color:var(--ink)}
+.horoscope-close-btn{background:var(--ink);color:#fff;border:0;padding:8px 18px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer}
+.horoscope-close-btn:hover{background:#243242}
+
