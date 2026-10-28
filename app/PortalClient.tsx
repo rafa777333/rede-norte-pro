@@ -9,6 +9,7 @@ type Noticia = {
   id: string;
   slug?: string;
   cidade: string;
+  cidade_slug?: string;
   cat: string;
   titulo: string;
   sub: string;
@@ -194,6 +195,7 @@ function formatarNoticiasAdmin(items: any[]): Noticia[] {
     id: String(n.id ?? `admin-${index}`),
     slug: n.slug || String(n.id ?? `admin-${index}`),
     cidade: n.cidade || "Apucarana",
+    cidade_slug: n.cidade_slug || (n.cidade ? cidadeSlug(n.cidade) : "apucarana"),
     cat: n.cat || "Cidade",
     titulo: n.titulo || "Nova notícia",
     sub: n.resumo || "Confira os principais detalhes desta notícia.",
@@ -438,6 +440,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         id: n.id,
         slug: n.slug || n.id,
         cidade: cityMap.get(n.cidade_slug) || n.cidade_slug || "Geral",
+        cidade_slug: n.cidade_slug || "geral",
         cat: n.categoria || "Cidade",
         titulo: n.titulo,
         resumo: resumoSeguro(n.conteudo, n.resumo),
@@ -492,13 +495,26 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
   }, []);
 
   const todas = carregandoNoticias ? [] : (noticiasAdmin.length ? formatarNoticiasAdmin(noticiasAdmin.filter(noticiaValida)) : noticiasFixas);
+  const noticiasPromovidasGeral = useMemo<Set<string>>(() => {
+    const val = settingsMap.get("noticias_promovidas_geral");
+    if (!val) return new Set();
+    try {
+      const parsed = JSON.parse(val);
+      return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      return new Set();
+    }
+  }, [settingsMap]);
+
   const filtradas = useMemo(() => todas.filter((n) => {
-    const passaCidade = cidade === "Geral" || n.cidade.toLowerCase() === cidade.toLowerCase() || n.cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const passaCidade = cidade === "Geral"
+      ? (n.cidade === "Geral" || n.cidade_slug === "geral" || noticiasPromovidasGeral.has(n.id) || n.cat.toLowerCase() === "destaque" || (!noticiasAdmin.length))
+      : (n.cidade.toLowerCase() === cidade.toLowerCase() || n.cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || n.cidade_slug === cidadeSlug(cidade));
     const passaCategoria = categoria === "Todas" || n.cat === categoria;
     const termo = busca.trim().toLowerCase();
     const passaBusca = !termo || `${n.titulo} ${n.resumo} ${n.cidade} ${n.cat}`.toLowerCase().includes(termo);
     return passaCidade && passaCategoria && passaBusca;
-  }), [todas, cidade, categoria, busca]);
+  }), [todas, cidade, categoria, busca, noticiasPromovidasGeral, noticiasAdmin.length]);
 
   const horoscopoSignos = useMemo<SignoPrevisao[]>(() => {
     const customStr = settingsMap.get("horoscopo_diario");

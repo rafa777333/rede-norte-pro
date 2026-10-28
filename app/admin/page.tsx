@@ -12,7 +12,7 @@ type Promocao = { id: string; titulo: string; cidade: string; categoria: string;
 type VideoAdmin = { id: string; titulo: string; descricao: string; cidade: string; categoria: string; videoUrl: string; thumbnailUrl: string; instagramUrl: string; materiaUrl: string; tipo: "upload" | "instagram" };
 type SponsorAdmin = { id: string; titulo: string; imagem: string; linkUrl: string; ordem: number };
 
-const CIDADES = ["Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
+const CIDADES = ["Geral", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
 const CAT_NOT = ["Política", "Cidade", "Segurança", "Economia", "Eventos", "Destaque"];
 const CAT_ONDE = ["Restaurantes", "Lanchonetes", "Pizzarias", "Bares", "Cafés", "Serviços", "Lojas"];
 const CAT_CLASS = ["Imóveis", "Veículos", "Eletrônicos", "Móveis", "Celulares", "Outros"];
@@ -76,7 +76,7 @@ async function uploadArquivo(file: File, pasta: string) {
   return supabase.storage.from("rede-norte-media").getPublicUrl(caminho).data.publicUrl;
 }
 
-const emptyNews = { titulo: "", cidade: "Apucarana", cat: "Política", resumo: "", img: "", texto: "" };
+const emptyNews = { titulo: "", cidade: "Geral", cat: "Política", resumo: "", img: "", texto: "", exibirNoGeral: true };
 const VIDEO_CATEGORIAS = ["Matéria", "Entrevista", "Política", "Cidade", "Segurança", "Esportes", "Serviço", "Publicidade"];
 const emptyVideo = { titulo: "", descricao: "", cidade: "Apucarana", categoria: "Matéria", tipo: "upload" as "upload" | "instagram", videoUrl: "", instagramUrl: "", thumbnailUrl: "", materiaUrl: "", status: "published" };
 
@@ -109,6 +109,7 @@ export default function Admin() {
   });
 
   const [grupoWhatsApp, setGrupoWhatsApp] = useState("");
+  const [noticiasPromovidasGeral, setNoticiasPromovidasGeral] = useState<Set<string>>(new Set());
   const [nForm, setNForm] = useState(emptyNews);
   const [lForm, setLForm] = useState({ nome: "", cidade: "Apucarana", cat: "Restaurantes", end: "", zap: "", img: "", detalhes: "" });
   const [cForm, setCForm] = useState({ titulo: "", cidade: "Apucarana", cat: "Imóveis", preco: "", zap: "", img: "", detalhes: "" });
@@ -223,6 +224,13 @@ export default function Admin() {
       }
       setAllSettings(settingsMap);
       setGrupoWhatsApp(settingsMap.get("whatsapp_group_url") || "");
+      const promData = settingsMap.get("noticias_promovidas_geral");
+      if (promData) {
+        try {
+          const list = JSON.parse(promData);
+          if (Array.isArray(list)) setNoticiasPromovidasGeral(new Set(list));
+        } catch {}
+      }
       loadAdsForCity(adCity, settingsMap);
     } finally {
       setLoading(false);
@@ -255,6 +263,33 @@ export default function Admin() {
   };
   const sair = async () => { await getSupabase()?.auth.signOut(); setOk(false); };
   
+  const alternarPromocaoGeral = async (noticiaId: string) => {
+    const proximo = new Set(noticiasPromovidasGeral);
+    if (proximo.has(noticiaId)) {
+      proximo.delete(noticiaId);
+    } else {
+      proximo.add(noticiaId);
+    }
+    setNoticiasPromovidasGeral(proximo);
+    const arr = Array.from(proximo);
+    const jsonStr = JSON.stringify(arr);
+
+    if (typeof window !== "undefined") {
+      try {
+        const local = JSON.parse(localStorage.getItem("local_site_settings") || "{}");
+        local["noticias_promovidas_geral"] = jsonStr;
+        localStorage.setItem("local_site_settings", JSON.stringify(local));
+      } catch {}
+    }
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from("site_settings").upsert({ key: "noticias_promovidas_geral", value: jsonStr, updated_at: new Date().toISOString() }, { onConflict: "key" });
+      } catch {}
+    }
+  };
+
   const salvar = async (table: string, record: any, image: string, folder: string, onDone: () => void, id?: string | null) => {
     const supabase = getSupabase();
     if (!supabase) { alert("Supabase não configurado."); return; }
@@ -527,14 +562,90 @@ export default function Admin() {
       </div>
       <main className="admin-main">
         {tab === "noticias" && (
-          <AdminSection title="Cadastrar notícia" description="Notícias municipais ficam na aba da cidade. Use a categoria Destaque somente quando quiser levar uma notícia municipal para o Geral.">
+          <AdminSection title="Cadastrar notícia" description="Notícias municipais ficam na aba da cidade. Use a opção 'Exibir também no Geral' para destacar uma matéria da cidade na Capa Principal.">
             <FormInput placeholder="Título da notícia" value={nForm.titulo} onChange={(v) => setNForm({ ...nForm, titulo: v })} />
-            <div className="form-row"><Select value={nForm.cidade} onChange={(v) => setNForm({ ...nForm, cidade: v })} options={CIDADES} /><Select value={nForm.cat} onChange={(v) => setNForm({ ...nForm, cat: v })} options={CAT_NOT} /></div>
+            <div className="form-row">
+              <Select value={nForm.cidade} onChange={(v) => setNForm({ ...nForm, cidade: v, exibirNoGeral: v === "Geral" ? true : nForm.exibirNoGeral })} options={CIDADES} />
+              <Select value={nForm.cat} onChange={(v) => setNForm({ ...nForm, cat: v })} options={CAT_NOT} />
+            </div>
+            <label className="admin-checkbox-label">
+              <input
+                type="checkbox"
+                checked={nForm.cidade === "Geral" || nForm.exibirNoGeral}
+                disabled={nForm.cidade === "Geral"}
+                onChange={(e) => setNForm({ ...nForm, exibirNoGeral: e.target.checked })}
+              />
+              <span>Exibir também na Capa Principal (Geral do Portal)</span>
+              {nForm.cidade === "Geral" && <small style={{ color: "#68707c", fontWeight: 400 }}>(Notícia criada para o Geral já vai direto para a Capa)</small>}
+            </label>
             <FormInput placeholder="Resumo / linha fina" value={nForm.resumo} onChange={(v) => setNForm({ ...nForm, resumo: v })} multiline />
             <ImageField value={nForm.img} onChange={(v) => setNForm({ ...nForm, img: v })} />
             <FormInput placeholder="Texto completo da notícia" value={nForm.texto} onChange={(v) => setNForm({ ...nForm, texto: v })} multiline />
-            <SaveButton label={editId ? "Atualizar notícia" : "Salvar notícia no banco"} onClick={() => { if (!nForm.titulo) return alert("Título obrigatório"); void salvar("news", { titulo: nForm.titulo, categoria: nForm.cat, resumo: nForm.resumo, conteudo: nForm.texto || nForm.resumo, cidade_slug: cidadeSlug(nForm.cidade), status: "published" }, nForm.img, "news", () => setNForm(emptyNews), editId); }} />
-            {filterByCity(noticias).map((n) => <AdminItem key={n.id} title={n.titulo} meta={`${n.cidade} · ${n.cat}`} image={n.img} onEdit={() => { setEditId(n.id); setNForm({ titulo: n.titulo, cidade: n.cidade, cat: n.cat, resumo: n.resumo, img: n.img || "", texto: n.texto || "" }); }} onDelete={() => void excluir("news", n.id)} />)}
+            <SaveButton
+              label={editId ? "Atualizar notícia" : "Salvar notícia no banco"}
+              onClick={() => {
+                if (!nForm.titulo) return alert("Título obrigatório");
+                const isGeral = nForm.cidade === "Geral" || nForm.exibirNoGeral;
+                void salvar(
+                  "news",
+                  {
+                    titulo: nForm.titulo,
+                    categoria: nForm.cat,
+                    resumo: nForm.resumo,
+                    conteudo: nForm.texto || nForm.resumo,
+                    cidade_slug: cidadeSlug(nForm.cidade),
+                    status: "published",
+                  },
+                  nForm.img,
+                  "news",
+                  () => {
+                    if (editId) {
+                      if (isGeral && !noticiasPromovidasGeral.has(editId)) {
+                        void alternarPromocaoGeral(editId);
+                      } else if (!isGeral && noticiasPromovidasGeral.has(editId)) {
+                        void alternarPromocaoGeral(editId);
+                      }
+                    }
+                    setNForm(emptyNews);
+                  },
+                  editId
+                );
+              }}
+            />
+            {filterByCity(noticias).map((n) => {
+              const noGeral = n.cidade === "Geral" || noticiasPromovidasGeral.has(n.id);
+              return (
+                <AdminItem
+                  key={n.id}
+                  title={n.titulo}
+                  meta={`${n.cidade} · ${n.cat} · ${noGeral ? "✓ Exibindo no Geral e na Cidade" : "Apenas na Cidade"}`}
+                  image={n.img}
+                  extraAction={
+                    <button
+                      type="button"
+                      className={`admin-badge-btn ${noGeral ? "is-geral" : ""}`}
+                      onClick={() => void alternarPromocaoGeral(n.id)}
+                      title={noGeral ? "Exibindo na Capa Geral e na cidade. Clique para remover da Capa Geral." : "Exibindo apenas na pasta da cidade. Clique para exibir também na Capa Geral."}
+                    >
+                      {noGeral ? "✓ No Geral" : "+ Levar pro Geral"}
+                    </button>
+                  }
+                  onEdit={() => {
+                    setEditId(n.id);
+                    setNForm({
+                      titulo: n.titulo,
+                      cidade: n.cidade,
+                      cat: n.cat,
+                      resumo: n.resumo,
+                      img: n.img || "",
+                      texto: n.texto || "",
+                      exibirNoGeral: noGeral,
+                    });
+                  }}
+                  onDelete={() => void excluir("news", n.id)}
+                />
+              );
+            })}
           </AdminSection>
         )}
 
@@ -898,4 +1009,4 @@ function Select({ value, onChange, options }: { value: string; onChange: (value:
 function ImageField({ value, onChange, label = "Imagem do anúncio" }: { value: string; onChange: (value: string) => void; label?: string }) { return <div className="image-field"><label>{label}</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 2_500_000) return alert("Escolha uma imagem de até 2 MB"); const reader = new FileReader(); reader.onload = () => onChange(String(reader.result)); reader.readAsDataURL(file); }} /><span>ou cole a URL da imagem abaixo</span><input placeholder="https://..." value={value.startsWith("data:") ? "Imagem carregada" : value} onChange={(e) => onChange(e.target.value)} />{value && <img src={value} alt="Pré-visualização" />}</div>; }
 function VideoFileField({ value, file, onChange }: { value: string; file: File | null; onChange: (file: File | null) => void }) { return <div className="video-file-field"><label>Arquivo de vídeo (MP4 recomendado)</label><input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => onChange(e.target.files?.[0] || null)} /><small>{file ? `Selecionado: ${file.name} (${Math.round(file.size / 1024 / 1024)} MB)` : value ? "Usando vídeo já enviado ou URL direta" : "Nenhum arquivo local selecionado"}</small></div>; }
 function SaveButton({ label, onClick }: { label: string; onClick: () => void }) { return <button className="save-button" onClick={onClick}>{label}</button>; }
-function AdminItem({ title, meta, image, onEdit, onDelete }: { title: string; meta: string; image?: string; onEdit: () => void; onDelete: () => void }) { return <div className="admin-item">{image && <img src={image} alt={title} />}<div><strong>{title}</strong><span>{meta}</span></div><div className="admin-item-actions"><button onClick={onEdit}>Editar</button><button className="danger" onClick={onDelete}>Excluir</button></div></div>; }
+function AdminItem({ title, meta, image, onEdit, onDelete, extraAction }: { title: string; meta: string; image?: string; onEdit: () => void; onDelete: () => void; extraAction?: React.ReactNode }) { return <div className="admin-item">{image && <img src={image} alt={title} />}<div><strong>{title}</strong><span>{meta}</span></div><div className="admin-item-actions">{extraAction}<button onClick={onEdit}>Editar</button><button className="danger" onClick={onDelete}>Excluir</button></div></div>; }
