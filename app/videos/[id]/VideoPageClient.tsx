@@ -115,7 +115,7 @@ export default function VideoPage({ params }: { params: { id: string } }) {
       <header className="video-detail-header">
         <a className="brand brand--small" href="/">
           <img
-            src="/logo-rede-apucarana.jpg"
+            src="/logo-rede-apucarana.png?v=2"
             alt="Logo Rede Apucarana"
             className="brand-mark"
             style={{ objectFit: "cover", width: "36px", height: "36px", padding: 0 }}

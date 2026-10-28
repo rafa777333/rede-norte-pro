@@ -635,7 +635,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         <header className="article-header">
           <button className="back-button" onClick={() => setSel(null)}>← Voltar às notícias</button>
           <a className="brand brand--small" href="/" onClick={(e) => { e.preventDefault(); setSel(null); }}>
-            <img src="/logo-rede-apucarana.jpg" alt="Logo RA" className="brand-mark" style={{ objectFit: "cover", width: "34px", height: "34px" }} />
+            <img src="/logo-rede-apucarana.png?v=2" alt="Logo RA" className="brand-mark" style={{ objectFit: "cover", width: "34px", height: "34px" }} />
             <span>REDE APUCARANA</span>
           </a>
           <span className="article-header-status"><i /> Jornalismo regional</span>
@@ -645,7 +645,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
           <div className="article-category"><Badge>{sel.cat}</Badge><span>{sel.cidade}</span></div>
           <h1>{sel.titulo}</h1>
           <p className="article-dek">{sel.sub}</p>
-          <div className="article-byline"><img src="/logo-rede-apucarana.jpg" alt="Logo" className="avatar" style={{ objectFit: "cover", width: "34px", height: "34px", borderRadius: "50%" }} /><span><strong>{sel.autor || "Redação Rede Apucarana"}</strong><small>Publicado hoje às {sel.hora || "09:10"} · leitura de 2 min</small></span></div>
+          <div className="article-byline"><img src="/logo-rede-apucarana.png?v=2" alt="Logo" className="avatar" style={{ objectFit: "cover", width: "34px", height: "34px", borderRadius: "50%" }} /><span><strong>{sel.autor || "Redação Rede Apucarana"}</strong><small>Publicado hoje às {sel.hora || "09:10"} · leitura de 2 min</small></span></div>
           <figure className="article-figure"><img src={sel.img} alt={`Imagem ilustrativa da notícia: ${sel.titulo}`} /><figcaption>{sel.credit || "Imagem ilustrativa"}</figcaption></figure>
           <div className="article-body">{sel.texto.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>
           <div className="article-footer-note"><strong>Encontrou um erro?</strong><span> Fale com a redação para solicitar uma correção ou enviar informação.</span></div>
@@ -741,7 +741,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
       <header className="site-header">
         <div className="container header-main">
           <a className="brand" href="/">
-            <img src="/logo-rede-apucarana.jpg" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "44px", height: "44px", padding: 0 }} />
+            <img src="/logo-rede-apucarana.png?v=2" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "44px", height: "44px", padding: 0 }} />
             <span className="brand-name">REDE APUCARANA <em>DE COMUNICAÇÃO</em></span>
           </a>
           <div className="header-actions">
@@ -767,7 +767,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
 
       <section className="container top-banner" aria-label="Banner Rede Apucarana de Comunicação">
         <div className="top-banner-frame">
-          <img src="/banner-rede-apucarana.png" alt="Rede Apucarana de Comunicação — Jornalismo, Podcast, Rádio, Web TV e Portal" />
+          <img src="/banner-rede-apucarana.png?v=2" alt="Rede Apucarana de Comunicação — Jornalismo, Podcast, Rádio, Web TV e Portal" />
         </div>
       </section>
 
@@ -895,7 +895,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
 
       {aba === "promocoes" && <section className="container utility-page"><span className="eyebrow">OFERTAS DA REGIÃO</span><h2>Promoções em {cidade}</h2><div className="public-list-grid">{promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).map((p: any) => <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || noticiasFixas[3].img, hora: "", autor: "Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={p.img || noticiasFixas[3].img} alt={`Imagem da promoção: ${p.titulo}`} /><span><b>{p.categoria}</b><strong>{p.titulo}</strong><small>{p.cidade} · {p.validade}</small></span></button>)}{!promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Ainda não há promoções cadastradas para {cidade}.</div>}</div></section>}
 
-      <footer className="site-footer"><div className="container footer-grid"><div><a className="brand brand--footer" href="/"><img src="/logo-rede-apucarana.jpg" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "40px", height: "40px", padding: 0 }} /><span>REDE APUCARANA</span></a><p>Jornalismo regional para Apucarana e todo o Norte do Paraná.</p></div><div><strong>Redação</strong><a href="/admin">Acesso da redação</a><a href="#">Quem somos</a><a href="#">Contato</a></div><div><strong>Transparência</strong><a href="#">Política de correções</a><a href="#">Privacidade e LGPD</a><a href="#">Publicidade</a></div></div><div className="container footer-bottom"><span>© 2026 Rede Apucarana de Comunicação</span><span>Feito para informar a região.</span></div></footer>
+      <footer className="site-footer"><div className="container footer-grid"><div><a className="brand brand--footer" href="/"><img src="/logo-rede-apucarana.png?v=2" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "40px", height: "40px", padding: 0 }} /><span>REDE APUCARANA</span></a><p>Jornalismo regional para Apucarana e todo o Norte do Paraná.</p></div><div><strong>Redação</strong><a href="/admin">Acesso da redação</a><a href="#">Quem somos</a><a href="#">Contato</a></div><div><strong>Transparência</strong><a href="#">Política de correções</a><a href="#">Privacidade e LGPD</a><a href="#">Publicidade</a></div></div><div className="container footer-bottom"><span>© 2026 Rede Apucarana de Comunicação</span><span>Feito para informar a região.</span></div></footer>
 
       <HoroscopeModal
         signo={signoAberto}

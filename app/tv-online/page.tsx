@@ -22,7 +22,7 @@ export default function TvOnlinePage() {
         <div className="container header-main">
           <Link className="brand" href="/">
             <img
-              src="/logo-rede-apucarana.jpg"
+              src="/logo-rede-apucarana.png?v=2"
               alt="Logo Rede Apucarana"
               className="brand-mark"
               style={{ objectFit: "cover", width: "44px", height: "44px", padding: 0 }}
@@ -81,7 +81,7 @@ export default function TvOnlinePage() {
           <div>
             <Link className="brand brand--footer" href="/">
               <img
-                src="/logo-rede-apucarana.jpg"
+                src="/logo-rede-apucarana.png?v=2"
                 alt="Logo Rede Apucarana"
                 className="brand-mark"
                 style={{ objectFit: "cover", width: "36px", height: "36px", padding: 0 }}
