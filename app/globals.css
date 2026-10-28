@@ -497,4 +497,33 @@
   border-color: #fca5a5;
 }
 
+/* Artigos com formatacao rica HTML */
+.article-body h2 {
+  font-size: 26px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 36px 0 16px;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.article-body ul {
+  margin: 0 0 24px 28px;
+  padding: 0;
+  list-style: disc;
+}
+.article-body li {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+.article-body strong {
+  font-weight: 700;
+  color: #101114;
+}
+.article-body em {
+  font-style: italic;
+  color: var(--muted);
+}
+
+
 

@@ -7,3 +7,5 @@ out/
 !.env.example
 *.tsbuildinfo
 SUBIR_SITE_VERCEL.bat
+scratch/
+supabase/.temp/

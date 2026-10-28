@@ -58,7 +58,56 @@ async function getNews(slug: string): Promise<News | null> {
     .eq("status", "published")
     .eq("id", slug)
     .maybeSingle();
-  return (byId.data as News | null) || null;
+  if (byId.data) return byId.data as News;
+
+  // Fallback para consulta direta na tabela noticias_portal
+  const portalBySlug = await supabase
+    .from("noticias_portal")
+    .select("id,slug,titulo_seo,categoria,corpo_html,resumo_meta,imagem_url,fonte_nome,credito_imagem,created_at,url_original")
+    .eq("status", "publicado")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (portalBySlug.data) {
+    const p = portalBySlug.data;
+    return {
+      id: p.id,
+      slug: p.slug,
+      titulo: p.titulo_seo,
+      categoria: p.categoria,
+      conteudo: p.corpo_html,
+      resumo: p.resumo_meta,
+      imagem: p.imagem_url,
+      cidade_slug: "geral",
+      autor: p.credito_imagem || p.fonte_nome,
+      published_at: p.created_at,
+      fonte: p.url_original
+    };
+  }
+
+  const portalById = await supabase
+    .from("noticias_portal")
+    .select("id,slug,titulo_seo,categoria,corpo_html,resumo_meta,imagem_url,fonte_nome,credito_imagem,created_at,url_original")
+    .eq("status", "publicado")
+    .eq("id", slug)
+    .maybeSingle();
+  if (portalById.data) {
+    const p = portalById.data;
+    return {
+      id: p.id,
+      slug: p.slug,
+      titulo: p.titulo_seo,
+      categoria: p.categoria,
+      conteudo: p.corpo_html,
+      resumo: p.resumo_meta,
+      imagem: p.imagem_url,
+      cidade_slug: "geral",
+      autor: p.credito_imagem || p.fonte_nome,
+      published_at: p.created_at,
+      fonte: p.url_original
+    };
+  }
+
+  return null;
 }
 
 export async function generateMetadata({
@@ -121,7 +170,9 @@ export default async function NewsPage({
     .order("published_at", { ascending: false })
     .limit(4);
   const url = `${SITE_URL}/noticias/${encodeURIComponent(news.slug || news.id)}`;
-  const body = paragraphs(news.conteudo);
+  const isHtml = /<\/(p|h2|h3|ul|li|strong|em)>/i.test(news.conteudo || "");
+  const body = isHtml ? [] : paragraphs(news.conteudo);
+  const cleanSummary = news.resumo || (news.conteudo ? news.conteudo.replace(/<[^>]+>/g, "").slice(0, 160) : "Confira os detalhes desta notícia.");
 
   return (
     <main className="article-page permanent-article">
@@ -151,9 +202,7 @@ export default async function NewsPage({
           <span>{city}</span>
         </div>
         <h1>{news.titulo}</h1>
-        <p className="article-dek">
-          {news.resumo || body[0] || "Confira os detalhes desta notícia."}
-        </p>
+        <p className="article-dek">{cleanSummary}</p>
         <div className="article-byline">
           <img
             src="/logo-rede-apucarana.png?v=2"
@@ -175,15 +224,22 @@ export default async function NewsPage({
           <figure className="article-figure">
             <img src={news.imagem} alt={news.titulo} />
             <figcaption>
-              Imagem original da fonte da notícia · Reprodução com indicação da fonte
+              {news.autor ? `Foto / Crédito: ${news.autor} · Reprodução autorizada` : "Imagem da fonte original · Reprodução com indicação da fonte"}
             </figcaption>
           </figure>
         )}
-        <div className="article-body">
-          {body.map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
-        </div>
+        {isHtml ? (
+          <div
+            className="article-body"
+            dangerouslySetInnerHTML={{ __html: news.conteudo || "" }}
+          />
+        ) : (
+          <div className="article-body">
+            {body.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        )}
         <div className="article-source">
           <strong>Fonte original:</strong>{" "}
           <a

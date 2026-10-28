@@ -26,7 +26,7 @@ type MainAd = { imagem: string; linkUrl: string; titulo: string };
 type TvAd = { videoUrl: string; linkUrl: string; titulo: string };
 
 const cidades = ["Geral", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Ivaí", "Bom Sucesso", "Borrazópolis", "Califórnia", "Cambira", "Cruzmaltina", "Faxinal", "Godoy Moreira", "Grandes Rios", "Ivaiporã", "Jandaia do Sul", "Jardim Alegre", "Kaloré", "Lidianópolis", "Lunardelli", "Marilândia do Sul", "Marumbi", "Mauá da Serra", "Novo Itacolomi", "Rio Bom", "Rio Branco do Ivaí", "Rosário do Ivaí", "São João do Ivaí", "São Pedro do Ivaí"];
-const categorias = ["Todas", "Política", "Cidade", "Segurança", "Mídia", "Esportes"];
+const categorias = ["Todas", "Política", "Policial", "Paraná", "Brasil", "Economia", "Mundo", "Cidade", "Segurança", "Esportes"];
 const RADIO_STREAM_URL = "https://servidor34-2.brlogic.com:7016/live?source=website";
 const weatherLocations = [
   ["Apucarana", -23.55, -51.46], ["Arapongas", -23.42, -51.42], ["Arapuã", -24.30, -51.79], ["Ariranha do Ivaí", -24.39, -51.58], ["Bom Sucesso", -23.71, -51.77], ["Borrazópolis", -23.94, -51.59], ["Califórnia", -23.65, -51.35], ["Cambira", -23.59, -51.58], ["Cruzmaltina", -24.02, -51.45], ["Faxinal", -24.00, -51.32], ["Godoy Moreira", -24.17, -51.92], ["Grandes Rios", -24.15, -51.50], ["Ivaiporã", -24.25, -51.67], ["Jandaia do Sul", -23.60, -51.64], ["Jardim Alegre", -24.18, -51.69], ["Kaloré", -23.82, -51.66], ["Lidianópolis", -24.11, -51.65], ["Lunardelli", -24.08, -51.73], ["Marilândia do Sul", -23.74, -51.31], ["Marumbi", -23.70, -51.64], ["Mauá da Serra", -23.90, -51.23], ["Novo Itacolomi", -23.76, -51.51], ["Rio Bom", -23.76, -51.41], ["Rio Branco do Ivaí", -24.32, -51.32], ["Rosário do Ivaí", -24.27, -51.28], ["São João do Ivaí", -23.98, -51.82], ["São Pedro do Ivaí", -23.86, -51.86],
@@ -439,15 +439,17 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
       if (news.length) setNoticiasAdmin(news.filter((n: any) => noticiaValida(n)).map((n: any) => ({
         id: n.id,
         slug: n.slug || n.id,
-        cidade: cityMap.get(n.cidade_slug) || n.cidade_slug || "Geral",
+        cidade: cityMap.get(n.cidade_slug) || (n.cidade_slug === "geral" ? "Geral" : n.cidade_slug) || "Geral",
         cidade_slug: n.cidade_slug || "geral",
         cat: n.categoria || "Cidade",
         titulo: n.titulo,
+        sub: resumoSeguro(n.conteudo, n.resumo),
         resumo: resumoSeguro(n.conteudo, n.resumo),
         texto: n.conteudo || n.resumo || "",
         img: n.imagem || "",
         hora: n.published_at ? new Date(n.published_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Agora",
         autor: n.autor || "Redação Rede Apucarana",
+        credit: n.autor || "Redação Rede Apucarana",
       })));
       if (services?.length) setLocaisAdmin(services.map((item: any) => ({ id: item.id, nome: item.nome, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, end: item.endereco || "", zap: item.whatsapp || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (jobs?.length) setVagasAdmin(jobs.map((item: any) => ({ id: item.id, cargo: item.vaga, empresa: item.empresa, cidade: cityMap.get(item.cidade_slug) || "Apucarana", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
@@ -510,7 +512,10 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
     const passaCidade = cidade === "Geral"
       ? (n.cidade === "Geral" || n.cidade_slug === "geral" || noticiasPromovidasGeral.has(n.id) || n.cat.toLowerCase() === "destaque" || (!noticiasAdmin.length))
       : (n.cidade.toLowerCase() === cidade.toLowerCase() || n.cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === cidade.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || n.cidade_slug === cidadeSlug(cidade));
-    const passaCategoria = categoria === "Todas" || n.cat === categoria;
+    const passaCategoria = categoria === "Todas"
+      || n.cat === categoria
+      || (categoria === "Policial" && (n.cat === "Policial" || n.cat === "Segurança"))
+      || (categoria === "Segurança" && (n.cat === "Segurança" || n.cat === "Policial"));
     const termo = busca.trim().toLowerCase();
     const passaBusca = !termo || `${n.titulo} ${n.resumo} ${n.cidade} ${n.cat}`.toLowerCase().includes(termo);
     return passaCidade && passaCategoria && passaBusca;
