@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { getSupabase } from "../../../lib/supabase";
 import ShareButtons from "./ShareButtons";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const SITE_URL = "https://www.redeapucarana.com.br";
 
 type News = {
