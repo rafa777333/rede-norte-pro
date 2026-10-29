@@ -5,6 +5,7 @@ import { cidadeSlug, getSupabase } from "../lib/supabase";
 import { getHoroscopoDoDia, type SignoPrevisao } from "../lib/horoscope";
 import HoroscopeModal from "../components/HoroscopeModal";
 import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner";
+import WeatherHeroBar from "../components/WeatherHeroBar";
 
 type Noticia = {
   id: string;
@@ -860,6 +861,8 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
 
       <TopHeroBanner config={topBannerConfig} />
 
+      <WeatherHeroBar currentCity={cidade} />
+
       {aba === "noticias" && <>
         <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>
         <section className="container content-grid">
@@ -885,7 +888,6 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
             </div>
             {(() => { const ad = currentMainAds[0]; return <div className="homepage-main-ad" aria-label="Publicidade Principal 1">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 1</span></a> : <div><span>PUBLICIDADE PRINCIPAL 1</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>{cidade !== "Geral" ? `Anuncie com destaque em ${cidade}.` : "Configure o anúncio no painel da redação."}</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
             {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias de {cidade}</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
-            <WeatherShowcase />
             <section className="news-section latest-section">
               <div className="section-heading">
                 <span>{cidade !== "Geral" ? `Últimas notícias de ${cidade}` : "Últimas notícias"}</span>
