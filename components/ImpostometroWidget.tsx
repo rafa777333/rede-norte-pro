@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 interface ImpostometroWidgetProps {
   cidadeAtual?: string;
-  variant?: "card" | "banner";
+  variant?: "destaque" | "card";
 }
 
 interface CounterData {
@@ -58,6 +58,7 @@ interface GroupBreakdown {
   label: string;
   value: string;
   unit: string;
+  icon: string;
 }
 
 function getBreakdown(total: number): GroupBreakdown[] {
@@ -66,36 +67,60 @@ function getBreakdown(total: number): GroupBreakdown[] {
   const n = parts.length;
   const groups: GroupBreakdown[] = [];
 
-  // Ex: 5 grupos = [Trilhões, Bilhões, Milhões, Mil, Reais]
-  // 4 grupos = [Bilhões, Milhões, Mil, Reais]
-  // 3 grupos = [Milhões, Mil, Reais]
-  // 2 grupos = [Mil, Reais]
-  const labelsMap: Record<number, string[]> = {
-    5: ["Trilhões", "Bilhões", "Milhões", "Mil", "Reais"],
-    4: ["Bilhões", "Milhões", "Mil", "Reais"],
-    3: ["Milhões", "Mil", "Reais"],
-    2: ["Mil", "Reais"],
-    1: ["Reais"],
+  const labelsMap: Record<number, { label: string; icon: string }[]> = {
+    5: [
+      { label: "Trilhões", icon: "🏛️" },
+      { label: "Bilhões", icon: "💎" },
+      { label: "Milhões", icon: "💰" },
+      { label: "Mil", icon: "💵" },
+      { label: "Reais", icon: "🪙" },
+    ],
+    4: [
+      { label: "Bilhões", icon: "💎" },
+      { label: "Milhões", icon: "💰" },
+      { label: "Mil", icon: "💵" },
+      { label: "Reais", icon: "🪙" },
+    ],
+    3: [
+      { label: "Milhões", icon: "💰" },
+      { label: "Mil", icon: "💵" },
+      { label: "Reais", icon: "🪙" },
+    ],
+    2: [
+      { label: "Mil", icon: "💵" },
+      { label: "Reais", icon: "🪙" },
+    ],
+    1: [{ label: "Reais", icon: "🪙" }],
   };
 
-  const labels = labelsMap[n] || [];
+  const list = labelsMap[n] || [];
 
   for (let i = 0; i < n; i++) {
     const rawVal = parts[i];
-    const unit = labels[i] || "";
+    const info = list[i] || { label: "Valor", icon: "•" };
     groups.push({
-      label: unit,
+      label: info.label,
       value: rawVal,
-      unit: unit,
+      unit: info.label,
+      icon: info.icon,
     });
   }
+
+  // Adiciona os centavos
+  const cents = Math.floor((total - fixed) * 100);
+  groups.push({
+    label: "Centavos",
+    value: `,${String(cents).padStart(2, "0")}`,
+    unit: "Centavos",
+    icon: "⏱️",
+  });
 
   return groups;
 }
 
 export default function ImpostometroWidget({
   cidadeAtual = "Geral",
-  variant = "card",
+  variant = "destaque",
 }: ImpostometroWidgetProps) {
   const [scope, setScope] = useState<"brasil" | "parana" | "municipio">("brasil");
   const [data, setData] = useState<CounterData>(DEFAULT_BASELINES.brasil);
@@ -180,91 +205,121 @@ export default function ImpostometroWidget({
   };
 
   return (
-    <article className="impostometro-feature-card" id="impostometro-destaque">
+    <article
+      className={`impostometro-feature-card ${variant === "destaque" ? "impostometro-feature-card--span2" : ""}`}
+      id="impostometro-destaque"
+      aria-label="Painel Impostômetro em tempo real"
+    >
+      {/* Topo do Card com Título e Seletor de Escopo */}
       <div className="impostometro-feature-head">
-        <div className="impostometro-kicker-row">
-          <span className="impostometro-live-badge">
-            <span className="impostometro-live-pulse" />
-            TEMPO REAL
-          </span>
-          <span className="impostometro-year-pill">2026</span>
+        <div className="impostometro-head-main">
+          <div className="impostometro-kicker-row">
+            <span className="impostometro-live-badge">
+              <span className="impostometro-live-pulse" />
+              TEMPO REAL
+            </span>
+            <span className="impostometro-year-pill">2026</span>
+            <span className="impostometro-official-badge">ACSP · IBPT</span>
+          </div>
+          <h3 className="impostometro-feature-title">
+            Impostômetro Oficial em Destaque
+          </h3>
+          <p className="impostometro-feature-subtitle">
+            Estimativa em tempo real de tributos federais, estaduais e municipais pagos em{" "}
+            <strong>{scopeLabel}</strong>.
+          </p>
         </div>
-        <h3 className="impostometro-feature-title">Impostômetro Oficial</h3>
-        <p className="impostometro-feature-subtitle">
-          Arrecadação de impostos, taxas e contribuições em <strong>{scopeLabel}</strong>
-        </p>
+
+        {/* Seletor de Escopo (Abas) */}
+        <div className="impostometro-scope-pills" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === "brasil"}
+            className={`impostometro-pill ${scope === "brasil" ? "active" : ""}`}
+            onClick={() => handleScopeChange("brasil")}
+            title="Arrecadação total do Brasil"
+          >
+            🇧🇷 Brasil
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === "parana"}
+            className={`impostometro-pill ${scope === "parana" ? "active" : ""}`}
+            onClick={() => handleScopeChange("parana")}
+            title="Arrecadação do Estado do Paraná"
+          >
+            🏛️ Paraná
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === "municipio"}
+            className={`impostometro-pill ${scope === "municipio" ? "active" : ""}`}
+            onClick={() => handleScopeChange("municipio")}
+            title={`Arrecadação municipal em ${cidadeNome}`}
+          >
+            📍 {cidadeNome}
+          </button>
+        </div>
       </div>
 
-      {/* Seletor de Escopo */}
-      <div className="impostometro-scope-pills" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={scope === "brasil"}
-          className={`impostometro-pill ${scope === "brasil" ? "active" : ""}`}
-          onClick={() => handleScopeChange("brasil")}
-        >
-          🇧🇷 Brasil
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={scope === "parana"}
-          className={`impostometro-pill ${scope === "parana" ? "active" : ""}`}
-          onClick={() => handleScopeChange("parana")}
-        >
-          🏛️ PR
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={scope === "municipio"}
-          className={`impostometro-pill ${scope === "municipio" ? "active" : ""}`}
-          onClick={() => handleScopeChange("municipio")}
-          title={`Arrecadação em ${cidadeNome}`}
-        >
-          📍 {cidadeNome.length > 9 ? cidadeNome.slice(0, 8) + "…" : cidadeNome}
-        </button>
-      </div>
-
-      {/* Contador Principal em Destaque */}
+      {/* Caixa Central do Contador (Em Destaque Grande) */}
       <div className="impostometro-display-box">
-        <span className="impostometro-currency-symbol">R$</span>
-        <strong className="impostometro-big-number">
-          {formatCurrency(currentTotal)}
-        </strong>
-        <div className="impostometro-speed-indicator">
-          <span className="impostometro-speed-dot" />
-          <span>{formatRate(data.Incremento)}</span>
+        <div className="impostometro-display-counter">
+          <span className="impostometro-currency-symbol">R$</span>
+          <strong className="impostometro-big-number">
+            {formatCurrency(currentTotal)}
+          </strong>
+        </div>
+
+        <div className="impostometro-metrics-row">
+          <div className="impostometro-metric-badge">
+            <span className="impostometro-speed-dot" />
+            <span>Ritmo: <strong>{formatRate(data.Incremento)}</strong></span>
+          </div>
+          <div className="impostometro-metric-badge">
+            <span>📅 Arrecadação acumulada desde 01/01/2026</span>
+          </div>
         </div>
       </div>
 
       {/* Detalhamento entre Trilhões, Bilhões, Milhões, Mil e Reais */}
       <div className="impostometro-breakdown-section">
-        <span className="impostometro-breakdown-heading">
-          Detalhamento da Arrecadação:
-        </span>
+        <div className="impostometro-breakdown-header">
+          <span className="impostometro-breakdown-heading">
+            Detalhamento por Escala da Arrecadação:
+          </span>
+          <small className="impostometro-breakdown-note">
+            Atualizado segundo a segundo
+          </small>
+        </div>
         <div className="impostometro-breakdown-grid">
           {breakdown.map((item, idx) => (
             <div key={`${item.label}-${idx}`} className="impostometro-breakdown-col">
-              <span className="impostometro-breakdown-val">{item.value}</span>
-              <span className="impostometro-breakdown-lbl">{item.label}</span>
+              <span className="impostometro-breakdown-val">
+                {item.value}
+              </span>
+              <span className="impostometro-breakdown-lbl">
+                {item.label}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Rodapé Informativo */}
+      {/* Rodapé Oficial */}
       <div className="impostometro-feature-footer">
         <span className="impostometro-source-text">
-          Fonte: <strong>ACSP / IBPT</strong>
+          Fonte oficial: <strong>Associação Comercial de São Paulo (ACSP) / IBPT</strong>
         </span>
         <a
           href="https://impostometro.com.br/"
           target="_blank"
           rel="noreferrer"
           className="impostometro-official-link"
-          title="Ver no portal do Impostômetro"
+          title="Conferir dados no portal oficial do Impostômetro"
         >
           impostometro.com.br ↗
         </a>
