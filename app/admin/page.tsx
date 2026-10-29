@@ -729,10 +729,10 @@ export default function Admin() {
               <div style={{ display: "grid", gap: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px" }}>
                 <div style={{ borderLeft: "4px solid #b51f2c", paddingLeft: "12px" }}>
                   <strong style={{ fontSize: "15px", color: "#0f172a", display: "block" }}>
-                    Configurações do Vídeo / Animação
+                    Configurações do Vídeo / Animação (Padrão: 2360 x 480 px)
                   </strong>
                   <span style={{ fontSize: "12px", color: "#64748b" }}>
-                    Envie um arquivo .mp4 do seu computador ou cole o link direto. O vídeo rodará automaticamente em loop contínuo na proporção da capa (ex: 1920x640 ou 1024x341).
+                    Envie um arquivo .mp4 do seu computador ou cole o link direto. O vídeo rodará automaticamente em loop contínuo no formato padronizado <strong>2360 x 480 px</strong>.
                   </span>
                 </div>
 
@@ -803,9 +803,9 @@ export default function Admin() {
                 {topBannerVideoUrl && (
                   <div style={{ marginTop: "10px" }}>
                     <strong style={{ display: "block", fontSize: "13px", color: "#334155", marginBottom: "6px" }}>
-                      👁️ Pré-visualização do Vídeo na proporção real da Capa:
+                      👁️ Pré-visualização do Vídeo (Formato Oficial 2360 x 480 px):
                     </strong>
-                    <div style={{ width: "100%", aspectRatio: "1024/341", background: "#000", borderRadius: "8px", overflow: "hidden", position: "relative" }}>
+                    <div style={{ width: "100%", aspectRatio: "2360/480", background: "#000", borderRadius: "8px", overflow: "hidden", position: "relative" }}>
                       <video
                         src={topBannerVideoUrl}
                         poster={topBannerPosterUrl || "/banner-rede-apucarana.png?v=2"}
@@ -826,10 +826,10 @@ export default function Admin() {
               <div style={{ display: "grid", gap: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px" }}>
                 <div style={{ borderLeft: "4px solid #b51f2c", paddingLeft: "12px" }}>
                   <strong style={{ fontSize: "15px", color: "#0f172a", display: "block" }}>
-                    Slides do Carrossel de Capa
+                    Slides do Carrossel de Capa (Padrão: 2360 x 480 px)
                   </strong>
                   <span style={{ fontSize: "12px", color: "#64748b" }}>
-                    Adicione os banners que devem alternar automaticamente no topo do portal a cada 4,5 segundos.
+                    Adicione os banners no formato padronizado <strong>2360 x 480 px</strong> para alternarem automaticamente no topo do portal a cada 4,5 segundos.
                   </span>
                 </div>
 
@@ -837,7 +837,7 @@ export default function Admin() {
                 <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "16px", display: "grid", gap: "10px" }}>
                   <strong style={{ fontSize: "13px", color: "#1e293b" }}>+ Adicionar Novo Slide</strong>
                   <ImageField
-                    label="Imagem do Slide (Recomendado: 1024x341 ou 1920x640):"
+                    label="Imagem do Slide (Formato Oficial: 2360 x 480 px):"
                     value={slideForm.imagem}
                     onChange={(v) => setSlideForm({ ...slideForm, imagem: v })}
                   />
@@ -871,7 +871,7 @@ export default function Admin() {
                     <div style={{ display: "grid", gap: "10px" }}>
                       {topBannerSlides.map((slide, idx) => (
                         <div key={slide.id || idx} style={{ display: "flex", alignItems: "center", gap: "12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "10px" }}>
-                          <img src={slide.imagem} alt={slide.titulo} style={{ width: "120px", height: "40px", objectFit: "cover", borderRadius: "4px" }} />
+                          <img src={slide.imagem} alt={slide.titulo} style={{ width: "130px", aspectRatio: "2360/480", objectFit: "cover", borderRadius: "4px" }} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <strong style={{ display: "block", fontSize: "13px", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{slide.titulo}</strong>
                             <small style={{ color: "#64748b", fontSize: "11px" }}>{slide.linkUrl || "Sem link de clique"}</small>
@@ -896,15 +896,15 @@ export default function Admin() {
               <div style={{ display: "grid", gap: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px" }}>
                 <div style={{ borderLeft: "4px solid #b51f2c", paddingLeft: "12px" }}>
                   <strong style={{ fontSize: "15px", color: "#0f172a", display: "block" }}>
-                    Banner de Imagem Fixa
+                    Banner de Imagem Fixa (Padrão: 2360 x 480 px)
                   </strong>
                   <span style={{ fontSize: "12px", color: "#64748b" }}>
-                    Deixe em branco para usar a arte oficial da Rede Apucarana (/banner-rede-apucarana.png), ou envie uma imagem personalizada.
+                    Formato padronizado: <strong>2360 x 480 px</strong>. Deixe em branco para usar a arte padrão da Rede Apucarana, ou envie uma imagem personalizada.
                   </span>
                 </div>
 
                 <ImageField
-                  label="Imagem do Banner (Recomendado: 1024x341 ou 1920x640):"
+                  label="Imagem do Banner (Formato Oficial: 2360 x 480 px):"
                   value={topBannerImageUrl}
                   onChange={setTopBannerImageUrl}
                 />
@@ -918,9 +918,9 @@ export default function Admin() {
                 {/* Prévia */}
                 <div style={{ marginTop: "10px" }}>
                   <strong style={{ display: "block", fontSize: "13px", color: "#334155", marginBottom: "6px" }}>
-                    👁️ Pré-visualização do Banner:
+                    👁️ Pré-visualização do Banner (Formato Oficial 2360 x 480 px):
                   </strong>
-                  <div style={{ width: "100%", aspectRatio: "1024/341", background: "#fff", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                  <div style={{ width: "100%", aspectRatio: "2360/480", background: "#fff", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
                     <img
                       src={topBannerImageUrl || "/banner-rede-apucarana.png?v=2"}
                       alt="Banner Capa"
