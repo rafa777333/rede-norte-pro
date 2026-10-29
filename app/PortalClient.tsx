@@ -7,6 +7,7 @@ import HoroscopeModal from "../components/HoroscopeModal";
 import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner";
 import WeatherHeroBar from "../components/WeatherHeroBar";
 import ImpostometroWidget from "../components/ImpostometroWidget";
+import FutebolWidget from "../components/FutebolWidget";
 
 type Noticia = {
   id: string;
@@ -850,6 +851,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         <nav className="main-nav" aria-label="Navegação principal">
           <div className="container nav-inner">
             <button className={aba === "noticias" ? "active" : ""} onClick={() => setAba("noticias")}>Notícias</button>
+            <a href="/esportes" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", color: "#1d4ed8", fontWeight: "800" }}>⚽ Jogos & Placares</a>
             <a href="/tv-online" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}><span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444" }} /> TV Online</a>
             <button className={aba === "videos" ? "active" : ""} onClick={() => setAba("videos")}>Vídeos</button>
             <button className={aba === "ondeir" ? "active" : ""} onClick={() => setAba("ondeir")}>Onde Ir</button>
@@ -865,6 +867,10 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
       <TopHeroBanner config={topBannerConfig} />
 
       <WeatherHeroBar currentCity={cidade} />
+
+      <div className="container" style={{ margin: "14px auto 8px" }}>
+        <FutebolWidget variant="carousel" />
+      </div>
 
       {aba === "noticias" && <>
         <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>

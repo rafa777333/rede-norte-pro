@@ -1280,3 +1280,601 @@
 
 
 
+
+
+/* ==========================================================================
+   WIDGET DE FUTEBOL E CLASSIFICAÇÃO ESTILO GOOGLE SPORTS
+   ========================================================================== */
+
+.google-sports-widget {
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 14px;
+  padding: 18px 20px 20px;
+  box-shadow: 0 1px 3px rgba(60,64,67,0.06);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin-bottom: 24px;
+}
+
+.google-sports-widget--carousel {
+  margin-top: 14px;
+  margin-bottom: 22px;
+}
+
+.google-sports-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.google-sports-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.google-sports-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.google-sports-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.google-sports-heading {
+  display: flex;
+  flex-direction: column;
+}
+
+.google-sports-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #202124;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.google-sports-subtitle {
+  font-size: 11px;
+  color: #5f6368;
+  margin-top: 2px;
+}
+
+.google-sports-live-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fce8e6;
+  color: #c5221f;
+  border: 1px solid #fad2cf;
+  border-radius: 100px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.google-sports-view-all {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a73e8;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.google-sports-view-all:hover {
+  color: #1557b0;
+  text-decoration: underline;
+}
+
+.google-sports-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #f1f3f4;
+  padding-bottom: 10px;
+}
+
+.google-sports-tabs-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.google-sports-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.google-sports-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.google-sports-divider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: #dadce0;
+  margin: 0 4px;
+}
+
+.google-sports-pill {
+  border: 1px solid #dadce0;
+  background: #ffffff;
+  color: #3c4043;
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.google-sports-pill:hover {
+  background: #f1f3f4;
+  color: #202124;
+}
+
+.google-sports-pill.is-active {
+  background: #e8f0fe;
+  color: #1a73e8;
+  border-color: #d2e3fc;
+  font-weight: 800;
+}
+
+.google-sports-nav-arrows {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.google-sports-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #dadce0;
+  background: #ffffff;
+  color: #3c4043;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  line-height: 1;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.google-sports-nav-btn:hover {
+  background: #f1f3f4;
+  border-color: #bdc1c6;
+}
+
+/* Cards de Partidas Estilo Google */
+.google-sports-cards-carousel {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 12px 2px 8px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.google-sports-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  padding: 14px 0;
+}
+
+.google-match-card {
+  flex: 0 0 280px;
+  width: 280px;
+  min-width: 280px;
+  max-width: 280px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.google-sports-cards-grid .google-match-card {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  flex: auto;
+}
+
+.google-match-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(60,64,67,0.12);
+  border-color: #bdc1c6;
+}
+
+.google-match-card.is-live {
+  border-color: #f28b82;
+  box-shadow: 0 2px 8px rgba(217, 48, 37, 0.08);
+}
+
+.google-match-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.google-match-meta {
+  font-size: 11px;
+  color: #70757a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.google-match-round {
+  color: #80868b;
+  font-weight: 500;
+}
+
+.google-match-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.google-match-badge--live {
+  background: #fce8e6;
+  color: #c5221f;
+  font-weight: 900;
+}
+
+.google-match-badge--ended {
+  background: #f1f3f4;
+  color: #5f6368;
+}
+
+.google-match-badge--scheduled {
+  background: #f8f9fa;
+  color: #1a73e8;
+  font-weight: 800;
+}
+
+.google-sports-pulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d93025;
+  box-shadow: 0 0 0 0 rgba(217, 48, 37, 0.7);
+  animation: googlePulse 1.6s infinite;
+}
+
+@keyframes googlePulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(217, 48, 37, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(217, 48, 37, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(217, 48, 37, 0); }
+}
+
+.google-match-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.google-match-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.google-match-team-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+
+.google-match-crest {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.google-match-crest-placeholder,
+.google-table-crest-fallback {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e8eaed;
+  color: #3c4043;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.google-match-team-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #202124;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.google-match-team-row.is-winner .google-match-team-name {
+  font-weight: 800;
+  color: #202124;
+}
+
+.google-match-team-row.is-loser .google-match-team-name {
+  color: #70757a;
+  font-weight: 500;
+}
+
+.google-match-score {
+  font-size: 16px;
+  font-weight: 800;
+  color: #202124;
+  min-width: 20px;
+  text-align: right;
+}
+
+.google-match-team-row.is-loser .google-match-score {
+  color: #70757a;
+  font-weight: 500;
+}
+
+.google-match-score-vs {
+  color: #80868b;
+  font-weight: 400;
+}
+
+.google-match-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f3f4;
+  font-size: 11px;
+  color: #70757a;
+}
+
+/* Tabela de Classificação Estilo Google */
+.google-sports-standings-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #dadce0;
+}
+
+.google-sports-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.google-sports-section-title h4 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #202124;
+  margin: 0;
+}
+
+.google-sports-subtabs {
+  display: flex;
+  gap: 6px;
+}
+
+.google-sports-subpill {
+  border: 1px solid #dadce0;
+  background: #fff;
+  color: #3c4043;
+  border-radius: 100px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.google-sports-subpill.is-active {
+  background: #e8f0fe;
+  color: #1a73e8;
+  border-color: #d2e3fc;
+  font-weight: 800;
+}
+
+.google-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #dadce0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.google-standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: #202124;
+}
+
+.google-standings-table thead {
+  background: #f8f9fa;
+  border-bottom: 1px solid #dadce0;
+}
+
+.google-standings-table th {
+  padding: 10px 8px;
+  font-weight: 700;
+  color: #5f6368;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.google-standings-table th.th-pos { width: 44px; text-align: center; }
+.google-standings-table th.th-club { text-align: left; padding-left: 12px; }
+.google-standings-table th.th-num { width: 38px; text-align: center; }
+.google-standings-table th.th-pts { width: 44px; color: #202124; font-weight: 900; }
+.google-standings-table th.th-sg { width: 44px; }
+
+.google-standings-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid #f1f3f4;
+  vertical-align: middle;
+}
+
+.google-standings-table tr:last-child td {
+  border-bottom: none;
+}
+
+.google-standings-table tr:hover td {
+  background: #f8f9fa;
+}
+
+.google-standings-table td.td-pos {
+  position: relative;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: #5f6368;
+  padding: 0 4px;
+}
+
+.pos-indicator {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3.5px;
+  border-radius: 0 3px 3px 0;
+}
+
+.pos-indicator.zone-libertadores,
+.pos-indicator.zone-acesso { background: #188038; }
+.pos-indicator.zone-pre-libertadores { background: #1a73e8; }
+.pos-indicator.zone-sulamericana { background: #f9ab00; }
+.pos-indicator.zone-rebaixamento { background: #d93025; }
+
+.google-standings-table td.td-club {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  font-weight: 600;
+}
+
+.google-table-crest {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.google-table-team-name {
+  font-weight: 600;
+  color: #202124;
+  white-space: nowrap;
+}
+
+.google-standings-table td.td-num {
+  text-align: center;
+  color: #5f6368;
+  font-size: 12px;
+}
+
+.google-standings-table td.td-pts {
+  color: #202124;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.google-standings-table td.td-sg {
+  font-weight: 600;
+}
+
+.google-standings-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #5f6368;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot--libertadores { background: #188038; }
+.legend-dot--pre-libertadores { background: #1a73e8; }
+.legend-dot--sulamericana { background: #f9ab00; }
+.legend-dot--rebaixamento { background: #d93025; }
+
+.google-sports-empty {
+  padding: 30px;
+  text-align: center;
+  color: #70757a;
+  font-size: 13px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .google-sports-widget {
+    padding: 14px;
+  }
+  .google-match-card {
+    flex: 0 0 250px;
+    width: 250px;
+    min-width: 250px;
+  }
+  .google-standings-legend {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
