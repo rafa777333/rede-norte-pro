@@ -896,7 +896,10 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
                 <a href="#ultimas">Ver todas →</a>
               </div>
               <div className="latest-visual-grid" id="ultimas">
-                {primeirasUltimas.map((n) => <NewsCard key={n.id} noticia={n} />)}
+                {primeirasUltimas.length > 0 && <NewsCard key={primeirasUltimas[0].id} noticia={primeirasUltimas[0]} />}
+                {primeirasUltimas.length > 1 && <NewsCard key={primeirasUltimas[1].id} noticia={primeirasUltimas[1]} />}
+                <ImpostometroWidget cidadeAtual={cidade} />
+                {primeirasUltimas.slice(2).map((n) => <NewsCard key={n.id} noticia={n} />)}
               </div>
             </section>
             {(() => { const ad = currentMainAds[1]; return <div className="homepage-main-ad homepage-main-ad--middle" aria-label="Publicidade Principal 2">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 2</span></a> : <div><span>PUBLICIDADE PRINCIPAL 2</span><strong>Espaço comercial do meio da página.</strong><small>{cidade !== "Geral" ? `Anuncie no meio da página de ${cidade}.` : "Configure a imagem no painel da redação."}</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
@@ -959,7 +962,6 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
 
             <div className="lateral-slot-stack lateral-break">
               {renderLateralBlock("lg1")}
-              <ImpostometroWidget cidadeAtual={cidade} />
               {renderLateralBlock("lm1")}
             </div>
             {renderTvLoop(1)}
