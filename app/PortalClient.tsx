@@ -391,6 +391,49 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
   }, [cidade, categoria, busca]);
 
   useEffect(() => {
+    if (cidade && cidade !== "Geral") {
+      const slug = cidadeSlug(cidade);
+      const existentes = noticiasAdmin.filter((n) => n.cidade_slug === slug);
+      if (existentes.length < 5) {
+        const supabase = getSupabase();
+        if (supabase) {
+          supabase
+            .from("news")
+            .select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at")
+            .eq("status", "published")
+            .eq("cidade_slug", slug)
+            .order("published_at", { ascending: false })
+            .limit(50)
+            .then(({ data }) => {
+              if (data && data.length) {
+                const formatados = data.filter(noticiaValida).map((n: any) => ({
+                  id: n.id,
+                  slug: n.slug || n.id,
+                  cidade: cidade,
+                  cidade_slug: n.cidade_slug,
+                  cat: n.categoria || "Cidade",
+                  titulo: n.titulo,
+                  sub: resumoSeguro(n.conteudo, n.resumo),
+                  resumo: resumoSeguro(n.conteudo, n.resumo),
+                  texto: n.conteudo || n.resumo || "",
+                  img: n.imagem || "",
+                  hora: n.published_at ? new Date(n.published_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Agora",
+                  autor: n.autor || "Redação Rede Apucarana",
+                  credit: n.autor || "Redação Rede Apucarana",
+                }));
+                setNoticiasAdmin((prev) => {
+                  const idSet = new Set(prev.map((p) => p.id));
+                  const novos = formatados.filter((n: any) => !idSet.has(n.id));
+                  return [...novos, ...prev];
+                });
+              }
+            });
+        }
+      }
+    }
+  }, [cidade]);
+
+  useEffect(() => {
     try {
       const n = localStorage.getItem("rn_noticias"); if (n) setNoticiasAdmin(JSON.parse(n).filter(noticiaValida));
       const l = localStorage.getItem("rn_locais"); if (l) setLocaisAdmin(JSON.parse(l));
@@ -413,8 +456,24 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
       let settingsData: any[] = [];
 
       if (supabase) {
+        const cityFilterSlug = initialCity && initialCity !== "Geral" ? cidadeSlug(initialCity) : null;
+        const newsPromise = cityFilterSlug
+          ? supabase
+              .from("news")
+              .select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at")
+              .eq("status", "published")
+              .or(`cidade_slug.eq.${cityFilterSlug},cidade_slug.eq.geral`)
+              .order("published_at", { ascending: false })
+              .limit(500)
+          : supabase
+              .from("news")
+              .select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at")
+              .eq("status", "published")
+              .order("published_at", { ascending: false })
+              .limit(1000);
+
         const results = await Promise.all([
-          supabase.from("news").select("id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at").eq("status", "published").order("published_at", { ascending: false }).limit(200),
+          newsPromise,
           supabase.from("cities").select("slug,nome"),
           supabase.from("service_providers").select("id,nome,categoria,cidade_slug,endereco,whatsapp,imagem,descricao").eq("verificado", true),
           supabase.from("jobs").select("id,vaga,empresa,cidade_slug,contato,imagem,descricao").eq("status", "published"),
