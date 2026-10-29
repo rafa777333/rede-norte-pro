@@ -928,19 +928,8 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
           <aside className="sidebar">
             <div className="lateral-heading"><span>CONTEÚDO LATERAL</span><a href="/admin">Configurar no painel →</a></div>
             {renderTvLoop(0)}
-            <div className="lateral-slot-stack lateral-break">
-              {renderLateralBlock("lg1")}
-              {renderLateralBlock("lm1")}
-            </div>
-            {renderTvLoop(1)}
-            <div className="lateral-slot-stack lateral-break">
-              {renderLateralBlock("lg2")}
-              {renderLateralBlock("lm2")}
-            </div>
-            <LargeSponsorCarousel sponsors={sponsors} />
-            {renderTvLoop(2)}
 
-            {/* HORÓSCOPO INTERATIVO */}
+            {/* HORÓSCOPO INTERATIVO — LOGO ABAIXO DA PRIMEIRA TV */}
             <div className="horoscope-sidebar-card" id="horoscopo">
               <div className="horoscope-sidebar-head">
                 <span className="eyebrow">PREVISÃO DO DIA</span>
@@ -966,6 +955,18 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
                 Ver todos os 12 signos na íntegra →
               </a>
             </div>
+
+            <div className="lateral-slot-stack lateral-break">
+              {renderLateralBlock("lg1")}
+              {renderLateralBlock("lm1")}
+            </div>
+            {renderTvLoop(1)}
+            <div className="lateral-slot-stack lateral-break">
+              {renderLateralBlock("lg2")}
+              {renderLateralBlock("lm2")}
+            </div>
+            <LargeSponsorCarousel sponsors={sponsors} />
+            {renderTvLoop(2)}
 
             <div className="lateral-slot-stack lateral-break"><div className="lateral-slot lateral-slot--l3m"><span>IMAGEM L3 M</span><strong>Patrocínio regional</strong><small>Espaço próximo ao final da página</small></div></div>
             <div className="ad-slot"><span>ESPAÇO COMERCIAL</span><strong>Sua marca aparece aqui.</strong><p>Use este espaço para campanhas, ofertas e vídeos dos parceiros da Rede Apucarana.</p><a href="mailto:comercial@redeapucarana.com.br">Falar com a redação →</a></div>
