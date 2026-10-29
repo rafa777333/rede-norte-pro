@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { cidadeSlug, getSupabase } from "../lib/supabase";
 import { getHoroscopoDoDia, type SignoPrevisao } from "../lib/horoscope";
 import HoroscopeModal from "../components/HoroscopeModal";
+import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner";
 
 type Noticia = {
   id: string;
@@ -669,6 +670,18 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
     return result;
   }, [cidade, settingsMap]);
 
+  const topBannerConfig = useMemo<TopBannerConfig | null>(() => {
+    const raw = settingsMap.get("top_banner_config");
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch (e) {
+      console.warn("Erro ao parsear top_banner_config:", e);
+    }
+    return null;
+  }, [settingsMap]);
+
   const alternarRadio = async () => {
     const audio = radioRef.current;
     if (!audio) return;
@@ -845,11 +858,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
       </header>
       <audio ref={radioRef} src={RADIO_STREAM_URL} preload="none" />
 
-      <section className="container top-banner" aria-label="Banner Rede Apucarana de Comunicação">
-        <div className="top-banner-frame">
-          <img src="/banner-rede-apucarana.png?v=2" alt="Rede Apucarana de Comunicação — Jornalismo, Podcast, Rádio, Web TV e Portal" />
-        </div>
-      </section>
+      <TopHeroBanner config={topBannerConfig} />
 
       {aba === "noticias" && <>
         <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>

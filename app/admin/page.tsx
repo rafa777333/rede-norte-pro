@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
 
-type Tab = "noticias" | "videos" | "ondeir" | "classificados" | "empregos" | "promocoes" | "publicidade" | "contato";
+type Tab = "capa" | "noticias" | "videos" | "ondeir" | "classificados" | "empregos" | "promocoes" | "publicidade" | "contato";
 type Noticia = { id: string; titulo: string; cidade: string; cat: string; resumo: string; img: string; texto?: string };
 type Local = { id: string; nome: string; cidade: string; cat: string; end: string; zap: string; img?: string; detalhes?: string };
 type Classif = { id: string; titulo: string; cidade: string; cat: string; preco: string; zap: string; img?: string; detalhes?: string; status?: string };
@@ -16,7 +16,7 @@ const CIDADES = ["Geral", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Iva�
 const CAT_NOT = ["Política", "Cidade", "Segurança", "Economia", "Eventos", "Destaque"];
 const CAT_ONDE = ["Restaurantes", "Lanchonetes", "Pizzarias", "Bares", "Cafés", "Serviços", "Lojas"];
 const CAT_CLASS = ["Imóveis", "Veículos", "Eletrônicos", "Móveis", "Celulares", "Outros"];
-const TABS: [Tab, string][] = [["noticias", "Notícias"], ["videos", "Vídeos"], ["ondeir", "Onde Ir"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["publicidade", "Publicidade"], ["contato", "Contato"]];
+const TABS: [Tab, string][] = [["capa", "🎬 Capa Principal"], ["noticias", "Notícias"], ["videos", "Vídeos"], ["ondeir", "Onde Ir"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["publicidade", "Publicidade"], ["contato", "Contato"]];
 
 function getMainAdKeys(city: string, position: number) {
   const isGeral = city === "Geral";
@@ -96,6 +96,17 @@ export default function Admin() {
   const [videos, setVideos] = useState<VideoAdmin[]>([]);
   const [sponsors, setSponsors] = useState<SponsorAdmin[]>([]);
   const [sponsorForm, setSponsorForm] = useState({ titulo: "", img: "", linkUrl: "", ordem: "0" });
+
+  const [topBannerType, setTopBannerType] = useState<"video" | "carousel" | "image">("image");
+  const [topBannerVideoUrl, setTopBannerVideoUrl] = useState("");
+  const [topBannerVideoFile, setTopBannerVideoFile] = useState<File | null>(null);
+  const [topBannerPosterUrl, setTopBannerPosterUrl] = useState("");
+  const [topBannerImageUrl, setTopBannerImageUrl] = useState("");
+  const [topBannerLinkUrl, setTopBannerLinkUrl] = useState("");
+  const [topBannerAudioEnabled, setTopBannerAudioEnabled] = useState(false);
+  const [topBannerUploading, setTopBannerUploading] = useState(false);
+  const [topBannerSlides, setTopBannerSlides] = useState<{ id: string; imagem: string; titulo: string; linkUrl: string }[]>([]);
+  const [slideForm, setSlideForm] = useState<{ imagem: string; titulo: string; linkUrl: string }>({ imagem: "", titulo: "", linkUrl: "" });
 
   const [adCity, setAdCity] = useState("Geral");
   const [allSettings, setAllSettings] = useState<Map<string, string>>(new Map());
@@ -230,6 +241,21 @@ export default function Admin() {
           const list = JSON.parse(promData);
           if (Array.isArray(list)) setNoticiasPromovidasGeral(new Set(list));
         } catch {}
+      }
+      const topBannerRaw = settingsMap.get("top_banner_config");
+      if (topBannerRaw) {
+        try {
+          const parsed = JSON.parse(topBannerRaw);
+          if (parsed.tipo) setTopBannerType(parsed.tipo);
+          if (parsed.videoUrl) setTopBannerVideoUrl(parsed.videoUrl);
+          if (parsed.posterUrl) setTopBannerPosterUrl(parsed.posterUrl);
+          if (parsed.imageUrl) setTopBannerImageUrl(parsed.imageUrl);
+          if (parsed.linkUrl) setTopBannerLinkUrl(parsed.linkUrl);
+          if (typeof parsed.audioEnabled === "boolean") setTopBannerAudioEnabled(parsed.audioEnabled);
+          if (Array.isArray(parsed.slides)) setTopBannerSlides(parsed.slides);
+        } catch (e) {
+          console.warn("Erro ao ler top_banner_config:", e);
+        }
       }
       loadAdsForCity(adCity, settingsMap);
     } finally {
@@ -379,6 +405,98 @@ export default function Admin() {
       localStorage.setItem("local_site_sponsors", JSON.stringify(list.filter((x: any) => x.id !== id)));
     }
     await carregarTudo();
+  };
+
+  const adicionarSlide = () => {
+    if (!slideForm.imagem.trim()) return alert("Selecione ou informe a imagem do slide.");
+    const novo = {
+      id: "slide-" + Date.now(),
+      imagem: slideForm.imagem,
+      titulo: slideForm.titulo.trim() || `Slide ${topBannerSlides.length + 1}`,
+      linkUrl: slideForm.linkUrl.trim(),
+    };
+    setTopBannerSlides([...topBannerSlides, novo]);
+    setSlideForm({ imagem: "", titulo: "", linkUrl: "" });
+  };
+
+  const removerSlide = (id: string) => {
+    setTopBannerSlides(topBannerSlides.filter((s) => s.id !== id));
+  };
+
+  const salvarTopBanner = async () => {
+    const supabase = getSupabase();
+    if (!supabase) return alert("Erro de conexão com o Supabase.");
+
+    try {
+      setTopBannerUploading(true);
+      let finalVideoUrl = topBannerVideoUrl.trim();
+
+      if (topBannerVideoFile) {
+        finalVideoUrl = await uploadArquivo(topBannerVideoFile, "top-banners");
+        setTopBannerVideoUrl(finalVideoUrl);
+        setTopBannerVideoFile(null);
+      }
+
+      let finalPosterUrl = topBannerPosterUrl.trim();
+      if (finalPosterUrl.startsWith("data:")) {
+        finalPosterUrl = await uploadImagem(finalPosterUrl, "top-banners");
+        setTopBannerPosterUrl(finalPosterUrl);
+      }
+
+      let finalImageUrl = topBannerImageUrl.trim();
+      if (finalImageUrl.startsWith("data:")) {
+        finalImageUrl = await uploadImagem(finalImageUrl, "top-banners");
+        setTopBannerImageUrl(finalImageUrl);
+      }
+
+      const processedSlides = await Promise.all(
+        topBannerSlides.map(async (s) => {
+          let img = s.imagem;
+          if (img.startsWith("data:")) {
+            img = await uploadImagem(img, "top-banners");
+          }
+          return { ...s, imagem: img };
+        })
+      );
+
+      const config = {
+        tipo: topBannerType,
+        videoUrl: finalVideoUrl,
+        posterUrl: finalPosterUrl,
+        imageUrl: finalImageUrl,
+        linkUrl: topBannerLinkUrl.trim(),
+        audioEnabled: topBannerAudioEnabled,
+        slides: processedSlides,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const jsonStr = JSON.stringify(config);
+      const { error } = await supabase.from("site_settings").upsert(
+        { key: "top_banner_config", value: jsonStr, updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
+
+      if (error) throw error;
+
+      if (typeof window !== "undefined") {
+        const local = JSON.parse(localStorage.getItem("local_site_settings") || "{}");
+        local["top_banner_config"] = jsonStr;
+        localStorage.setItem("local_site_settings", JSON.stringify(local));
+      }
+
+      setAllSettings((prev) => {
+        const next = new Map(prev);
+        next.set("top_banner_config", jsonStr);
+        return next;
+      });
+
+      alert("Capa Principal atualizada com sucesso no portal!");
+    } catch (err: any) {
+      console.error("Erro ao salvar capa principal:", err);
+      alert(`Erro ao salvar capa principal: ${err.message || "tente novamente"}`);
+    } finally {
+      setTopBannerUploading(false);
+    }
   };
 
   const salvarWhatsApp = async () => {
@@ -552,15 +670,274 @@ export default function Admin() {
         </div>
       </header>
       <nav className="admin-tabs">{TABS.map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</nav>
-      <div className="admin-city-filter">
-        <div><span className="admin-kicker">FILTRAR CADASTROS</span><strong>{selectedCity}</strong></div>
-        <label><span>⌕</span><input value={citySearch} onChange={(e) => setCitySearch(e.target.value)} placeholder="Procurar cidade para filtrar" /></label>
-        <div className="city-results">
-          <button className={selectedCity === "Todas as cidades" ? "selected" : ""} onClick={() => saveCity("Todas as cidades")}>Todas</button>
-          {cidadesVisiveis.map((cidade) => <button key={cidade} className={selectedCity === cidade ? "selected" : ""} onClick={() => saveCity(cidade)}>{cidade}</button>)}
+      {tab !== "capa" && (
+        <div className="admin-city-filter">
+          <div><span className="admin-kicker">FILTRAR CADASTROS</span><strong>{selectedCity}</strong></div>
+          <label><span>⌕</span><input value={citySearch} onChange={(e) => setCitySearch(e.target.value)} placeholder="Procurar cidade para filtrar" /></label>
+          <div className="city-results">
+            <button className={selectedCity === "Todas as cidades" ? "selected" : ""} onClick={() => saveCity("Todas as cidades")}>Todas</button>
+            {cidadesVisiveis.map((cidade) => <button key={cidade} className={selectedCity === cidade ? "selected" : ""} onClick={() => saveCity(cidade)}>{cidade}</button>)}
+          </div>
         </div>
-      </div>
+      )}
       <main className="admin-main">
+        {tab === "capa" && (
+          <AdminSection
+            title="Capa Principal do Portal (Banner do Topo)"
+            description="Personalize o espaço nobre de abertura do portal (abaixo do menu de cidades e antes das notícias). Escolha entre um Vídeo Animado em looping contínuo, um Carrossel de Banners ou uma Imagem Fixa."
+          >
+            {/* Seletor de Tipo */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: "900", color: "#1e293b", marginBottom: "10px" }}>
+                🎯 Escolha o Formato da Capa Principal:
+              </label>
+              <div className="admin-media-type-selector">
+                <button
+                  type="button"
+                  className={`admin-media-type-btn ${topBannerType === "video" ? "active" : ""}`}
+                  onClick={() => setTopBannerType("video")}
+                >
+                  <span style={{ fontSize: "24px" }}>🎥</span>
+                  <strong>Vídeo / Animação MP4</strong>
+                  <span>Vinheta animada em loop, leve e contínua com suporte a autoplay</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`admin-media-type-btn ${topBannerType === "carousel" ? "active" : ""}`}
+                  onClick={() => setTopBannerType("carousel")}
+                >
+                  <span style={{ fontSize: "24px" }}>🎠</span>
+                  <strong>Carrossel de Slides</strong>
+                  <span>Múltiplos banners e artes girando automaticamente</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`admin-media-type-btn ${topBannerType === "image" ? "active" : ""}`}
+                  onClick={() => setTopBannerType("image")}
+                >
+                  <span style={{ fontSize: "24px" }}>🖼️</span>
+                  <strong>Imagem Fixa</strong>
+                  <span>Banner padrão estático da Rede Apucarana ou arte institucional</span>
+                </button>
+              </div>
+            </div>
+
+            {/* CASO VÍDEO */}
+            {topBannerType === "video" && (
+              <div style={{ display: "grid", gap: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px" }}>
+                <div style={{ borderLeft: "4px solid #b51f2c", paddingLeft: "12px" }}>
+                  <strong style={{ fontSize: "15px", color: "#0f172a", display: "block" }}>
+                    Configurações do Vídeo / Animação
+                  </strong>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                    Envie um arquivo .mp4 do seu computador ou cole o link direto. O vídeo rodará automaticamente em loop contínuo na proporção da capa (ex: 1920x640 ou 1024x341).
+                  </span>
+                </div>
+
+                <div className="video-file-field">
+                  <label>Arquivo de Vídeo (.mp4 ou .webm):</label>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setTopBannerVideoFile(file);
+                      if (file) {
+                        const localUrl = URL.createObjectURL(file);
+                        setTopBannerVideoUrl(localUrl);
+                      }
+                    }}
+                  />
+                  <small>
+                    {topBannerVideoFile
+                      ? `Arquivo selecionado: ${topBannerVideoFile.name} (${(topBannerVideoFile.size / 1024 / 1024).toFixed(1)} MB)`
+                      : topBannerVideoUrl
+                      ? "Vídeo atual configurado."
+                      : "Nenhum arquivo local selecionado. Você também pode colar um link abaixo."}
+                  </small>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#475569", marginBottom: "4px" }}>
+                    Ou link direto da URL do Vídeo (MP4):
+                  </label>
+                  <FormInput
+                    placeholder="https://.../video.mp4"
+                    value={topBannerVideoUrl.startsWith("blob:") ? "(Arquivo local selecionado acima)" : topBannerVideoUrl}
+                    onChange={(v) => {
+                      setTopBannerVideoUrl(v);
+                      setTopBannerVideoFile(null);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#475569", marginBottom: "4px" }}>
+                    Link de destino ao clicar na capa (opcional):
+                  </label>
+                  <FormInput
+                    placeholder="https://chat.whatsapp.com/... ou https://seusite.com ou /noticias/..."
+                    value={topBannerLinkUrl}
+                    onChange={setTopBannerLinkUrl}
+                  />
+                </div>
+
+                <ImageField
+                  label="Thumbnail / Imagem de fundo (enquanto o vídeo carrega - opcional):"
+                  value={topBannerPosterUrl}
+                  onChange={setTopBannerPosterUrl}
+                />
+
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "700", color: "#1e293b", cursor: "pointer", marginTop: "4px" }}>
+                  <input
+                    type="checkbox"
+                    checked={topBannerAudioEnabled}
+                    onChange={(e) => setTopBannerAudioEnabled(e.target.checked)}
+                  />
+                  <span>Permitir botão de som para o visitante (por padrão o vídeo roda silencioso para não bloquear autoplay)</span>
+                </label>
+
+                {/* Prévia ao vivo */}
+                {topBannerVideoUrl && (
+                  <div style={{ marginTop: "10px" }}>
+                    <strong style={{ display: "block", fontSize: "13px", color: "#334155", marginBottom: "6px" }}>
+                      👁️ Pré-visualização do Vídeo na proporção real da Capa:
+                    </strong>
+                    <div style={{ width: "100%", aspectRatio: "1024/341", background: "#000", borderRadius: "8px", overflow: "hidden", position: "relative" }}>
+                      <video
+                        src={topBannerVideoUrl}
+                        poster={topBannerPosterUrl || "/banner-rede-apucarana.png?v=2"}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CASO CARROSSEL */}
+            {topBannerType === "carousel" && (
+              <div style={{ display: "grid", gap: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px" }}>
+                <div style={{ borderLeft: "4px solid #b51f2c", paddingLeft: "12px" }}>
+                  <strong style={{ fontSize: "15px", color: "#0f172a", display: "block" }}>
+                    Slides do Carrossel de Capa
+                  </strong>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                    Adicione os banners que devem alternar automaticamente no topo do portal a cada 4,5 segundos.
+                  </span>
+                </div>
+
+                {/* Formulário para novo slide */}
+                <div style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "16px", display: "grid", gap: "10px" }}>
+                  <strong style={{ fontSize: "13px", color: "#1e293b" }}>+ Adicionar Novo Slide</strong>
+                  <ImageField
+                    label="Imagem do Slide (Recomendado: 1024x341 ou 1920x640):"
+                    value={slideForm.imagem}
+                    onChange={(v) => setSlideForm({ ...slideForm, imagem: v })}
+                  />
+                  <FormInput
+                    placeholder="Título do Slide (ex: Anuncie na Rede Apucarana)"
+                    value={slideForm.titulo}
+                    onChange={(v) => setSlideForm({ ...slideForm, titulo: v })}
+                  />
+                  <FormInput
+                    placeholder="Link de Destino (opcional: https://wa.me/... ou /admin)"
+                    value={slideForm.linkUrl}
+                    onChange={(v) => setSlideForm({ ...slideForm, linkUrl: v })}
+                  />
+                  <button
+                    type="button"
+                    onClick={adicionarSlide}
+                    style={{ padding: "10px 16px", background: "#0f172a", color: "#fff", border: 0, borderRadius: "6px", fontWeight: "700", cursor: "pointer", fontSize: "12px" }}
+                  >
+                    Adicionar Slide à Lista
+                  </button>
+                </div>
+
+                {/* Lista de slides */}
+                <div>
+                  <strong style={{ display: "block", fontSize: "13px", color: "#334155", marginBottom: "8px" }}>
+                    Slides Cadastrados ({topBannerSlides.length}):
+                  </strong>
+                  {topBannerSlides.length === 0 ? (
+                    <p style={{ fontSize: "12px", color: "#64748b" }}>Nenhum slide adicionado ainda. Use o formulário acima para adicionar banners ao carrossel.</p>
+                  ) : (
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {topBannerSlides.map((slide, idx) => (
+                        <div key={slide.id || idx} style={{ display: "flex", alignItems: "center", gap: "12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "10px" }}>
+                          <img src={slide.imagem} alt={slide.titulo} style={{ width: "120px", height: "40px", objectFit: "cover", borderRadius: "4px" }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ display: "block", fontSize: "13px", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{slide.titulo}</strong>
+                            <small style={{ color: "#64748b", fontSize: "11px" }}>{slide.linkUrl || "Sem link de clique"}</small>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removerSlide(slide.id)}
+                            style={{ padding: "6px 12px", background: "#fee2e2", color: "#991b1b", border: 0, borderRadius: "6px", fontWeight: "700", cursor: "pointer", fontSize: "11px" }}
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* CASO IMAGEM FIXA */}
+            {topBannerType === "image" && (
+              <div style={{ display: "grid", gap: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px" }}>
+                <div style={{ borderLeft: "4px solid #b51f2c", paddingLeft: "12px" }}>
+                  <strong style={{ fontSize: "15px", color: "#0f172a", display: "block" }}>
+                    Banner de Imagem Fixa
+                  </strong>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                    Deixe em branco para usar a arte oficial da Rede Apucarana (/banner-rede-apucarana.png), ou envie uma imagem personalizada.
+                  </span>
+                </div>
+
+                <ImageField
+                  label="Imagem do Banner (Recomendado: 1024x341 ou 1920x640):"
+                  value={topBannerImageUrl}
+                  onChange={setTopBannerImageUrl}
+                />
+
+                <FormInput
+                  placeholder="Link de destino ao clicar no banner (opcional)"
+                  value={topBannerLinkUrl}
+                  onChange={setTopBannerLinkUrl}
+                />
+
+                {/* Prévia */}
+                <div style={{ marginTop: "10px" }}>
+                  <strong style={{ display: "block", fontSize: "13px", color: "#334155", marginBottom: "6px" }}>
+                    👁️ Pré-visualização do Banner:
+                  </strong>
+                  <div style={{ width: "100%", aspectRatio: "1024/341", background: "#fff", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                    <img
+                      src={topBannerImageUrl || "/banner-rede-apucarana.png?v=2"}
+                      alt="Banner Capa"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <SaveButton
+              label={topBannerUploading ? "Enviando arquivo e salvando..." : "Salvar Capa Principal"}
+              onClick={() => void salvarTopBanner()}
+            />
+          </AdminSection>
+        )}
+
         {tab === "noticias" && (
           <AdminSection title="Cadastrar notícia" description="Notícias municipais ficam na aba da cidade. Use a opção 'Exibir também no Geral' para destacar uma matéria da cidade na Capa Principal.">
             <FormInput placeholder="Título da notícia" value={nForm.titulo} onChange={(v) => setNForm({ ...nForm, titulo: v })} />
@@ -724,6 +1101,25 @@ export default function Admin() {
         {tab === "publicidade" && (
           <AdminSection title="Publicidade e patrocinadores" description="Configure os vídeos das TVs, banners principais, blocos laterais LG1, LM1, LG2 e LM2, e o carrossel grande de patrocinadores em loop.">
             
+            {/* Aviso e atalho para a Capa Principal */}
+            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "10px", padding: "14px 18px", marginBottom: "18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", flexWrap: "wrap" }}>
+              <div>
+                <strong style={{ display: "block", fontSize: "14px", color: "#1e40af", marginBottom: "3px" }}>
+                  🎬 Quer colocar Vídeo Animado ou Carrossel na Capa Principal (Topo)?
+                </strong>
+                <span style={{ fontSize: "12px", color: "#3b82f6" }}>
+                  Você pode configurar a mídia de abertura do portal diretamente na aba <strong>🎬 Capa Principal</strong> no menu superior.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab("capa")}
+                style={{ padding: "9px 15px", background: "#1d4ed8", color: "#fff", border: 0, borderRadius: "6px", fontWeight: "800", fontSize: "12px", cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                Abrir Capa Principal →
+              </button>
+            </div>
+
             {/* Seletor Geral ou Por Cidade */}
             <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "16px", marginBottom: "18px" }}>
               <label style={{ display: "block", fontSize: "14px", fontWeight: "900", color: "#166534", marginBottom: "6px" }}>
