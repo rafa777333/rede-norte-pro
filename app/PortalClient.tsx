@@ -6,6 +6,7 @@ import { getHoroscopoDoDia, type SignoPrevisao } from "../lib/horoscope";
 import HoroscopeModal from "../components/HoroscopeModal";
 import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner";
 import WeatherHeroBar from "../components/WeatherHeroBar";
+import ImpostometroWidget from "../components/ImpostometroWidget";
 
 type Noticia = {
   id: string;
@@ -958,6 +959,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
 
             <div className="lateral-slot-stack lateral-break">
               {renderLateralBlock("lg1")}
+              <ImpostometroWidget cidadeAtual={cidade} />
               {renderLateralBlock("lm1")}
             </div>
             {renderTvLoop(1)}
