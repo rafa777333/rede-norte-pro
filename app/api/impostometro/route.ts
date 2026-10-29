@@ -36,13 +36,14 @@ export async function GET(request: Request) {
 
   try {
     const res = await fetch(targetUrl, {
+      cache: "no-store",
       headers: {
         "X-Requested-With": "XMLHttpRequest",
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Accept: "application/json, text/javascript, */*; q=0.01",
+        Referer: "https://impostometro.com.br/",
       },
-      next: { revalidate: 30 },
     });
 
     if (!res.ok) {
@@ -65,6 +66,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       fallback: true,
+      errorMsg: err?.message || String(err),
       data: fallback,
     });
   }
