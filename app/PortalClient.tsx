@@ -802,20 +802,22 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
     const defaultTitle = isLarge ? "Publicidade Lateral Grande" : "Publicidade Lateral Média";
 
     if (ad.imagem) {
+      const hasLink = Boolean(ad.linkUrl && ad.linkUrl.trim() && ad.linkUrl !== "#");
       return (
         <a
-          href={ad.linkUrl || "#"}
-          target={ad.linkUrl && ad.linkUrl !== "#" ? "_blank" : undefined}
-          rel="noreferrer"
-          className={`lateral-slot lateral-slot--${slot} lateral-slot--custom`}
-          style={{ backgroundImage: `url(${ad.imagem})` }}
-          title={ad.titulo}
+          href={hasLink ? ad.linkUrl : undefined}
+          target={hasLink ? "_blank" : undefined}
+          rel={hasLink ? "noreferrer" : undefined}
+          className={`lateral-slot lateral-slot--${slot} lateral-slot--custom ${hasLink ? "lateral-slot--clickable" : ""}`}
+          title={ad.titulo || `Publicidade ${slotName}`}
+          key={`lateral-block-${slot}`}
         >
-          <span className="lateral-slot-badge">{slotName} · PATROCINADOR</span>
-          <div className="lateral-slot-overlay">
-            <strong>{ad.titulo}</strong>
-            {ad.linkUrl && <small>Conhecer parceiro ↗</small>}
-          </div>
+          <img
+            src={ad.imagem}
+            alt={ad.titulo || `Publicidade ${slotName}`}
+            className="lateral-slot-image-only"
+            loading="lazy"
+          />
         </a>
       );
     }

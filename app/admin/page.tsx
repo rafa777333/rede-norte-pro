@@ -1152,12 +1152,13 @@ export default function Admin() {
                 🏷️ Blocos Laterais (LG1, LM1, LG2 e LM2) — {adCity === "Geral" ? "Gerais" : adCity}
               </strong>
               <span style={{ color: "#7f1d1d" }}>
-                Configure os patrocinadores dos 4 blocos fixos da barra lateral. LG1 e LG2 são formatos grandes (destaque alto), e LM1 e LM2 são formatos médios.
+                Configure os patrocinadores dos 4 blocos fixos da barra lateral. LG1 e LG2 são formatos grandes (16x10). LM1 e LM2 são enquadrados como <strong>Cartão de Visita (proporção 9x5)</strong>. Ao enviar uma foto/arte, ela é exibida <strong>100% limpa</strong>, sem nenhuma palavra ou selo por cima.
               </span>
 
               {/* Bloco LG1 */}
               <div className="admin-ad-form">
                 <strong>LG1 — Bloco Lateral Grande 1 ({adCity})</strong>
+                <p style={{ fontSize: "11px", color: "#991b1b", margin: "4px 0 10px" }}>🖼️ Proporção recomendada 16:10 (ex: 600x375px). Fica apenas a imagem limpa no portal.</p>
                 <FormInput
                   placeholder="Nome do patrocinador ou título do anúncio (LG1)"
                   value={lateralAdsForm.lg1.titulo}
@@ -1177,7 +1178,8 @@ export default function Admin() {
 
               {/* Bloco LM1 */}
               <div className="admin-ad-form">
-                <strong>LM1 — Bloco Lateral Médio 1 ({adCity})</strong>
+                <strong>LM1 — Bloco Lateral Médio 1 ({adCity}) — Cartão de Visita</strong>
+                <p style={{ fontSize: "11px", color: "#0369a1", margin: "4px 0 10px" }}>📇 <strong>Formato Cartão de Visita:</strong> Proporção 9:5 (ex: 900x500px). Fica perfeitamente enquadrado como um cartão de visita limpo.</p>
                 <FormInput
                   placeholder="Nome do patrocinador ou título do anúncio (LM1)"
                   value={lateralAdsForm.lm1.titulo}
@@ -1198,6 +1200,7 @@ export default function Admin() {
               {/* Bloco LG2 */}
               <div className="admin-ad-form">
                 <strong>LG2 — Bloco Lateral Grande 2 ({adCity})</strong>
+                <p style={{ fontSize: "11px", color: "#991b1b", margin: "4px 0 10px" }}>🖼️ Proporção recomendada 16:10 (ex: 600x375px). Fica apenas a imagem limpa no portal.</p>
                 <FormInput
                   placeholder="Nome do patrocinador ou título do anúncio (LG2)"
                   value={lateralAdsForm.lg2.titulo}
@@ -1217,7 +1220,8 @@ export default function Admin() {
 
               {/* Bloco LM2 */}
               <div className="admin-ad-form">
-                <strong>LM2 — Bloco Lateral Médio 2 ({adCity})</strong>
+                <strong>LM2 — Bloco Lateral Médio 2 ({adCity}) — Cartão de Visita</strong>
+                <p style={{ fontSize: "11px", color: "#0369a1", margin: "4px 0 10px" }}>📇 <strong>Formato Cartão de Visita:</strong> Proporção 9:5 (ex: 900x500px). Fica perfeitamente enquadrado como um cartão de visita limpo.</p>
                 <FormInput
                   placeholder="Nome do patrocinador ou título do anúncio (LM2)"
                   value={lateralAdsForm.lm2.titulo}
