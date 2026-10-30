@@ -669,7 +669,12 @@ export default function Admin() {
           <button onClick={() => void sair()}>Sair</button>
         </div>
       </header>
-      <nav className="admin-tabs">{TABS.map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</nav>
+      <nav className="admin-tabs">
+        {TABS.map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
+        <a href="/admin/videos" style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#b51f2c", color: "#fff", padding: "8px 16px", borderRadius: "99px", textDecoration: "none", fontSize: "12px", fontWeight: "900", marginLeft: "auto", whiteSpace: "nowrap" }}>
+          🎬 Gerenciar Vídeos do Portal (Shorts) →
+        </a>
+      </nav>
       {tab !== "capa" && (
         <div className="admin-city-filter">
           <div><span className="admin-kicker">FILTRAR CADASTROS</span><strong>{selectedCity}</strong></div>
@@ -1028,6 +1033,16 @@ export default function Admin() {
 
         {tab === "videos" && (
           <AdminSection title="Cadastrar vídeo" description="Publique cortes próprios com upload direto ou cole um link público do Instagram para assistir sem sair do portal.">
+            <div style={{ background: "#0f172a", color: "#fff", padding: "16px 20px", borderRadius: "16px", marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", border: "1px solid #334155" }}>
+              <div>
+                <span style={{ fontSize: "11px", fontWeight: "900", color: "#ef4444", letterSpacing: "0.1em", textTransform: "uppercase" }}>✨ Nova Central de Vídeos Curtos</span>
+                <h3 style={{ fontSize: "17px", margin: "4px 0", color: "#fff", fontWeight: "800" }}>Faixa Multimídia da Home (YouTube Shorts, Reels, TikTok)</h3>
+                <p style={{ margin: 0, fontSize: "12px", color: "#94a3b8" }}>Gerencie a nova faixa multimídia escura da página principal com formulário completo e integração com a tabela <code>public.videos_portal</code>.</p>
+              </div>
+              <a href="/admin/videos" style={{ background: "#dc2626", color: "#fff", padding: "10px 18px", borderRadius: "10px", textDecoration: "none", fontWeight: "900", fontSize: "13px", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                Abrir Gerenciador de Vídeos →
+              </a>
+            </div>
             <FormInput placeholder="Título do vídeo" value={videoForm.titulo} onChange={(v) => setVideoForm({ ...videoForm, titulo: v })} />
             <div className="form-row"><Select value={videoForm.cidade} onChange={(v) => setVideoForm({ ...videoForm, cidade: v })} options={CIDADES} /><Select value={videoForm.categoria} onChange={(v) => setVideoForm({ ...videoForm, categoria: v })} options={VIDEO_CATEGORIAS} /></div>
             <Select value={videoForm.tipo} onChange={(v) => setVideoForm({ ...videoForm, tipo: v as "upload" | "instagram" })} options={["upload", "instagram"]} />

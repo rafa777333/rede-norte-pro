@@ -12,7 +12,7 @@ import Badge from "../components/Badge";
 import TopUtilityCockpit from "../components/TopUtilityCockpit";
 import MobileBottomNav from "../components/MobileBottomNav";
 import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
-import DarkMediaStrip from "../components/DarkMediaStrip";
+import DarkMediaStrip, { type VideoPortalItem } from "../components/DarkMediaStrip";
 
 
 type Noticia = {
@@ -393,6 +393,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
   const [classifAdmin, setClassifAdmin] = useState<any[]>([]);
   const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
   const [videosAdmin, setVideosAdmin] = useState<Video[]>([]);
+  const [videosPortal, setVideosPortal] = useState<VideoPortalItem[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [settingsMap, setSettingsMap] = useState<Map<string, string>>(new Map());
   const [grupoWhatsApp, setGrupoWhatsApp] = useState("");
@@ -506,6 +507,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
           supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,published_at").eq("status", "published").order("published_at", { ascending: false }),
           supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").eq("ativo", true).order("ordem").limit(20),
           supabase.from("site_settings").select("key,value"),
+          supabase.from("videos_portal").select("*").eq("status", "publicado").order("created_at", { ascending: false }),
         ]);
         news = results[0].data || [];
         cities = results[1].data || [];
@@ -516,6 +518,8 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         videos = results[6].data || [];
         sponsorData = results[7].data || [];
         settingsData = results[8].data || [];
+        const portalVideosData = results[9].data || [];
+        if (portalVideosData.length) setVideosPortal(portalVideosData);
       }
 
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
@@ -974,7 +978,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
             </section>
 
             {/* FAIXA MULTIMÍDIA DARK (VÍDEOS CURTOS, CORTES E PODCAST) */}
-            <DarkMediaStrip videos={videosAdmin} cidade={cidade} />
+            <DarkMediaStrip videos={videosPortal} cidade={cidade} />
 
             {/* Publicidade Principal 2 */}
             {(() => {
