@@ -404,24 +404,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
   const [jobEnviado, setJobEnviado] = useState(false);
   const [radioTocando, setRadioTocando] = useState(false);
   const [signoAberto, setSignoAberto] = useState<SignoPrevisao | null>(null);
-  const [isScrolled, setIsScrolled] = useState(false);
   const radioRef = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    let ticking = false;
-    const onScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setIsScrolled(window.scrollY > 45);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   useEffect(() => {
     setCidade(initialCity);
@@ -874,8 +857,10 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
   return (
     <main className="site-shell">
       <TopUtilityCockpit radioTocando={radioTocando} onToggleRadio={alternarRadio} whatsappUrl={grupoWhatsApp} />
-      <header className={`site-header sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all duration-300 ${isScrolled ? "is-scrolled shadow-md" : ""}`}>
-        <div className={`container header-main transition-all duration-300 ease-in-out ${isScrolled ? "is-retracted" : ""}`}>
+      
+      {/* Faixa da Marca e Ações (Logo Rede Apucarana, Ouvir Rádio, Busca) - rola naturalmente com o topo */}
+      <div className="header-brand-bar bg-white border-b border-slate-200/80">
+        <div className="container header-main">
           <a className="brand" href="/">
             <img src="/logo-rede-apucarana.png?v=2" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "44px", height: "44px", padding: 0 }} />
             <span className="brand-name">REDE APUCARANA <em>DE COMUNICAÇÃO</em></span>
@@ -886,6 +871,10 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
             <button className="menu-button" aria-label="Abrir menu">☰</button>
           </div>
         </div>
+      </div>
+
+      {/* Barra de Abas Sticky (Notícias, Jogos, TV + Cidades) - fixa no topo de forma ultra leve sem travar */}
+      <header className="site-header sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <nav className="main-nav" aria-label="Navegação principal">
           <div className="container nav-inner">
             <button className={aba === "noticias" ? "active" : ""} onClick={() => setAba("noticias")}>Notícias</button>
