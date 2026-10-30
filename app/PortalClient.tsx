@@ -1165,6 +1165,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         onClose={() => setSignoAberto(null)}
         onSelectSigno={(s) => setSignoAberto(s)}
       />
+      <MobileBottomNav currentTab={aba} onSelectTab={setAba} />
     </main>
   );
 }
