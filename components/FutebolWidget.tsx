@@ -37,7 +37,7 @@ export interface FutebolClassificacao {
 }
 
 interface FutebolWidgetProps {
-  variant?: "carousel" | "full";
+  variant?: "carousel" | "full" | "compact";
   initialCampeonato?: string;
 }
 
@@ -179,6 +179,145 @@ export default function FutebolWidget({
 
   if (!carregando && jogos.length === 0 && classificacao.length === 0) {
     return null; // Nada a exibir
+  }
+
+  if (variant === "compact") {
+    const exibidos = jogosFiltrados.slice(0, 3);
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm hover:shadow-md transition-all">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⚽</span>
+            <div>
+              <h3 className="font-heading font-extrabold text-slate-900 text-base leading-tight">
+                Jogos & Placares
+              </h3>
+              <span className="text-xs text-slate-500">Resultados da rodada</span>
+            </div>
+          </div>
+          {totalAoVivo > 0 ? (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 text-[10px] font-black uppercase tracking-wider">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              AO VIVO
+            </span>
+          ) : (
+            <span className="text-[10px] uppercase font-bold tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+              ESPN
+            </span>
+          )}
+        </div>
+
+        {/* Abas Rápidas */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2.5 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+          {campeonatosDisponiveis.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCampeonato(c)}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
+                campeonato === c
+                  ? "bg-blue-50 text-blue-700 border-blue-200 font-bold"
+                  : "bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-slate-100"
+              }`}
+            >
+              {c.replace("Brasileirão ", "")}
+            </button>
+          ))}
+        </div>
+
+        {/* Lista de jogos compacta */}
+        <div className="space-y-2">
+          {exibidos.map((jogo) => {
+            const isAoVivo = jogo.status === "ao_vivo";
+            const isEncerrado = jogo.status === "encerrado";
+            return (
+              <div
+                key={jogo.id}
+                className={`p-2.5 rounded-xl border transition-all ${
+                  isAoVivo
+                    ? "bg-red-50/40 border-red-200 shadow-2xs"
+                    : "bg-slate-50/60 border-slate-100 hover:bg-white hover:border-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold mb-1.5">
+                  <span className="truncate max-w-[140px]">{jogo.campeonato}</span>
+                  {isAoVivo ? (
+                    <span className="text-red-600 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+                      {jogo.tempo_jogo || "AO VIVO"}
+                    </span>
+                  ) : isEncerrado ? (
+                    <span className="text-slate-500 font-medium">Fim</span>
+                  ) : (
+                    <span className="text-blue-600 font-medium tabular-nums">
+                      {formataDataHora(jogo.data_jogo, jogo.tempo_jogo, jogo.status)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Mandante */}
+                <div className="flex items-center justify-between gap-2 py-0.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {jogo.time_casa_escudo ? (
+                      <img src={jogo.time_casa_escudo} alt={jogo.time_casa_nome} className="w-5 h-5 object-contain shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-bold shrink-0">
+                        {jogo.time_casa_sigla || "M"}
+                      </div>
+                    )}
+                    <span className="text-xs font-semibold text-slate-800 truncate">
+                      {jogo.time_casa_nome}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 tabular-nums">
+                    {isAoVivo || isEncerrado ? jogo.placar_casa : "-"}
+                  </span>
+                </div>
+
+                {/* Visitante */}
+                <div className="flex items-center justify-between gap-2 py-0.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {jogo.time_fora_escudo ? (
+                      <img src={jogo.time_fora_escudo} alt={jogo.time_fora_nome} className="w-5 h-5 object-contain shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-bold shrink-0">
+                        {jogo.time_fora_sigla || "V"}
+                      </div>
+                    )}
+                    <span className="text-xs font-semibold text-slate-800 truncate">
+                      {jogo.time_fora_nome}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 tabular-nums">
+                    {isAoVivo || isEncerrado ? jogo.placar_fora : "-"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {exibidos.length === 0 && (
+            <div className="text-center py-4 text-xs text-slate-500">
+              Sem partidas agendadas no momento.
+            </div>
+          )}
+        </div>
+
+        {/* Rodapé */}
+        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+          <a
+            href="/esportes"
+            className="text-blue-600 hover:text-blue-700 font-bold transition-colors inline-flex items-center gap-1"
+          >
+            Ver classificação e tabela completa →
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (

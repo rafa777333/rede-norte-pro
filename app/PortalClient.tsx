@@ -8,6 +8,12 @@ import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner
 import WeatherHeroBar from "../components/WeatherHeroBar";
 import ImpostometroWidget from "../components/ImpostometroWidget";
 import FutebolWidget from "../components/FutebolWidget";
+import Badge from "../components/Badge";
+import TopUtilityCockpit from "../components/TopUtilityCockpit";
+import MobileBottomNav from "../components/MobileBottomNav";
+import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
+import DarkMediaStrip from "../components/DarkMediaStrip";
+
 
 type Noticia = {
   id: string;
@@ -212,20 +218,34 @@ function formatarNoticiasAdmin(items: any[]): Noticia[] {
   }));
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="news-badge">{children}</span>;
-}
+// Badge is imported from components/Badge
 
 function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: boolean }) {
   const href = `/noticias/${encodeURIComponent(noticia.slug || noticia.id)}`;
   return (
-    <a className={`news-card ${compact ? "news-card--compact" : ""}`} href={href}>
-      {noticia.img ? <img src={noticia.img} alt={`Imagem da notícia: ${noticia.titulo}`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="news-card-placeholder" aria-label="Imagem não fornecida pela fonte"><span>RA</span><small>Imagem não fornecida pela fonte</small></div>}
+    <a className={`news-card group ${compact ? "news-card--compact" : ""}`} href={href}>
+      {noticia.img ? (
+        <img
+          src={noticia.img}
+          alt={`Imagem da notícia: ${noticia.titulo}`}
+          loading="lazy"
+          className="transition-transform duration-500 ease-out group-hover:scale-105"
+          onError={(event) => { event.currentTarget.style.display = "none"; }}
+        />
+      ) : (
+        <div className="news-card-placeholder" aria-label="Imagem não fornecida pela fonte">
+          <span>RA</span>
+          <small>Imagem não fornecida pela fonte</small>
+        </div>
+      )}
       <span className="card-content">
-        <span className="card-kicker"><Badge>{noticia.cat}</Badge><span>{noticia.cidade}</span></span>
-        <strong>{noticia.titulo}</strong>
+        <span className="card-kicker">
+          <Badge category={noticia.cat}>{noticia.cat}</Badge>
+          <span>{noticia.cidade}</span>
+        </span>
+        <strong className="group-hover:text-blue-600 transition-colors duration-200">{noticia.titulo}</strong>
         {!compact && <span className="card-summary">{noticia.sub}</span>}
-        <span className="card-meta">{noticia.hora || "Agora"} · {noticia.autor || "Redação Rede Apucarana"}</span>
+        <span className="card-meta tabular-nums">{noticia.hora || "Agora"} · {noticia.autor || "Redação Rede Apucarana"}</span>
       </span>
     </a>
   );
@@ -738,7 +758,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         </header>
         <article className="article-shell">
           <div className="article-breadcrumb">Início / {sel.cat} / {sel.cidade}</div>
-          <div className="article-category"><Badge>{sel.cat}</Badge><span>{sel.cidade}</span></div>
+          <div className="article-category"><Badge category={sel.cat}>{sel.cat}</Badge><span>{sel.cidade}</span></div>
           <h1>{sel.titulo}</h1>
           <p className="article-dek">{sel.sub}</p>
           <div className="article-byline"><img src="/logo-rede-apucarana.png?v=2" alt="Logo" className="avatar" style={{ objectFit: "cover", width: "34px", height: "34px", borderRadius: "50%" }} /><span><strong>{sel.autor || "Redação Rede Apucarana"}</strong><small>Publicado hoje às {sel.hora || "09:10"} · leitura de 2 min</small></span></div>
@@ -747,13 +767,14 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
           <div className="article-footer-note"><strong>Encontrou um erro?</strong><span> Fale com a redação para solicitar uma correção ou enviar informação.</span></div>
           <section className="related"><div className="section-heading"><span>Leia também</span><i /></div><div className="related-grid">{todas.filter((n) => n.id !== sel.id).slice(0, 3).map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div></section>
         </article>
-      </main>
+        <MobileBottomNav currentTab={aba} onSelectTab={setAba} />
+    </main>
     );
   }
 
   const destaque = filtradas[0];
-  const menores = filtradas.slice(1, 3);
-  const posteriores = filtradas.slice(3, limiteNoticias);
+  const menores = filtradas.slice(1, 4);
+  const posteriores = filtradas.slice(4, limiteNoticias);
   const primeirasUltimas = posteriores.slice(0, 12);
   const restantesUltimas = posteriores.slice(12);
   const temMaisNoticias = filtradas.length > limiteNoticias;
@@ -835,8 +856,8 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
 
   return (
     <main className="site-shell">
-      <div className="topline"><div className="container topline-inner"><WeatherTicker /><a href="/admin">Acesso da redação</a></div></div>
-      <header className="site-header">
+      <TopUtilityCockpit radioTocando={radioTocando} onToggleRadio={alternarRadio} whatsappUrl={grupoWhatsApp} />
+      <header className="site-header sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
         <div className="container header-main">
           <a className="brand" href="/">
             <img src="/logo-rede-apucarana.png?v=2" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "44px", height: "44px", padding: 0 }} />
@@ -874,17 +895,25 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
 
       {aba === "noticias" && <>
         <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>
-        <section className="container content-grid">
-          <div className="main-column">
+        <section className="container grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2 pb-12">
+          {/* Coluna Principal de Jornalismo (8 colunas) */}
+          <div className="lg:col-span-8 space-y-6">
             <div className="headline-layout">
               {destaque ? (
-                <a className="hero-story" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>
-                  {destaque.img ? <img className="hero-image" src={destaque.img} alt={`Imagem da notícia: ${destaque.titulo}`} onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="hero-image hero-image--empty" aria-label="Imagem não fornecida pela fonte"><span>Imagem não fornecida pela fonte</span></div>}
+                <a className="hero-story group" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>
+                  {destaque.img ? (
+                    <img className="hero-image" src={destaque.img} alt={`Imagem da notícia: ${destaque.titulo}`} onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                  ) : (
+                    <div className="hero-image hero-image--empty" aria-label="Imagem não fornecida pela fonte"><span>Imagem não fornecida pela fonte</span></div>
+                  )}
                   <span className="hero-copy">
                     <span className="hero-featured-label">{cidade !== "Geral" ? `DESTAQUE EM ${cidade.toUpperCase()}` : "DESTAQUE DA REDAÇÃO"}</span>
-                    <span className="card-kicker"><Badge>{destaque.cat}</Badge><span>{destaque.cidade} · {destaque.hora}</span></span>
-                    <strong>{destaque.titulo}</strong>
-                    <span>{destaque.sub}</span>
+                    <span className="card-kicker">
+                      <Badge category={destaque.cat} variant="subtle">{destaque.cat}</Badge>
+                      <span className="text-slate-300 font-semibold">{destaque.cidade} · <span className="tabular-nums">{destaque.hora}</span></span>
+                    </span>
+                    <strong className="group-hover:text-blue-200 transition-colors line-clamp-3">{destaque.titulo}</strong>
+                    <span className="line-clamp-2">{destaque.sub}</span>
                     <small>Leia a matéria completa <b>→</b></small>
                   </span>
                 </a>
@@ -893,11 +922,39 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
                   {carregandoNoticias ? "Carregando notícias mais recentes…" : `Ainda não há notícias cadastradas para ${cidade}. O conteúdo publicado pela redação aparecerá aqui.`}
                 </div>
               )}
-              {menores.length > 0 && <div className="headline-side">{menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div>}
             </div>
-            {(() => { const ad = currentMainAds[0]; return <div className="homepage-main-ad" aria-label="Publicidade Principal 1">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 1</span></a> : <div><span>PUBLICIDADE PRINCIPAL 1</span><strong>Seu anunciante pode ocupar este destaque.</strong><small>{cidade !== "Geral" ? `Anuncie com destaque em ${cidade}.` : "Configure o anúncio no painel da redação."}</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
-            {menores.length > 0 && <section className="news-section mobile-more-news"><div className="section-heading"><span>Mais notícias de {cidade}</span><i /></div><div className="news-grid">{menores.map((n) => <NewsCard key={n.id} noticia={n} />)}</div></section>}
-            <section className="news-section latest-section">
+
+            {/* Sub-manchetes: grid de 3 colunas */}
+            {menores.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}
+              </div>
+            )}
+
+            {/* Publicidade Principal 1 */}
+            {(() => {
+              const ad = currentMainAds[0];
+              return (
+                <div className="homepage-main-ad" aria-label="Publicidade Principal 1">
+                  {ad.imagem ? (
+                    <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer">
+                      <img src={ad.imagem} alt={ad.titulo} />
+                      <span>PUBLICIDADE PRINCIPAL 1</span>
+                    </a>
+                  ) : (
+                    <div>
+                      <span>PUBLICIDADE PRINCIPAL 1</span>
+                      <strong>Seu anunciante pode ocupar este destaque.</strong>
+                      <small>{cidade !== "Geral" ? `Anuncie com destaque em ${cidade}.` : "Configure o anúncio no painel da redação."}</small>
+                      <a href="/admin">Configurar espaço →</a>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Seção Últimas Notícias com Impostômetro no 5º slot visual */}
+            <section className="news-section latest-section" style={{ marginTop: "1rem" }}>
               <div className="section-heading">
                 <span>{cidade !== "Geral" ? `Últimas notícias de ${cidade}` : "Últimas notícias"}</span>
                 <i />
@@ -909,14 +966,57 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
                 {primeirasUltimas.slice(4).map((n) => <NewsCard key={n.id} noticia={n} />)}
               </div>
             </section>
-            {(() => { const ad = currentMainAds[1]; return <div className="homepage-main-ad homepage-main-ad--middle" aria-label="Publicidade Principal 2">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 2</span></a> : <div><span>PUBLICIDADE PRINCIPAL 2</span><strong>Espaço comercial do meio da página.</strong><small>{cidade !== "Geral" ? `Anuncie no meio da página de ${cidade}.` : "Configure a imagem no painel da redação."}</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
-            {todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade.toLowerCase() === cidade.toLowerCase())).length > 0 && <section className="news-section sports-break"><div className="section-heading"><span>Esportes</span><i /><a href="#esportes">Ver todas →</a></div><div className="latest-visual-grid" id="esportes">{todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade.toLowerCase() === cidade.toLowerCase())).slice(0, 6).map((n) => <NewsCard key={`esporte-${n.id}`} noticia={n} />)}</div></section>}
+
+            {/* FAIXA MULTIMÍDIA DARK (VÍDEOS CURTOS, CORTES E PODCAST) */}
+            <DarkMediaStrip videos={videosAdmin} cidade={cidade} />
+
+            {/* Publicidade Principal 2 */}
+            {(() => {
+              const ad = currentMainAds[1];
+              return (
+                <div className="homepage-main-ad homepage-main-ad--middle" aria-label="Publicidade Principal 2">
+                  {ad.imagem ? (
+                    <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer">
+                      <img src={ad.imagem} alt={ad.titulo} />
+                      <span>PUBLICIDADE PRINCIPAL 2</span>
+                    </a>
+                  ) : (
+                    <div>
+                      <span>PUBLICIDADE PRINCIPAL 2</span>
+                      <strong>Espaço comercial do meio da página.</strong>
+                      <small>{cidade !== "Geral" ? `Anuncie no meio da página de ${cidade}.` : "Configure a imagem no painel da redação."}</small>
+                      <a href="/admin">Configurar espaço →</a>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Esportes */}
+            {todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade.toLowerCase() === cidade.toLowerCase())).length > 0 && (
+              <section className="news-section sports-break">
+                <div className="section-heading">
+                  <span>Esportes</span>
+                  <i />
+                  <a href="/esportes">Ver central de jogos →</a>
+                </div>
+                <div className="latest-visual-grid" id="esportes">
+                  {todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade.toLowerCase() === cidade.toLowerCase())).slice(0, 6).map((n) => (
+                    <NewsCard key={`esporte-${n.id}`} noticia={n} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Mais Notícias */}
             {restantesUltimas.length > 0 && (
               <section className="news-section visual-news-section">
                 <div className="section-heading"><span>Mais notícias de {cidade}</span><i /></div>
                 <div className="latest-visual-grid">{restantesUltimas.map((n) => <NewsCard key={n.id} noticia={n} />)}</div>
               </section>
             )}
+
+            {/* Carregar Mais Notícias */}
             {filtradas.length > 3 && (
               <div className="load-more-container">
                 {temMaisNoticias ? (
@@ -934,13 +1034,58 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
                 )}
               </div>
             )}
-            {(() => { const ad = currentMainAds[2]; return <div className="homepage-main-ad homepage-main-ad--bottom" aria-label="Publicidade Principal 3">{ad.imagem ? <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer"><img src={ad.imagem} alt={ad.titulo} /><span>PUBLICIDADE PRINCIPAL 3</span></a> : <div><span>PUBLICIDADE PRINCIPAL 3</span><strong>Espaço comercial no final da página.</strong><small>{cidade !== "Geral" ? `Anuncie no final da página de ${cidade}.` : "Configure a imagem no painel da redação."}</small><a href="/admin">Configurar espaço →</a></div>}</div>; })()}
+
+            {/* Publicidade Principal 3 */}
+            {(() => {
+              const ad = currentMainAds[2];
+              return (
+                <div className="homepage-main-ad homepage-main-ad--bottom" aria-label="Publicidade Principal 3">
+                  {ad.imagem ? (
+                    <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer">
+                      <img src={ad.imagem} alt={ad.titulo} />
+                      <span>PUBLICIDADE PRINCIPAL 3</span>
+                    </a>
+                  ) : (
+                    <div>
+                      <span>PUBLICIDADE PRINCIPAL 3</span>
+                      <strong>Espaço comercial no final da página.</strong>
+                      <small>{cidade !== "Geral" ? `Anuncie no final da página de ${cidade}.` : "Configure a imagem no painel da redação."}</small>
+                      <a href="/admin">Configurar espaço →</a>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
-          <aside className="sidebar">
-            <div className="lateral-heading"><span>CONTEÚDO LATERAL</span><a href="/admin">Configurar no painel →</a></div>
+
+          {/* Coluna Lateral de Utilidade Viva (4 colunas) */}
+          <aside className="sidebar lg:col-span-4 space-y-6">
+            {/* 1. Widget Interativo de Jogos / Placar Estilo Google */}
+            <FutebolWidget variant="compact" />
+
+            {/* 2. Hub de Utilidades Rápidas */}
+            <QuickUtilitiesHub
+              cidadeAtual={cidade}
+              onSelectAba={setAba}
+              vagasCount={vagasAdmin.length}
+              classifCount={classifAdmin.length}
+              locaisCount={locaisAdmin.length}
+              onOpenHoroscopo={() => {
+                const s = horoscopoSignos[0];
+                if (s) setSignoAberto(s);
+              }}
+            />
+
+            {/* 3. Blocos Patrocinadores LG1 e LM1 */}
+            <div className="lateral-slot-stack lateral-break">
+              {renderLateralBlock("lg1")}
+              {renderLateralBlock("lm1")}
+            </div>
+
+            {/* 4. TV Loop 1 */}
             {renderTvLoop(0)}
 
-            {/* HORÓSCOPO INTERATIVO — LOGO ABAIXO DA PRIMEIRA TV */}
+            {/* 5. Horóscopo do Dia Interativo */}
             <div className="horoscope-sidebar-card" id="horoscopo">
               <div className="horoscope-sidebar-head">
                 <span className="eyebrow">PREVISÃO DO DIA</span>
@@ -967,28 +1112,42 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
               </a>
             </div>
 
-            <div className="lateral-slot-stack lateral-break">
-              {renderLateralBlock("lg1")}
-              {renderLateralBlock("lm1")}
-            </div>
-            {renderTvLoop(1)}
+            {/* 6. Blocos Patrocinadores LG2 e LM2 */}
             <div className="lateral-slot-stack lateral-break">
               {renderLateralBlock("lg2")}
               {renderLateralBlock("lm2")}
             </div>
+
+            {/* 7. Carrossel de Grandes Patrocinadores em Loop */}
             <LargeSponsorCarousel sponsors={sponsors} />
+
+            {/* 8. TV Loop 2 */}
+            {renderTvLoop(1)}
+
+            {/* 9. TV Loop 3 se existir */}
             {renderTvLoop(2)}
 
-            <div className="lateral-slot-stack lateral-break"><div className="lateral-slot lateral-slot--l3m"><span>IMAGEM L3 M</span><strong>Patrocínio regional</strong><small>Espaço próximo ao final da página</small></div></div>
-            <div className="ad-slot"><span>ESPAÇO COMERCIAL</span><strong>Sua marca aparece aqui.</strong><p>Use este espaço para campanhas, ofertas e vídeos dos parceiros da Rede Apucarana.</p><a href="mailto:comercial@redeapucarana.com.br">Falar com a redação →</a></div>
-            {grupoWhatsApp && <a className="whatsapp-card" href={grupoWhatsApp} target="_blank" rel="noreferrer"><span>COMUNIDADE REDE APUCARANA</span><strong>Entre no grupo do WhatsApp</strong><small>Receba avisos e notícias importantes da região.</small><b>Entrar no grupo →</b></a>}
-            <div className="flash-card"><span className="flash-label">FLASH</span><strong>Informação regional em movimento.</strong><p>Notícias, serviços e oportunidades para acompanhar ao longo do dia.</p></div>
-            <div className="newsletter-card"><span className="eyebrow">RECEBA AS NOTÍCIAS</span><strong>Informação local no seu e-mail.</strong><p>As principais notícias de Apucarana e região, sem excesso.</p><button>Quero receber</button></div>
+            {/* 10. Comunidade WhatsApp */}
+            {grupoWhatsApp && (
+              <a className="whatsapp-card" href={grupoWhatsApp} target="_blank" rel="noreferrer">
+                <span>COMUNIDADE REDE APUCARANA</span>
+                <strong>Entre no grupo do WhatsApp</strong>
+                <small>Receba avisos e notícias importantes da região.</small>
+                <b>Entrar no grupo →</b>
+              </a>
+            )}
+
+            {/* 11. Flash Card & Newsletter */}
+            <div className="flash-card">
+              <span className="flash-label">FLASH</span>
+              <strong>Informação regional em movimento.</strong>
+              <p>Notícias, serviços e oportunidades para acompanhar ao longo do dia.</p>
+            </div>
           </aside>
         </section>
       </>}
 
-      {aba === "videos" && <section className="container utility-page video-page"><span className="eyebrow">CORTES DA REDE APUCARANA</span><h2>Vídeos de {cidade}</h2><p className="video-page-intro">Assista aos cortes das matérias diretamente no portal. Vídeos enviados pela redação e publicações públicas do Instagram aparecem aqui sem você precisar sair da página.</p><div className="video-grid">{videosAdmin.filter((v) => v.categoria !== "Publicidade" && ((cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase())).map((video) => <article className="video-card" key={video.id}><VideoPlayer video={video} /><div className="video-card-copy"><span className="card-kicker"><Badge>{video.categoria}</Badge><span>{video.cidade}</span></span><h3>{video.titulo}</h3><p>{video.descricao}</p><small>{video.publishedAt ? new Date(video.publishedAt).toLocaleDateString("pt-BR") : "Agora"}{video.materiaUrl && <> · <a href={video.materiaUrl}>Ler matéria</a></>}</small><a className="video-open-link" href={`/videos/${video.id}`}>Abrir página e compartilhar →</a></div></article>)}{!videosAdmin.filter((v) => v.categoria !== "Publicidade" && ((cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase())).length && <div className="empty-state">Ainda não há vídeos publicados para {cidade}. A redação pode cadastrar cortes pelo painel administrativo.</div>}</div></section>}
+      {aba === "videos" && <section className="container utility-page video-page"><span className="eyebrow">CORTES DA REDE APUCARANA</span><h2>Vídeos de {cidade}</h2><p className="video-page-intro">Assista aos cortes das matérias diretamente no portal. Vídeos enviados pela redação e publicações públicas do Instagram aparecem aqui sem você precisar sair da página.</p><div className="video-grid">{videosAdmin.filter((v) => v.categoria !== "Publicidade" && ((cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase())).map((video) => <article className="video-card" key={video.id}><VideoPlayer video={video} /><div className="video-card-copy"><span className="card-kicker"><Badge category={video.categoria}>{video.categoria}</Badge><span>{video.cidade}</span></span><h3>{video.titulo}</h3><p>{video.descricao}</p><small>{video.publishedAt ? new Date(video.publishedAt).toLocaleDateString("pt-BR") : "Agora"}{video.materiaUrl && <> · <a href={video.materiaUrl}>Ler matéria</a></>}</small><a className="video-open-link" href={`/videos/${video.id}`}>Abrir página e compartilhar →</a></div></article>)}{!videosAdmin.filter((v) => v.categoria !== "Publicidade" && ((cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase())).length && <div className="empty-state">Ainda não há vídeos publicados para {cidade}. A redação pode cadastrar cortes pelo painel administrativo.</div>}</div></section>}
 
       {aba === "ondeir" && <section className="container utility-page"><span className="eyebrow">GUIA REGIONAL</span><h2>Onde ir em {cidade}</h2><div className="public-list-grid">{locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).map((l: any) => <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} /><span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span></button>)}{!locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Em breve, lugares, serviços e experiências em {cidade}.</div>}</div></section>}
 

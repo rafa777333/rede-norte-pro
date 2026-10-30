@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { getSupabase } from "../../../lib/supabase";
 import ShareButtons from "./ShareButtons";
+import ReadingProgressBar from "../../../components/ReadingProgressBar";
+import Badge from "../../../components/Badge";
+import MobileBottomNav from "../../../components/MobileBottomNav";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -179,6 +182,7 @@ export default async function NewsPage({
 
   return (
     <main className="article-page permanent-article">
+      <ReadingProgressBar />
       <header className="article-header">
         <a className="brand brand--small" href="/">
           <img
@@ -200,8 +204,8 @@ export default async function NewsPage({
         <div className="article-breadcrumb">
           <a href="/">Início</a> / {news.categoria || "Notícias"} / {city}
         </div>
-        <div className="article-category">
-          <span className="news-badge">{news.categoria || "Notícias"}</span>
+        <div className="article-category flex items-center gap-2">
+          <Badge category={news.categoria || "Notícias"}>{news.categoria || "Notícias"}</Badge>
           <span>{city}</span>
         </div>
         <h1>{news.titulo}</h1>
@@ -271,9 +275,9 @@ export default async function NewsPage({
                 )}
                 <span className="card-content">
                   <span className="card-kicker">
-                    <span className="news-badge">
+                    <Badge category={item.categoria || "Notícias"}>
                       {item.categoria || "Notícias"}
-                    </span>
+                    </Badge>
                   </span>
                   <strong>{item.titulo}</strong>
                 </span>
@@ -282,6 +286,7 @@ export default async function NewsPage({
           </div>
         </section>
       </article>
+      <MobileBottomNav currentTab="noticias" />
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import React from "react";
 import FutebolWidget from "../../components/FutebolWidget";
+import MobileBottomNav from "../../components/MobileBottomNav";
 
 export const metadata = {
   title: "Jogos de Hoje, Placares ao Vivo e Classificação | Rede Apucarana Esportes",
@@ -62,6 +63,8 @@ export default function EsportesPage() {
           <span>Dados esportivos providos via ESPN Open API</span>
         </div>
       </footer>
+
+      <MobileBottomNav currentTab="jogos" />
     </main>
   );
 }
