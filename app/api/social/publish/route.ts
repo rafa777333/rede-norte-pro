@@ -9,16 +9,28 @@ import {
   reconcileFacebookPhoto,
   reconcileInstagramMedia,
 } from "@/lib/meta";
+import { SocialPublicationInsert, SocialPublicationNetwork } from "@/types/social";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-interface RequestBody {
+interface AutomatedPublishRequestBody {
+  news_id?: string;
+  newsId?: string;
+  title?: string;
+  image_url?: string;
+  imageUrl?: string;
+  networks?: SocialPublicationNetwork[];
+}
+
+interface LegacyRequestBody {
   newsId: string;
   network: "facebook" | "instagram";
   action?: "publish" | "resolve_mark_published" | "resolve_retry" | "reconcile";
 }
+
+type CombinedRequestBody = AutomatedPublishRequestBody & Partial<LegacyRequestBody>;
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,16 +69,163 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Leitura e Validação do Corpo da Requisição
-    const body = (await req.json().catch(() => null)) as RequestBody | null;
-    if (!body || !body.newsId || !body.network) {
+    // 2. Leitura do Corpo da Requisição
+    const body = (await req.json().catch(() => null)) as CombinedRequestBody | null;
+    if (!body) {
       return NextResponse.json(
-        { error: "Parâmetros obrigatórios ausentes: 'newsId' e 'network' ('facebook' ou 'instagram')." },
+        { error: "Corpo da requisição JSON inválido ou vazio." },
         { status: 400 }
       );
     }
 
-    const { newsId, network, action = "publish" } = body;
+    // =========================================================================
+    // ETAPA 2: FLUXO DE PUBLICAÇÃO AUTOMATIZADA (n8n + Canva + Meta)
+    // Ativado quando o array de 'networks' é enviado pelo SocialPublishWidget
+    // =========================================================================
+    if (Array.isArray(body.networks) && body.networks.length > 0) {
+      const newsId = (body.news_id || body.newsId)?.trim();
+      const networks = body.networks;
+      const customTitle = body.title?.trim();
+      const customImageUrl = (body.image_url || body.imageUrl)?.trim();
+
+      if (!newsId) {
+        return NextResponse.json(
+          { error: "Parâmetro obrigatório ausente: 'news_id'." },
+          { status: 400 }
+        );
+      }
+
+      // Validação de existência da matéria no Supabase
+      const { data: news, error: fetchErr } = await supabaseAdmin
+        .from("news")
+        .select("id, titulo, resumo, conteudo, imagem, slug, status")
+        .eq("id", newsId)
+        .maybeSingle();
+
+      if (fetchErr || !news) {
+        return NextResponse.json(
+          { error: "Notícia não encontrada no banco de dados para disparo." },
+          { status: 404 }
+        );
+      }
+
+      const finalTitle = customTitle || news.titulo;
+      const finalImageUrl = customImageUrl || news.imagem;
+
+      // Inserção do registro inicial na tabela social_publications com status 'queued'
+      const insertData: SocialPublicationInsert = {
+        news_id: newsId,
+        networks,
+        status: "queued",
+        canva_job_id: null,
+        supabase_image_url: null,
+        meta_post_ids: {},
+        error_log: null,
+      };
+
+      const { data: newPublication, error: insertErr } = await supabaseAdmin
+        .from("social_publications")
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (insertErr || !newPublication) {
+        console.error("Erro ao registrar publicação social no Supabase:", insertErr);
+        return NextResponse.json(
+          { error: `Erro ao enfileirar publicação no banco: ${insertErr?.message || "Falha desconhecida"}` },
+          { status: 500 }
+        );
+      }
+
+      // Disparo via fetch para o Webhook do n8n
+      const n8nWebhookUrl =
+        process.env.N8N_WEBHOOK_URL || "http://localhost:5678/webhook/social-publish";
+
+      const n8nPayload = {
+        publication_id: newPublication.id,
+        news_id: newsId,
+        title: finalTitle,
+        image_url: finalImageUrl,
+        resumo: news.resumo || "",
+        conteudo: news.conteudo || "",
+        slug: news.slug || "",
+        networks,
+        created_at: newPublication.created_at,
+      };
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const n8nRes = await fetch(n8nWebhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "RedeNortePro-NextJS/1.0",
+          },
+          body: JSON.stringify(n8nPayload),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!n8nRes.ok) {
+          const resBodyText = await n8nRes.text().catch(() => n8nRes.statusText);
+          throw new Error(
+            `Webhook n8n respondeu com erro (${n8nRes.status}): ${resBodyText || n8nRes.statusText}`
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: "Publicação enfileirada com sucesso e disparada para o fluxo do n8n.",
+          publication: newPublication,
+        });
+      } catch (n8nError: any) {
+        const errorMsg =
+          n8nError?.name === "AbortError"
+            ? "Timeout ao aguardar resposta do webhook do n8n (15s)."
+            : n8nError?.message || "Falha de conexão com o webhook do n8n.";
+
+        console.error("Erro ao disparar webhook para o n8n:", errorMsg);
+
+        // Atualização do status para 'failed' e gravação no error_log conforme especificação
+        const { data: updatedPub } = await supabaseAdmin
+          .from("social_publications")
+          .update({
+            status: "failed",
+            error_log: errorMsg,
+          })
+          .eq("id", newPublication.id)
+          .select()
+          .single();
+
+        return NextResponse.json(
+          {
+            error: `Falha ao acionar automação no n8n: ${errorMsg}`,
+            publication: updatedPub || { ...newPublication, status: "failed", error_log: errorMsg },
+            status: "failed",
+          },
+          { status: 502 }
+        );
+      }
+    }
+
+    // =========================================================================
+    // FLUXO LEGADO: PUBLICAÇÃO DIRETA META (FACEBOOK / INSTAGRAM AVULSO)
+    // Mantido para compatibilidade estrita com botões e rotinas preexistentes
+    // =========================================================================
+    const newsId = body.newsId || body.news_id;
+    const network = body.network;
+    const action = body.action || "publish";
+
+    if (!newsId || !network) {
+      return NextResponse.json(
+        { error: "Parâmetros obrigatórios ausentes: 'newsId'/'news_id' e 'network' ou 'networks'." },
+        { status: 400 }
+      );
+    }
+
     if (network !== "facebook" && network !== "instagram") {
       return NextResponse.json(
         { error: "Rede inválida. Utilize 'facebook' ou 'instagram'." },
@@ -105,7 +264,7 @@ export async function POST(req: NextRequest) {
             }
           : {
               instagram_status: "nao_publicado",
-              instagram_container_id: null, // Limpa o container para nova tentativa limpa
+              instagram_container_id: null,
               instagram_error: null,
             };
 
@@ -220,7 +379,6 @@ export async function POST(req: NextRequest) {
       const tempoDecorridoMs = attemptedAtStr ? Date.now() - new Date(attemptedAtStr).getTime() : 0;
       const cincoMinutosMs = 5 * 60 * 1000;
 
-      // Se iniciou há menos de 5 minutos, bloqueia com 409
       if (tempoDecorridoMs < cincoMinutosMs) {
         return NextResponse.json(
           {
@@ -230,7 +388,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Se já passaram mais de 5 minutos, É OBRIGATÓRIO reconciliar antes de qualquer reenvio!
       const metaConfig = getMetaConfig();
       const attemptedDate = attemptedAtStr ? new Date(attemptedAtStr) : new Date(Date.now() - cincoMinutosMs);
 
@@ -274,9 +431,7 @@ export async function POST(req: NextRequest) {
             { status: 500 }
           );
         }
-        // Se rec.found === false e sem erro: Meta confirmou que o post não existe. Liberado para novo envio!
       } else {
-        // Instagram
         const rec = await reconcileInstagramMedia(
           metaConfig,
           news.instagram_container_id || null,
@@ -322,7 +477,6 @@ export async function POST(req: NextRequest) {
             { status: 500 }
           );
         }
-        // Se rec.found === false: mídia não existe no feed. Liberado para novo envio!
       }
     }
 
@@ -455,7 +609,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: errMsg, status: "erro" }, { status: 500 });
       }
     } else {
-      // Instagram: com reaproveitamento do container_id se existente
+      // Instagram
       const caption = formatInstagramCaption(news);
 
       try {

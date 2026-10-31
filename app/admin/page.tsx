@@ -1,6 +1,7 @@
 "use client";
 
 import { getYoutubeId, getInstagramCode, getInstagramEmbedUrl, getTikTokId, getVideoThumbnail } from "@/components/DarkMediaStrip";
+import SocialPublishWidget from "@/components/SocialPublishWidget";
 import { useEffect, useMemo, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
 
@@ -1347,184 +1348,200 @@ const salvarVideo = async () => {
                     </button>
                   }
                   footer={
-                    <div style={{ borderTop: "1px solid #edf2f7", paddingTop: "8px", marginTop: "2px", display: "grid", gap: "6px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
-                        
-                        {/* CONTROLE FACEBOOK */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                          <span style={{ fontSize: "11px", fontWeight: "800", color: "#1877f2", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            FB:
-                          </span>
-                          {n.facebook_status === "publicado" ? (
-                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#15803d", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              ✔ Publicado {n.facebook_post_id && <small style={{ opacity: 0.8 }}>(ID: {n.facebook_post_id.slice(-6)})</small>}
-                            </span>
-                          ) : n.facebook_status === "publicando" ? (
-                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#1d4ed8", background: "#dbeafe", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              ⏳ Enviando...
-                              <button
-                                type="button"
-                                disabled={fbLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "facebook", "reconcile")}
-                                style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #93c5fd", background: "#fff", cursor: "pointer" }}
-                                title="Verifica se a postagem já foi criada na Meta"
-                              >
-                                Verificar
-                              </button>
-                            </span>
-                          ) : n.facebook_status === "erro" ? (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b91c1c", background: "#fee2e2", padding: "3px 8px", borderRadius: "6px" }}>
-                                ✖ Erro no envio
+                    <div style={{ borderTop: "1px solid #edf2f7", paddingTop: "8px", marginTop: "2px", display: "grid", gap: "10px" }}>
+                      {/* COMPONENTE SOCIAL PUBLISH WIDGET (CANVA + META VIA N8N) */}
+                      <SocialPublishWidget
+                        newsId={n.id}
+                        title={n.titulo}
+                        imageUrl={n.img}
+                        compact={true}
+                      />
+
+                      {/* CONTROLES MANUAIS E RECONCILIAÇÃO DIRETA META (LEGADO) */}
+                      <details style={{ fontSize: "11px", color: "#64748b" }}>
+                        <summary style={{ cursor: "pointer", fontWeight: 600, userSelect: "none", color: "#475569" }}>
+                          ⚙ Controles Avulsos & Reconciliação Direta Meta
+                        </summary>
+                        <div style={{ marginTop: "8px", display: "grid", gap: "6px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+                            
+                            {/* CONTROLE FACEBOOK */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "800", color: "#1877f2", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                FB:
                               </span>
-                              <button
-                                type="button"
-                                disabled={fbLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "facebook", "publish")}
-                                style={{ fontSize: "11px", fontWeight: "700", background: "#1877f2", color: "#fff", border: 0, padding: "3px 8px", borderRadius: "6px", cursor: fbLoading ? "not-allowed" : "pointer" }}
-                              >
-                                {fbLoading ? "Processando..." : "Tentar Novamente"}
-                              </button>
+                              {n.facebook_status === "publicado" ? (
+                                <span style={{ fontSize: "11px", fontWeight: "700", color: "#15803d", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                  ✔ Publicado {n.facebook_post_id && <small style={{ opacity: 0.8 }}>(ID: {n.facebook_post_id.slice(-6)})</small>}
+                                </span>
+                              ) : n.facebook_status === "publicando" ? (
+                                <span style={{ fontSize: "11px", fontWeight: "700", color: "#1d4ed8", background: "#dbeafe", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                  ⏳ Enviando...
+                                  <button
+                                    type="button"
+                                    disabled={fbLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "facebook", "reconcile")}
+                                    style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #93c5fd", background: "#fff", cursor: "pointer" }}
+                                    title="Verifica se a postagem já foi criada na Meta"
+                                  >
+                                    Verificar
+                                  </button>
+                                </span>
+                              ) : n.facebook_status === "erro" ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                                  <span style={{ fontSize: "11px", fontWeight: "700", color: "#b91c1c", background: "#fee2e2", padding: "3px 8px", borderRadius: "6px" }}>
+                                    ✖ Erro no envio
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={fbLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "facebook", "publish")}
+                                    style={{ fontSize: "11px", fontWeight: "700", background: "#1877f2", color: "#fff", border: 0, padding: "3px 8px", borderRadius: "6px", cursor: fbLoading ? "not-allowed" : "pointer" }}
+                                  >
+                                    {fbLoading ? "Processando..." : "Tentar Novamente"}
+                                  </button>
+                                </div>
+                              ) : n.facebook_status === "incerto" ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: "11px", fontWeight: "700", color: "#b45309", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px" }}>
+                                    ⚠ Status Incerto
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={fbLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "facebook", "reconcile")}
+                                    style={{ fontSize: "10px", fontWeight: "700", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                    title="Consulta na Meta se a publicação foi criada"
+                                  >
+                                    Verificar na Meta
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={fbLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "facebook", "resolve_mark_published")}
+                                    style={{ fontSize: "10px", fontWeight: "700", background: "#dcfce7", color: "#166534", border: "1px solid #86efac", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                    title="Marcar como publicado se você viu o post no Facebook"
+                                  >
+                                    Já saiu
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={fbLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "facebook", "resolve_retry")}
+                                    style={{ fontSize: "10px", fontWeight: "700", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                    title="Liberar para nova tentativa se não saiu"
+                                  >
+                                    Não saiu (Liberar)
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={fbLoading}
+                                  onClick={() => void executarAcaoSocial(n.id, "facebook", "publish")}
+                                  style={{ fontSize: "11px", fontWeight: "700", background: "#e8f0fe", color: "#1877f2", border: "1px solid #bad3fb", padding: "3px 10px", borderRadius: "6px", cursor: fbLoading ? "not-allowed" : "pointer" }}
+                                >
+                                  {fbLoading ? "Enviando..." : "Publicar no Facebook"}
+                                </button>
+                              )}
                             </div>
-                          ) : n.facebook_status === "incerto" ? (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b45309", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px" }}>
-                                ⚠ Status Incerto
+
+                            {/* CONTROLE INSTAGRAM */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "800", color: "#c13584", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                IG:
                               </span>
-                              <button
-                                type="button"
-                                disabled={fbLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "facebook", "reconcile")}
-                                style={{ fontSize: "10px", fontWeight: "700", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
-                                title="Consulta na Meta se a publicação foi criada"
-                              >
-                                Verificar na Meta
-                              </button>
-                              <button
-                                type="button"
-                                disabled={fbLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "facebook", "resolve_mark_published")}
-                                style={{ fontSize: "10px", fontWeight: "700", background: "#dcfce7", color: "#166534", border: "1px solid #86efac", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
-                                title="Marcar como publicado se você viu o post no Facebook"
-                              >
-                                Já saiu
-                              </button>
-                              <button
-                                type="button"
-                                disabled={fbLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "facebook", "resolve_retry")}
-                                style={{ fontSize: "10px", fontWeight: "700", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
-                                title="Liberar para nova tentativa se não saiu"
-                              >
-                                Não saiu (Liberar)
-                              </button>
+                              {n.instagram_status === "publicado" ? (
+                                <span style={{ fontSize: "11px", fontWeight: "700", color: "#15803d", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                  ✔ Publicado {n.instagram_media_id && <small style={{ opacity: 0.8 }}>(ID: {n.instagram_media_id.slice(-6)})</small>}
+                                </span>
+                              ) : n.instagram_status === "publicando" ? (
+                                <span style={{ fontSize: "11px", fontWeight: "700", color: "#9333ea", background: "#f3e8ff", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                  ⏳ Enviando...
+                                  <button
+                                    type="button"
+                                    disabled={igLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "instagram", "reconcile")}
+                                    style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #d8b4fe", background: "#fff", cursor: "pointer" }}
+                                    title="Verifica se a mídia já foi criada no Instagram"
+                                  >
+                                    Verificar
+                                  </button>
+                                </span>
+                              ) : n.instagram_status === "erro" ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                                  <span style={{ fontSize: "11px", fontWeight: "700", color: "#b91c1c", background: "#fee2e2", padding: "3px 8px", borderRadius: "6px" }}>
+                                    ✖ Erro no envio
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={igLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "instagram", "publish")}
+                                    style={{ fontSize: "11px", fontWeight: "700", background: "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)", color: "#fff", border: 0, padding: "3px 8px", borderRadius: "6px", cursor: igLoading ? "not-allowed" : "pointer" }}
+                                  >
+                                    {igLoading ? "Processando..." : "Tentar Novamente"}
+                                  </button>
+                                </div>
+                              ) : n.instagram_status === "incerto" ? (
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: "11px", fontWeight: "700", color: "#b45309", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px" }}>
+                                    ⚠ Status Incerto
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={igLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "instagram", "reconcile")}
+                                    style={{ fontSize: "10px", fontWeight: "700", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                    title="Consulta no Instagram se a publicação foi criada"
+                                  >
+                                    Verificar na Meta
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={igLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "instagram", "resolve_mark_published")}
+                                    style={{ fontSize: "10px", fontWeight: "700", background: "#dcfce7", color: "#166534", border: "1px solid #86efac", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                    title="Marcar como publicado se você viu o post no feed"
+                                  >
+                                    Já saiu
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={igLoading}
+                                    onClick={() => void executarAcaoSocial(n.id, "instagram", "resolve_retry")}
+                                    style={{ fontSize: "10px", fontWeight: "700", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                    title="Liberar para nova tentativa se não saiu"
+                                  >
+                                    Não saiu (Liberar)
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={igLoading}
+                                  onClick={() => void executarAcaoSocial(n.id, "instagram", "publish")}
+                                  style={{ fontSize: "11px", fontWeight: "700", background: "#fdf2f8", color: "#db2777", border: "1px solid #fbcfe8", padding: "3px 10px", borderRadius: "6px", cursor: igLoading ? "not-allowed" : "pointer" }}
+                                >
+                                  {igLoading ? "Enviando..." : "Publicar no Instagram"}
+                                </button>
+                              )}
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={fbLoading}
-                              onClick={() => void executarAcaoSocial(n.id, "facebook", "publish")}
-                              style={{ fontSize: "11px", fontWeight: "700", background: "#e8f0fe", color: "#1877f2", border: "1px solid #bad3fb", padding: "3px 10px", borderRadius: "6px", cursor: fbLoading ? "not-allowed" : "pointer" }}
-                            >
-                              {fbLoading ? "Enviando..." : "Publicar no Facebook"}
-                            </button>
+
+                          </div>
+
+                          {/* Exibição clara e legível do erro se houver */}
+                          {n.facebook_error && (n.facebook_status === "erro" || n.facebook_status === "incerto") && (
+                            <div style={{ fontSize: "11px", color: "#b91c1c", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "6px", padding: "4px 8px" }}>
+                              <strong>Erro FB:</strong> {n.facebook_error}
+                            </div>
+                          )}
+                          {n.instagram_error && (n.instagram_status === "erro" || n.instagram_status === "incerto") && (
+                            <div style={{ fontSize: "11px", color: "#9f1239", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "6px", padding: "4px 8px" }}>
+                              <strong>Erro IG:</strong> {n.instagram_error}
+                            </div>
                           )}
                         </div>
-
-                        {/* CONTROLE INSTAGRAM */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                          <span style={{ fontSize: "11px", fontWeight: "800", color: "#c13584", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            IG:
-                          </span>
-                          {n.instagram_status === "publicado" ? (
-                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#15803d", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              ✔ Publicado {n.instagram_media_id && <small style={{ opacity: 0.8 }}>(ID: {n.instagram_media_id.slice(-6)})</small>}
-                            </span>
-                          ) : n.instagram_status === "publicando" ? (
-                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#9333ea", background: "#f3e8ff", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              ⏳ Enviando...
-                              <button
-                                type="button"
-                                disabled={igLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "instagram", "reconcile")}
-                                style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #d8b4fe", background: "#fff", cursor: "pointer" }}
-                                title="Verifica se a mídia já foi criada no Instagram"
-                              >
-                                Verificar
-                              </button>
-                            </span>
-                          ) : n.instagram_status === "erro" ? (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b91c1c", background: "#fee2e2", padding: "3px 8px", borderRadius: "6px" }}>
-                                ✖ Erro no envio
-                              </span>
-                              <button
-                                type="button"
-                                disabled={igLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "instagram", "publish")}
-                                style={{ fontSize: "11px", fontWeight: "700", background: "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)", color: "#fff", border: 0, padding: "3px 8px", borderRadius: "6px", cursor: igLoading ? "not-allowed" : "pointer" }}
-                              >
-                                {igLoading ? "Processando..." : "Tentar Novamente"}
-                              </button>
-                            </div>
-                          ) : n.instagram_status === "incerto" ? (
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b45309", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px" }}>
-                                ⚠ Status Incerto
-                              </span>
-                              <button
-                                type="button"
-                                disabled={igLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "instagram", "reconcile")}
-                                style={{ fontSize: "10px", fontWeight: "700", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
-                                title="Consulta no Instagram se a publicação foi criada"
-                              >
-                                Verificar na Meta
-                              </button>
-                              <button
-                                type="button"
-                                disabled={igLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "instagram", "resolve_mark_published")}
-                                style={{ fontSize: "10px", fontWeight: "700", background: "#dcfce7", color: "#166534", border: "1px solid #86efac", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
-                                title="Marcar como publicado se você viu o post no feed"
-                              >
-                                Já saiu
-                              </button>
-                              <button
-                                type="button"
-                                disabled={igLoading}
-                                onClick={() => void executarAcaoSocial(n.id, "instagram", "resolve_retry")}
-                                style={{ fontSize: "10px", fontWeight: "700", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
-                                title="Liberar para nova tentativa se não saiu"
-                              >
-                                Não saiu (Liberar)
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={igLoading}
-                              onClick={() => void executarAcaoSocial(n.id, "instagram", "publish")}
-                              style={{ fontSize: "11px", fontWeight: "700", background: "#fdf2f8", color: "#db2777", border: "1px solid #fbcfe8", padding: "3px 10px", borderRadius: "6px", cursor: igLoading ? "not-allowed" : "pointer" }}
-                            >
-                              {igLoading ? "Enviando..." : "Publicar no Instagram"}
-                            </button>
-                          )}
-                        </div>
-
-                      </div>
-
-                      {/* Exibição clara e legível do erro se houver */}
-                      {n.facebook_error && (n.facebook_status === "erro" || n.facebook_status === "incerto") && (
-                        <div style={{ fontSize: "11px", color: "#b91c1c", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "6px", padding: "4px 8px" }}>
-                          <strong>Erro FB:</strong> {n.facebook_error}
-                        </div>
-                      )}
-                      {n.instagram_error && (n.instagram_status === "erro" || n.instagram_status === "incerto") && (
-                        <div style={{ fontSize: "11px", color: "#9f1239", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "6px", padding: "4px 8px" }}>
-                          <strong>Erro IG:</strong> {n.instagram_error}
-                        </div>
-                      )}
+                      </details>
                     </div>
                   }
                   onEdit={() => {
