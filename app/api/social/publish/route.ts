@@ -138,8 +138,16 @@ export async function POST(req: NextRequest) {
       }
 
       // Disparo via fetch para o Webhook do n8n
-      const n8nWebhookUrl =
-        process.env.N8N_WEBHOOK_URL || "http://localhost:5678/webhook/social-publish";
+      const rawEnvUrl = process.env.N8N_WEBHOOK_URL?.trim();
+      const isPlaceholder =
+        !rawEnvUrl ||
+        rawEnvUrl === "COLE_AQUI_A_URL_DO_SEU_WEBHOOK" ||
+        !rawEnvUrl.startsWith("http");
+
+      // Se for placeholder ou não configurado, prioriza a URL de teste e produção do n8n local
+      const primaryUrl = isPlaceholder
+        ? "http://localhost:5678/webhook-test/social-publish"
+        : rawEnvUrl;
 
       const n8nPayload = {
         publication_id: newPublication.id,
@@ -154,26 +162,53 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        let n8nRes: Response | null = null;
+        let lastErrorText = "";
 
-        const n8nRes = await fetch(n8nWebhookUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent": "RedeNortePro-NextJS/1.0",
-          },
-          body: JSON.stringify(n8nPayload),
-          signal: controller.signal,
-        });
+        // Lista de URLs candidatas (suporta alternância inteligente entre webhook-test e webhook de produção)
+        const candidateUrls = [primaryUrl];
+        if (primaryUrl.includes("/webhook/social-publish")) {
+          candidateUrls.push(primaryUrl.replace("/webhook/social-publish", "/webhook-test/social-publish"));
+        } else if (primaryUrl.includes("/webhook-test/social-publish")) {
+          candidateUrls.push(primaryUrl.replace("/webhook-test/social-publish", "/webhook/social-publish"));
+        }
 
-        clearTimeout(timeoutId);
+        for (const url of candidateUrls) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-        if (!n8nRes.ok) {
-          const resBodyText = await n8nRes.text().catch(() => n8nRes.statusText);
-          throw new Error(
-            `Webhook n8n respondeu com erro (${n8nRes.status}): ${resBodyText || n8nRes.statusText}`
-          );
+            const res = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "User-Agent": "RedeNortePro-NextJS/1.0",
+              },
+              body: JSON.stringify(n8nPayload),
+              signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+              n8nRes = res;
+              break;
+            } else if (res.status === 404 && candidateUrls.length > 1) {
+              lastErrorText = `Status 404 em ${url}`;
+              continue;
+            } else {
+              const resBodyText = await res.text().catch(() => res.statusText);
+              lastErrorText = `Webhook n8n (${url}) respondeu com erro (${res.status}): ${resBodyText || res.statusText}`;
+              n8nRes = res;
+              break;
+            }
+          } catch (fetchErr: any) {
+            lastErrorText = fetchErr?.message || "Erro de rede";
+          }
+        }
+
+        if (!n8nRes || !n8nRes.ok) {
+          throw new Error(lastErrorText || "Webhook do n8n não respondeu.");
         }
 
         return NextResponse.json({
