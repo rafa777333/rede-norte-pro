@@ -1,10 +1,41 @@
 "use client";
 
+import { getYoutubeId, getInstagramCode, getInstagramEmbedUrl, getTikTokId, getVideoThumbnail } from "@/components/DarkMediaStrip";
 import { useEffect, useMemo, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
 
 type Tab = "capa" | "noticias" | "videos" | "ondeir" | "classificados" | "empregos" | "promocoes" | "publicidade" | "contato";
-type Noticia = { id: string; titulo: string; cidade: string; cat: string; resumo: string; img: string; texto?: string };
+type VideoPortalAdmin = {
+  id: string;
+  titulo: string;
+  url_video: string;
+  plataforma: "youtube" | "tiktok" | "instagram" | "nativo" | string;
+  thumbnail_url: string;
+  status: "publicado" | "rascunho" | string;
+  created_at?: string;
+};
+
+type Noticia = {
+  id: string;
+  titulo: string;
+  cidade: string;
+  cat: string;
+  resumo: string;
+  img: string;
+  texto?: string;
+  status?: string;
+  facebook_status?: "nao_publicado" | "publicando" | "publicado" | "erro" | "incerto";
+  facebook_post_id?: string | null;
+  facebook_published_at?: string | null;
+  facebook_attempted_at?: string | null;
+  facebook_error?: string | null;
+  instagram_status?: "nao_publicado" | "publicando" | "publicado" | "erro" | "incerto";
+  instagram_container_id?: string | null;
+  instagram_media_id?: string | null;
+  instagram_published_at?: string | null;
+  instagram_attempted_at?: string | null;
+  instagram_error?: string | null;
+};
 type Local = { id: string; nome: string; cidade: string; cat: string; end: string; zap: string; img?: string; detalhes?: string };
 type Classif = { id: string; titulo: string; cidade: string; cat: string; preco: string; zap: string; img?: string; detalhes?: string; status?: string };
 type Vaga = { id: string; cargo: string; empresa: string; cidade: string; zap: string; img?: string; detalhes?: string; status?: string };
@@ -76,7 +107,17 @@ async function uploadArquivo(file: File, pasta: string) {
   return supabase.storage.from("rede-norte-media").getPublicUrl(caminho).data.publicUrl;
 }
 
-const emptyNews = { titulo: "", cidade: "Geral", cat: "Política", resumo: "", img: "", texto: "", exibirNoGeral: true };
+const emptyNews = {
+  titulo: "",
+  cidade: "Geral",
+  cat: "Política",
+  resumo: "",
+  img: "",
+  texto: "",
+  exibirNoGeral: true,
+  publicarFacebook: false,
+  publicarInstagram: false,
+};
 const VIDEO_CATEGORIAS = ["Matéria", "Entrevista", "Política", "Cidade", "Segurança", "Esportes", "Serviço", "Publicidade"];
 const emptyVideo = { titulo: "", descricao: "", cidade: "Apucarana", categoria: "Matéria", tipo: "upload" as "upload" | "instagram", videoUrl: "", instagramUrl: "", thumbnailUrl: "", materiaUrl: "", status: "published" };
 
@@ -88,6 +129,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [citySearch, setCitySearch] = useState("");
   const [selectedCity, setSelectedCity] = useState("Todas as cidades");
+  const [socialLoading, setSocialLoading] = useState<Record<string, boolean>>({});
   const [noticias, setNoticias] = useState<Noticia[]>([]);
   const [locais, setLocais] = useState<Local[]>([]);
   const [classif, setClassif] = useState<Classif[]>([]);
@@ -127,8 +169,27 @@ export default function Admin() {
   const [vForm, setVForm] = useState({ cargo: "", empresa: "", cidade: "Apucarana", zap: "", img: "", detalhes: "" });
   const [pForm, setPForm] = useState({ titulo: "", cidade: "Apucarana", categoria: "Comércio", validade: "", contato: "", img: "", detalhes: "" });
   const [videoForm, setVideoForm] = useState(emptyVideo);
+  const [portalVideos, setPortalVideos] = useState<VideoPortalAdmin[]>([]);
+  const [videoPortalForm, setVideoPortalForm] = useState({
+    titulo: "",
+    url_video: "",
+    plataforma: "youtube" as "youtube" | "tiktok" | "instagram" | "nativo",
+    thumbnail_url: "",
+    status: "publicado" as "publicado" | "rascunho",
+  });
+  const [editVideoPortalId, setEditVideoPortalId] = useState<string | null>(null);
+  const [filtroVideoPlat, setFiltroVideoPlat] = useState("todas");
+  const [buscaVideo, setBuscaVideo] = useState("");
+  const [previewModalVideo, setPreviewModalVideo] = useState<VideoPortalAdmin | null>(null);
+  const [salvandoVideoPortal, setSalvandoVideoPortal] = useState(false);
+
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+
+  const noticiaSendoEditada = useMemo(
+    () => (editId ? noticias.find((x) => x.id === editId) : null),
+    [noticias, editId]
+  );
 
   const cidadesVisiveis = useMemo(() => CIDADES.filter((cidade) => cidade.toLowerCase().includes(citySearch.toLowerCase())), [citySearch]);
   const filterByCity = <T extends { cidade: string }>(items: T[]) => selectedCity === "Todas as cidades" ? items : items.filter((item) => item.cidade === selectedCity);
@@ -181,7 +242,7 @@ export default function Admin() {
       if (supabase) {
         const results = await Promise.all([
           supabase.from("cities").select("slug,nome"),
-          supabase.from("news").select("id,titulo,categoria,resumo,conteudo,imagem,cidade_slug").order("created_at", { ascending: false }),
+          supabase.from("news").select("id,titulo,categoria,resumo,conteudo,imagem,cidade_slug,status,facebook_status,facebook_post_id,facebook_published_at,facebook_attempted_at,facebook_error,instagram_status,instagram_container_id,instagram_media_id,instagram_published_at,instagram_attempted_at,instagram_error").order("created_at", { ascending: false }),
           supabase.from("service_providers").select("id,nome,categoria,endereco,whatsapp,imagem,descricao,cidade_slug").order("created_at", { ascending: false }),
           supabase.from("classified_ads").select("id,titulo,categoria,preco,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }),
           supabase.from("jobs").select("id,vaga,empresa,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }),
@@ -189,6 +250,7 @@ export default function Admin() {
           supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,status").order("created_at", { ascending: false }),
           supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").order("ordem"),
           supabase.from("site_settings").select("key,value"),
+          supabase.from("videos_portal").select("*").order("created_at", { ascending: false }),
         ]);
         cities = results[0].data || [];
         news = results[1].data || [];
@@ -199,10 +261,32 @@ export default function Admin() {
         videosData = results[6].data || [];
         sponsorData = results[7].data || [];
         settingsData = results[8].data || [];
+        const portalVidsData = results[9]?.data || [];
+        setPortalVideos(portalVidsData);
       }
 
       const cityMap = new Map((cities || []).map((c: any) => [c.slug, c.nome]));
-      setNoticias((news || []).map((n: any) => ({ id: n.id, titulo: n.titulo, cidade: cityMap.get(n.cidade_slug) || "Apucarana", cat: n.categoria || "Cidade", resumo: n.resumo || "", texto: n.conteudo || "", img: n.imagem || "" })));
+      setNoticias((news || []).map((n: any) => ({
+        id: n.id,
+        titulo: n.titulo,
+        cidade: cityMap.get(n.cidade_slug) || "Apucarana",
+        cat: n.categoria || "Cidade",
+        resumo: n.resumo || "",
+        texto: n.conteudo || "",
+        img: n.imagem || "",
+        status: n.status || "published",
+        facebook_status: n.facebook_status || "nao_publicado",
+        facebook_post_id: n.facebook_post_id || null,
+        facebook_published_at: n.facebook_published_at || null,
+        facebook_attempted_at: n.facebook_attempted_at || null,
+        facebook_error: n.facebook_error || null,
+        instagram_status: n.instagram_status || "nao_publicado",
+        instagram_container_id: n.instagram_container_id || null,
+        instagram_media_id: n.instagram_media_id || null,
+        instagram_published_at: n.instagram_published_at || null,
+        instagram_attempted_at: n.instagram_attempted_at || null,
+        instagram_error: n.instagram_error || null,
+      })));
       setLocais((services || []).map((x: any) => ({ id: x.id, nome: x.nome, cidade: cityMap.get(x.cidade_slug) || "Apucarana", cat: x.categoria, end: x.endereco || "", zap: x.whatsapp || "", img: x.imagem || "", detalhes: x.descricao || "" })));
       setClassif((ads || []).map((x: any) => ({ id: x.id, titulo: x.titulo, cidade: cityMap.get(x.cidade_slug) || "Apucarana", cat: x.categoria, preco: x.preco || "", zap: x.contato || "", img: x.imagem || "", detalhes: x.descricao || "", status: x.status || "published" })));
       setVagas((jobs || []).map((x: any) => ({ id: x.id, cargo: x.vaga, empresa: x.empresa, cidade: cityMap.get(x.cidade_slug) || "Apucarana", zap: x.contato || "", img: x.imagem || "", detalhes: x.descricao || "", status: x.status || "published" })));
@@ -316,20 +400,188 @@ export default function Admin() {
     }
   };
 
-  const salvar = async (table: string, record: any, image: string, folder: string, onDone: () => void, id?: string | null) => {
+    const executarAcaoSocial = async (
+    newsId: string,
+    network: "facebook" | "instagram",
+    action: "publish" | "resolve_mark_published" | "resolve_retry" | "reconcile" = "publish"
+  ) => {
+    const supabase = getSupabase();
+    if (!supabase) return alert("Supabase não configurado.");
+
+    const key = `${newsId}_${network}`;
+    setSocialLoading((prev) => ({ ...prev, [key]: true }));
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        alert("Sua sessão expirou. Faça login novamente no painel.");
+        return;
+      }
+
+      const res = await fetch("/api/social/publish", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newsId, network, action }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(`Aviso ${network === "facebook" ? "Facebook" : "Instagram"}: ${json?.error || "Erro ao processar."}`);
+      } else {
+        if (action === "resolve_mark_published") {
+          alert(`Status do ${network === "facebook" ? "Facebook" : "Instagram"} marcado como publicado com sucesso.`);
+        } else if (action === "resolve_retry") {
+          alert(`Status do ${network === "facebook" ? "Facebook" : "Instagram"} liberado para nova tentativa.`);
+        } else if (action === "reconcile") {
+          if (json.status === "publicado") {
+            alert("Publicação confirmada e recuperada na Meta! Status atualizado para Publicado.");
+          } else if (json.status === "incerto") {
+            alert(`A verificação foi inconclusiva: ${json.error || "falha de rede"}.`);
+          } else {
+            alert("Verificado na Meta: publicação não encontrada.");
+          }
+        } else {
+          alert(`Sucesso! Publicado no ${network === "facebook" ? "Facebook" : "Instagram"}.`);
+        }
+      }
+    } catch (e: any) {
+      alert(`Falha de conexão com a API de redes sociais: ${e?.message || "erro"}`);
+    } finally {
+      setSocialLoading((prev) => ({ ...prev, [key]: false }));
+      void carregarTudo();
+    }
+  };
+
+  const dispararPublicacoesParalelas = (newsId: string, postFb: boolean, postIg: boolean) => {
+    if (!postFb && !postIg) return;
+    if (postFb) {
+      void executarAcaoSocial(newsId, "facebook", "publish");
+    }
+    if (postIg) {
+      void executarAcaoSocial(newsId, "instagram", "publish");
+    }
+  };
+
+const salvar = async (table: string, record: any, image: string, folder: string, onDone: (saved?: any) => void, id?: string | null) => {
     const supabase = getSupabase();
     if (!supabase) { alert("Supabase não configurado."); return; }
     setLoading(true);
     try {
       const imagem = await uploadImagem(image, folder);
-      const query = id ? supabase.from(table).update({ ...record, imagem }).eq("id", id) : supabase.from(table).insert({ ...record, imagem });
-      const { error } = await query;
+      const query = id ? supabase.from(table).update({ ...record, imagem }).eq("id", id).select().single() : supabase.from(table).insert({ ...record, imagem }).select().single();
+      const { data: savedRecord, error } = await query;
       if (error) throw error;
-      onDone(); setEditId(null); await carregarTudo();
-    } catch (e: any) { alert(`Não foi possível salvar: ${e.message || "erro de conexão"}`); } finally { setLoading(false); }
+      onDone(savedRecord); setEditId(null); await carregarTudo();
+      return savedRecord;
+    } catch (e: any) { alert(`Não foi possível salvar: ${e.message || "erro de conexão"}`); return null; } finally { setLoading(false); }
   };
 
-  const salvarVideo = async () => {
+    const handleVideoUrlChange = (url: string) => {
+    let plat = videoPortalForm.plataforma;
+    let thumb = videoPortalForm.thumbnail_url;
+
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      plat = "youtube";
+      const ytId = getYoutubeId(url);
+      if (ytId && !thumb) {
+        thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      }
+    } else if (url.includes("instagram.com")) {
+      plat = "instagram";
+    } else if (url.includes("tiktok.com")) {
+      plat = "tiktok";
+    } else if (url.endsWith(".mp4") || url.includes("/videos/")) {
+      plat = "nativo";
+    }
+
+    setVideoPortalForm((prev) => ({
+      ...prev,
+      url_video: url,
+      plataforma: plat,
+      thumbnail_url: thumb,
+    }));
+  };
+
+  const salvarVideoPortal = async () => {
+    if (!videoPortalForm.titulo.trim()) return alert("Informe o título do vídeo.");
+    if (!videoPortalForm.url_video.trim()) return alert("Informe o link do vídeo.");
+
+    const supabase = getSupabase();
+    if (!supabase) return alert("Supabase não configurado.");
+
+    let finalThumb = videoPortalForm.thumbnail_url.trim();
+    if (!finalThumb && videoPortalForm.plataforma === "youtube") {
+      const ytId = getYoutubeId(videoPortalForm.url_video);
+      if (ytId) finalThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    }
+
+    setSalvandoVideoPortal(true);
+    try {
+      const payload = {
+        titulo: videoPortalForm.titulo.trim(),
+        url_video: videoPortalForm.url_video.trim(),
+        plataforma: videoPortalForm.plataforma,
+        thumbnail_url: finalThumb || "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80",
+        status: videoPortalForm.status,
+      };
+
+      if (editVideoPortalId) {
+        const { error } = await supabase.from("videos_portal").update(payload).eq("id", editVideoPortalId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("videos_portal").insert(payload);
+        if (error) throw error;
+      }
+
+      setVideoPortalForm({
+        titulo: "",
+        url_video: "",
+        plataforma: "youtube",
+        thumbnail_url: "",
+        status: "publicado",
+      });
+      setEditVideoPortalId(null);
+      await carregarTudo();
+      alert(editVideoPortalId ? "Vídeo atualizado com sucesso!" : "Vídeo publicado com sucesso na Faixa e na aba Vídeos!");
+    } catch (e: any) {
+      alert(`Erro ao salvar vídeo: ${e.message || e}`);
+    } finally {
+      setSalvandoVideoPortal(false);
+    }
+  };
+
+  const excluirVideoPortal = async (id: string) => {
+    if (!confirm("Deseja realmente excluir este vídeo da faixa multimídia e da aba Vídeos?")) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from("videos_portal").delete().eq("id", id);
+      if (error) throw error;
+      await carregarTudo();
+    } catch (e: any) {
+      alert(`Erro ao excluir vídeo: ${e.message || e}`);
+    }
+  };
+
+  const alternarStatusVideoPortal = async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "publicado" ? "rascunho" : "publicado";
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from("videos_portal").update({ status: nextStatus }).eq("id", id);
+      if (error) throw error;
+      await carregarTudo();
+    } catch (e: any) {
+      alert(`Erro ao alterar status: ${e.message || e}`);
+    }
+  };
+
+const salvarVideo = async () => {
     const supabase = getSupabase();
     if (!supabase) return alert("Supabase não configurado.");
     if (!videoForm.titulo.trim()) return alert("Título obrigatório.");
@@ -337,9 +589,30 @@ export default function Admin() {
     if (videoForm.tipo === "upload" && !videoFile && !videoForm.videoUrl.trim()) return alert("Selecione um vídeo ou informe uma URL MP4.");
     setLoading(true);
     try {
-      const videoUrl = videoFile ? await uploadArquivo(videoFile, "videos") : videoForm.videoUrl.trim();
+      let videoUrl = videoFile ? await uploadArquivo(videoFile, "videos") : videoForm.videoUrl.trim();
+      let instagramUrl = videoForm.tipo === "instagram" ? videoForm.instagramUrl.trim() : null;
+      let finalTipo = videoForm.tipo;
+
+      // Auto-correção caso o usuário cole link do Instagram no campo de URL de vídeo/upload
+      if (videoUrl && (videoUrl.includes("instagram.com/") || videoUrl.includes("instagr.am/"))) {
+        finalTipo = "instagram";
+        instagramUrl = videoUrl;
+        videoUrl = "";
+      }
+
       const thumbnailUrl = await uploadImagem(videoForm.thumbnailUrl, "video-thumbnails");
-      const record = { titulo: videoForm.titulo.trim(), descricao: videoForm.descricao.trim(), video_url: videoForm.tipo === "upload" ? videoUrl || null : null, thumbnail_url: thumbnailUrl || null, instagram_url: videoForm.tipo === "instagram" ? videoForm.instagramUrl.trim() : null, cidade_slug: cidadeSlug(videoForm.cidade) || null, categoria: videoForm.categoria, materia_url: videoForm.materiaUrl.trim() || null, tipo: videoForm.tipo, status: videoForm.status };
+      const record = {
+        titulo: videoForm.titulo.trim(),
+        descricao: videoForm.descricao.trim(),
+        video_url: finalTipo === "upload" ? videoUrl || null : null,
+        thumbnail_url: thumbnailUrl || null,
+        instagram_url: instagramUrl,
+        cidade_slug: cidadeSlug(videoForm.cidade) || null,
+        categoria: videoForm.categoria,
+        materia_url: videoForm.materiaUrl.trim() || null,
+        tipo: finalTipo,
+        status: videoForm.status,
+      };
       const query = editId ? supabase.from("videos").update(record).eq("id", editId) : supabase.from("videos").insert(record);
       const { error } = await query;
       if (error) throw error;
@@ -963,12 +1236,65 @@ export default function Admin() {
             <FormInput placeholder="Resumo / linha fina" value={nForm.resumo} onChange={(v) => setNForm({ ...nForm, resumo: v })} multiline />
             <ImageField value={nForm.img} onChange={(v) => setNForm({ ...nForm, img: v })} />
             <FormInput placeholder="Texto completo da notícia" value={nForm.texto} onChange={(v) => setNForm({ ...nForm, texto: v })} multiline />
+
+            {/* Checkboxes de Publicação Oficial nas Redes Sociais */}
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px 16px", marginTop: "4px", display: "grid", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "800", color: "#334155", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  📢 Publicação Oficial nas Redes Sociais (Opcional)
+                </span>
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  Enviado em segundo plano após salvar
+                </span>
+              </div>
+              
+              <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "center" }}>
+                {/* Checkbox Facebook */}
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "600", cursor: (editId && noticiaSendoEditada?.facebook_status === "publicado") ? "not-allowed" : "pointer", opacity: (editId && noticiaSendoEditada?.facebook_status === "publicado") ? 0.6 : 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={nForm.publicarFacebook}
+                    disabled={Boolean(editId && noticiaSendoEditada?.facebook_status === "publicado")}
+                    onChange={(e) => setNForm({ ...nForm, publicarFacebook: e.target.checked })}
+                  />
+                  <span style={{ color: "#1877f2", fontWeight: 700 }}>Facebook</span>
+                  {(editId && noticiaSendoEditada?.facebook_status === "publicado") && (
+                    <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "600", background: "#dcfce7", padding: "2px 6px", borderRadius: "4px" }}>
+                      ✔ Já publicado
+                    </span>
+                  )}
+                </label>
+
+                {/* Checkbox Instagram */}
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "600", cursor: (editId && noticiaSendoEditada?.instagram_status === "publicado") ? "not-allowed" : "pointer", opacity: (editId && noticiaSendoEditada?.instagram_status === "publicado") ? 0.6 : 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={nForm.publicarInstagram}
+                    disabled={Boolean(editId && noticiaSendoEditada?.instagram_status === "publicado")}
+                    onChange={(e) => setNForm({ ...nForm, publicarInstagram: e.target.checked })}
+                  />
+                  <span style={{ color: "#c13584", fontWeight: 700 }}>Instagram</span>
+                  {(editId && noticiaSendoEditada?.instagram_status === "publicado") && (
+                    <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "600", background: "#dcfce7", padding: "2px 6px", borderRadius: "4px" }}>
+                      ✔ Já publicado
+                    </span>
+                  )}
+                </label>
+              </div>
+              <small style={{ color: "#64748b", fontSize: "11px", lineHeight: "1.4" }}>
+                Para publicar nas redes sociais, é necessário ter uma imagem de capa e o portal salva a notícia antes de disparar o envio.
+              </small>
+            </div>
+
             <SaveButton
               label={editId ? "Atualizar notícia" : "Salvar notícia no banco"}
-              onClick={() => {
+              onClick={async () => {
                 if (!nForm.titulo) return alert("Título obrigatório");
                 const isGeral = nForm.cidade === "Geral" || nForm.exibirNoGeral;
-                void salvar(
+                const postFb = nForm.publicarFacebook;
+                const postIg = nForm.publicarInstagram;
+
+                await salvar(
                   "news",
                   {
                     titulo: nForm.titulo,
@@ -980,7 +1306,8 @@ export default function Admin() {
                   },
                   nForm.img,
                   "news",
-                  () => {
+                  (savedRecord) => {
+                    const newsId = savedRecord?.id || editId;
                     if (editId) {
                       if (isGeral && !noticiasPromovidasGeral.has(editId)) {
                         void alternarPromocaoGeral(editId);
@@ -989,6 +1316,10 @@ export default function Admin() {
                       }
                     }
                     setNForm(emptyNews);
+
+                    if (newsId && (postFb || postIg)) {
+                      void dispararPublicacoesParalelas(newsId, postFb, postIg);
+                    }
                   },
                   editId
                 );
@@ -996,11 +1327,14 @@ export default function Admin() {
             />
             {filterByCity(noticias).map((n) => {
               const noGeral = n.cidade === "Geral" || noticiasPromovidasGeral.has(n.id);
+              const fbLoading = Boolean(socialLoading[`${n.id}_facebook`]);
+              const igLoading = Boolean(socialLoading[`${n.id}_instagram`]);
+
               return (
                 <AdminItem
                   key={n.id}
                   title={n.titulo}
-                  meta={`${n.cidade} · ${n.cat} · ${noGeral ? "✓ Exibindo no Geral e na Cidade" : "Apenas na Cidade"}`}
+                  meta={`${n.cidade} • ${n.cat} • ${noGeral ? "✔ Exibindo no Geral e na Cidade" : "Apenas na Cidade"}`}
                   image={n.img}
                   extraAction={
                     <button
@@ -1009,8 +1343,189 @@ export default function Admin() {
                       onClick={() => void alternarPromocaoGeral(n.id)}
                       title={noGeral ? "Exibindo na Capa Geral e na cidade. Clique para remover da Capa Geral." : "Exibindo apenas na pasta da cidade. Clique para exibir também na Capa Geral."}
                     >
-                      {noGeral ? "✓ No Geral" : "+ Levar pro Geral"}
+                      {noGeral ? "✔ No Geral" : "+ Levar pro Geral"}
                     </button>
+                  }
+                  footer={
+                    <div style={{ borderTop: "1px solid #edf2f7", paddingTop: "8px", marginTop: "2px", display: "grid", gap: "6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+                        
+                        {/* CONTROLE FACEBOOK */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "11px", fontWeight: "800", color: "#1877f2", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            FB:
+                          </span>
+                          {n.facebook_status === "publicado" ? (
+                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#15803d", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              ✔ Publicado {n.facebook_post_id && <small style={{ opacity: 0.8 }}>(ID: {n.facebook_post_id.slice(-6)})</small>}
+                            </span>
+                          ) : n.facebook_status === "publicando" ? (
+                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#1d4ed8", background: "#dbeafe", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              ⏳ Enviando...
+                              <button
+                                type="button"
+                                disabled={fbLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "facebook", "reconcile")}
+                                style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #93c5fd", background: "#fff", cursor: "pointer" }}
+                                title="Verifica se a postagem já foi criada na Meta"
+                              >
+                                Verificar
+                              </button>
+                            </span>
+                          ) : n.facebook_status === "erro" ? (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b91c1c", background: "#fee2e2", padding: "3px 8px", borderRadius: "6px" }}>
+                                ✖ Erro no envio
+                              </span>
+                              <button
+                                type="button"
+                                disabled={fbLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "facebook", "publish")}
+                                style={{ fontSize: "11px", fontWeight: "700", background: "#1877f2", color: "#fff", border: 0, padding: "3px 8px", borderRadius: "6px", cursor: fbLoading ? "not-allowed" : "pointer" }}
+                              >
+                                {fbLoading ? "Processando..." : "Tentar Novamente"}
+                              </button>
+                            </div>
+                          ) : n.facebook_status === "incerto" ? (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b45309", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px" }}>
+                                ⚠ Status Incerto
+                              </span>
+                              <button
+                                type="button"
+                                disabled={fbLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "facebook", "reconcile")}
+                                style={{ fontSize: "10px", fontWeight: "700", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                title="Consulta na Meta se a publicação foi criada"
+                              >
+                                Verificar na Meta
+                              </button>
+                              <button
+                                type="button"
+                                disabled={fbLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "facebook", "resolve_mark_published")}
+                                style={{ fontSize: "10px", fontWeight: "700", background: "#dcfce7", color: "#166534", border: "1px solid #86efac", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                title="Marcar como publicado se você viu o post no Facebook"
+                              >
+                                Já saiu
+                              </button>
+                              <button
+                                type="button"
+                                disabled={fbLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "facebook", "resolve_retry")}
+                                style={{ fontSize: "10px", fontWeight: "700", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                title="Liberar para nova tentativa se não saiu"
+                              >
+                                Não saiu (Liberar)
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={fbLoading}
+                              onClick={() => void executarAcaoSocial(n.id, "facebook", "publish")}
+                              style={{ fontSize: "11px", fontWeight: "700", background: "#e8f0fe", color: "#1877f2", border: "1px solid #bad3fb", padding: "3px 10px", borderRadius: "6px", cursor: fbLoading ? "not-allowed" : "pointer" }}
+                            >
+                              {fbLoading ? "Enviando..." : "Publicar no Facebook"}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* CONTROLE INSTAGRAM */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "11px", fontWeight: "800", color: "#c13584", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            IG:
+                          </span>
+                          {n.instagram_status === "publicado" ? (
+                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#15803d", background: "#dcfce7", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              ✔ Publicado {n.instagram_media_id && <small style={{ opacity: 0.8 }}>(ID: {n.instagram_media_id.slice(-6)})</small>}
+                            </span>
+                          ) : n.instagram_status === "publicando" ? (
+                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#9333ea", background: "#f3e8ff", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              ⏳ Enviando...
+                              <button
+                                type="button"
+                                disabled={igLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "instagram", "reconcile")}
+                                style={{ marginLeft: "6px", fontSize: "10px", padding: "2px 6px", borderRadius: "4px", border: "1px solid #d8b4fe", background: "#fff", cursor: "pointer" }}
+                                title="Verifica se a mídia já foi criada no Instagram"
+                              >
+                                Verificar
+                              </button>
+                            </span>
+                          ) : n.instagram_status === "erro" ? (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b91c1c", background: "#fee2e2", padding: "3px 8px", borderRadius: "6px" }}>
+                                ✖ Erro no envio
+                              </span>
+                              <button
+                                type="button"
+                                disabled={igLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "instagram", "publish")}
+                                style={{ fontSize: "11px", fontWeight: "700", background: "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)", color: "#fff", border: 0, padding: "3px 8px", borderRadius: "6px", cursor: igLoading ? "not-allowed" : "pointer" }}
+                              >
+                                {igLoading ? "Processando..." : "Tentar Novamente"}
+                              </button>
+                            </div>
+                          ) : n.instagram_status === "incerto" ? (
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "700", color: "#b45309", background: "#fef3c7", padding: "3px 8px", borderRadius: "6px" }}>
+                                ⚠ Status Incerto
+                              </span>
+                              <button
+                                type="button"
+                                disabled={igLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "instagram", "reconcile")}
+                                style={{ fontSize: "10px", fontWeight: "700", background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                title="Consulta no Instagram se a publicação foi criada"
+                              >
+                                Verificar na Meta
+                              </button>
+                              <button
+                                type="button"
+                                disabled={igLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "instagram", "resolve_mark_published")}
+                                style={{ fontSize: "10px", fontWeight: "700", background: "#dcfce7", color: "#166534", border: "1px solid #86efac", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                title="Marcar como publicado se você viu o post no feed"
+                              >
+                                Já saiu
+                              </button>
+                              <button
+                                type="button"
+                                disabled={igLoading}
+                                onClick={() => void executarAcaoSocial(n.id, "instagram", "resolve_retry")}
+                                style={{ fontSize: "10px", fontWeight: "700", background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", padding: "2px 6px", borderRadius: "4px", cursor: "pointer" }}
+                                title="Liberar para nova tentativa se não saiu"
+                              >
+                                Não saiu (Liberar)
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={igLoading}
+                              onClick={() => void executarAcaoSocial(n.id, "instagram", "publish")}
+                              style={{ fontSize: "11px", fontWeight: "700", background: "#fdf2f8", color: "#db2777", border: "1px solid #fbcfe8", padding: "3px 10px", borderRadius: "6px", cursor: igLoading ? "not-allowed" : "pointer" }}
+                            >
+                              {igLoading ? "Enviando..." : "Publicar no Instagram"}
+                            </button>
+                          )}
+                        </div>
+
+                      </div>
+
+                      {/* Exibição clara e legível do erro se houver */}
+                      {n.facebook_error && (n.facebook_status === "erro" || n.facebook_status === "incerto") && (
+                        <div style={{ fontSize: "11px", color: "#b91c1c", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "6px", padding: "4px 8px" }}>
+                          <strong>Erro FB:</strong> {n.facebook_error}
+                        </div>
+                      )}
+                      {n.instagram_error && (n.instagram_status === "erro" || n.instagram_status === "incerto") && (
+                        <div style={{ fontSize: "11px", color: "#9f1239", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "6px", padding: "4px 8px" }}>
+                          <strong>Erro IG:</strong> {n.instagram_error}
+                        </div>
+                      )}
+                    </div>
                   }
                   onEdit={() => {
                     setEditId(n.id);
@@ -1022,7 +1537,10 @@ export default function Admin() {
                       img: n.img || "",
                       texto: n.texto || "",
                       exibirNoGeral: noGeral,
+                      publicarFacebook: false,
+                      publicarInstagram: false,
                     });
+                    window.scrollTo({ top: 300, behavior: "smooth" });
                   }}
                   onDelete={() => void excluir("news", n.id)}
                 />
@@ -1032,33 +1550,554 @@ export default function Admin() {
         )}
 
         {tab === "videos" && (
-          <AdminSection title="Cadastrar vídeo" description="Publique cortes próprios com upload direto ou cole um link público do Instagram para assistir sem sair do portal.">
-            <div style={{ background: "#0f172a", color: "#fff", padding: "16px 20px", borderRadius: "16px", marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", border: "1px solid #334155" }}>
-              <div>
-                <span style={{ fontSize: "11px", fontWeight: "900", color: "#ef4444", letterSpacing: "0.1em", textTransform: "uppercase" }}>✨ Nova Central de Vídeos Curtos</span>
-                <h3 style={{ fontSize: "17px", margin: "4px 0", color: "#fff", fontWeight: "800" }}>Faixa Multimídia da Home (YouTube Shorts, Reels, TikTok)</h3>
-                <p style={{ margin: 0, fontSize: "12px", color: "#94a3b8" }}>Gerencie a nova faixa multimídia escura da página principal com formulário completo e integração com a tabela <code>public.videos_portal</code>.</p>
+          <AdminSection
+            title="Central de Vídeos Verticais (Shorts, Reels, TikTok)"
+            description="Cadastre e gerencie os vídeos da Faixa Multimídia da Home e da aba Vídeos do portal. Suporta YouTube Shorts, Instagram Reels, TikTok e vídeos em MP4 (proporção 9:16)."
+          >
+            {/* Bloco 2 Colunas: Formulário + Live Preview */}
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(260px, 1fr)", gap: "24px", alignItems: "start", marginBottom: "20px" }}>
+              
+              {/* Formulário */}
+              <div style={{ display: "grid", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "800", color: "#334155", marginBottom: "6px" }}>
+                    Título do Vídeo
+                  </label>
+                  <FormInput
+                    placeholder="Ex: Entrevista com Prefeito de Apucarana sobre Novas Obras"
+                    value={videoPortalForm.titulo}
+                    onChange={(v) => setVideoPortalForm({ ...videoPortalForm, titulo: v })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "800", color: "#334155", marginBottom: "6px" }}>
+                    Link / URL do Vídeo (Shorts, Reel, TikTok ou MP4)
+                  </label>
+                  <FormInput
+                    placeholder="Cole aqui o link do YouTube Shorts, Reel do Instagram, TikTok ou MP4"
+                    value={videoPortalForm.url_video}
+                    onChange={(v) => handleVideoUrlChange(v)}
+                  />
+                  <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px", display: "block" }}>
+                    Dica: Ao colar um link do YouTube Shorts, a plataforma e a capa são detectadas automaticamente!
+                  </small>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "800", color: "#334155", marginBottom: "6px" }}>
+                    Plataforma do Vídeo
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                    {[
+                      { id: "youtube", label: "YouTube Shorts", color: "#dc2626", bg: "#fef2f2" },
+                      { id: "instagram", label: "Instagram Reels", color: "#c026d3", bg: "#fdf4ff" },
+                      { id: "tiktok", label: "TikTok", color: "#06b6d4", bg: "#ecfeff" },
+                      { id: "nativo", label: "Vídeo MP4", color: "#2563eb", bg: "#eff6ff" },
+                    ].map((p) => {
+                      const sel = videoPortalForm.plataforma === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setVideoPortalForm({ ...videoPortalForm, plataforma: p.id as any })}
+                          style={{
+                            padding: "8px 4px",
+                            borderRadius: "8px",
+                            border: sel ? `2px solid ${p.color}` : "1px solid #cbd5e1",
+                            background: sel ? p.bg : "#fff",
+                            color: sel ? p.color : "#475569",
+                            fontWeight: "800",
+                            fontSize: "11px",
+                            cursor: "pointer",
+                            textAlign: "center",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "800", color: "#334155", marginBottom: "6px" }}>
+                    Capa / Imagem de Thumbnail (Opcional se for YouTube)
+                  </label>
+                  <ImageField
+                    label="Selecione uma imagem ou informe a URL"
+                    value={videoPortalForm.thumbnail_url}
+                    onChange={(v) => setVideoPortalForm({ ...videoPortalForm, thumbnail_url: v })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "800", color: "#334155", marginBottom: "6px" }}>
+                    Status de Publicação
+                  </label>
+                  <div style={{ display: "flex", gap: "16px" }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="video_status"
+                        checked={videoPortalForm.status === "publicado"}
+                        onChange={() => setVideoPortalForm({ ...videoPortalForm, status: "publicado" })}
+                      />
+                      <span style={{ color: "#16a34a" }}>🟢 Publicado (visível no site)</span>
+                    </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="video_status"
+                        checked={videoPortalForm.status === "rascunho"}
+                        onChange={() => setVideoPortalForm({ ...videoPortalForm, status: "rascunho" })}
+                      />
+                      <span style={{ color: "#64748b" }}>⚪ Rascunho (oculto)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                  <SaveButton
+                    label={salvandoVideoPortal ? "Salvando..." : editVideoPortalId ? "Atualizar Vídeo" : "Salvar Vídeo no Portal"}
+                    onClick={() => void salvarVideoPortal()}
+                  />
+                  {editVideoPortalId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditVideoPortalId(null);
+                        setVideoPortalForm({
+                          titulo: "",
+                          url_video: "",
+                          plataforma: "youtube",
+                          thumbnail_url: "",
+                          status: "publicado",
+                        });
+                      }}
+                      style={{
+                        padding: "12px 18px",
+                        borderRadius: "8px",
+                        border: "1px solid #cbd5e1",
+                        background: "#fff",
+                        color: "#475569",
+                        fontWeight: "700",
+                        fontSize: "13px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancelar Edição
+                    </button>
+                  )}
+                </div>
               </div>
-              <a href="/admin/videos" style={{ background: "#dc2626", color: "#fff", padding: "10px 18px", borderRadius: "10px", textDecoration: "none", fontWeight: "900", fontSize: "13px", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                Abrir Gerenciador de Vídeos →
-              </a>
+
+              {/* Live Preview Card 9:16 (Padrão Faixa Multimídia) */}
+              <div style={{ background: "#0f172a", borderRadius: "18px", padding: "18px", border: "1px solid #334155", color: "#fff" }}>
+                <span style={{ fontSize: "10px", fontWeight: "900", color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "4px" }}>
+                  PRÉ-VISUALIZAÇÃO AO VIVO (9:16)
+                </span>
+                <p style={{ fontSize: "12px", color: "#94a3b8", margin: "0 0 14px 0" }}>
+                  Exatamente como aparecerá para os visitantes na Home e na aba Vídeos:
+                </p>
+
+                <div style={{ width: "100%", maxWidth: "230px", margin: "0 auto", aspectRatio: "9/16", borderRadius: "16px", overflow: "hidden", position: "relative", background: "#020617", border: "1px solid #1e293b", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)" }}>
+                  {/* Thumbnail */}
+                  <img
+                    src={getVideoThumbnail({
+                      url_video: videoPortalForm.url_video,
+                      plataforma: videoPortalForm.plataforma,
+                      thumbnail_url: videoPortalForm.thumbnail_url,
+                    })}
+                    alt="Preview"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+
+                  {/* Gradiente escuro */}
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(2, 6, 23, 0.95), rgba(2, 6, 23, 0.3) 60%, transparent)" }} />
+
+                  {/* Badge de Plataforma */}
+                  <div style={{ position: "absolute", top: "10px", left: "10px", right: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{
+                      fontSize: "9px",
+                      fontWeight: "900",
+                      padding: "2px 8px",
+                      borderRadius: "99px",
+                      textTransform: "uppercase",
+                      background:
+                        videoPortalForm.plataforma === "youtube"
+                          ? "#dc2626"
+                          : videoPortalForm.plataforma === "instagram"
+                          ? "linear-gradient(45deg, #c026d3, #db2777)"
+                          : videoPortalForm.plataforma === "tiktok"
+                          ? "#000"
+                          : "#2563eb",
+                      color: "#fff",
+                      border: videoPortalForm.plataforma === "tiktok" ? "1px solid #06b6d4" : "none",
+                    }}>
+                      {videoPortalForm.plataforma}
+                    </span>
+                    <span style={{ fontSize: "9px", padding: "1px 6px", borderRadius: "99px", background: "rgba(0,0,0,0.6)", color: "#cbd5e1" }}>
+                      9:16
+                    </span>
+                  </div>
+
+                  {/* Botão de Play Central */}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "#dc2626", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(220, 38, 38, 0.5)" }}>
+                      ▶
+                    </div>
+                  </div>
+
+                  {/* Título na Base */}
+                  <div style={{ position: "absolute", bottom: "10px", left: "10px", right: "10px" }}>
+                    <strong style={{ fontSize: "12px", color: "#fff", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.3" }}>
+                      {videoPortalForm.titulo.trim() || "Título do vídeo aparecerá aqui..."}
+                    </strong>
+                    <span style={{ fontSize: "10px", color: "#94a3b8", display: "block", marginTop: "4px" }}>
+                      Rede Apucarana
+                    </span>
+                  </div>
+                </div>
+              </div>
+
             </div>
-            <FormInput placeholder="Título do vídeo" value={videoForm.titulo} onChange={(v) => setVideoForm({ ...videoForm, titulo: v })} />
-            <div className="form-row"><Select value={videoForm.cidade} onChange={(v) => setVideoForm({ ...videoForm, cidade: v })} options={CIDADES} /><Select value={videoForm.categoria} onChange={(v) => setVideoForm({ ...videoForm, categoria: v })} options={VIDEO_CATEGORIAS} /></div>
-            <Select value={videoForm.tipo} onChange={(v) => setVideoForm({ ...videoForm, tipo: v as "upload" | "instagram" })} options={["upload", "instagram"]} />
-            {videoForm.tipo === "upload" ? (
-              <>
-                <VideoFileField value={videoForm.videoUrl} file={videoFile} onChange={(file) => { setVideoFile(file); if (file) setVideoForm({ ...videoForm, videoUrl: "" }); }} />
-                <FormInput placeholder="Ou informe uma URL direta de vídeo MP4" value={videoForm.videoUrl} onChange={(v) => setVideoForm({ ...videoForm, videoUrl: v })} />
-              </>
-            ) : (
-              <FormInput placeholder="Link público do Reel ou post do Instagram" value={videoForm.instagramUrl} onChange={(v) => setVideoForm({ ...videoForm, instagramUrl: v })} />
+
+            {/* Divisor */}
+            <hr style={{ border: 0, borderTop: "1px solid #e2e8f0", margin: "24px 0 16px" }} />
+
+            {/* Barra de Filtros e Contagem */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "4px" }}>
+                {[
+                  { id: "todas", label: `Todos (${portalVideos.length})` },
+                  { id: "youtube", label: "YouTube" },
+                  { id: "instagram", label: "Instagram" },
+                  { id: "tiktok", label: "TikTok" },
+                  { id: "nativo", label: "Nativo MP4" },
+                  { id: "rascunho", label: "Rascunhos" },
+                ].map((f) => {
+                  const sel = filtroVideoPlat === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFiltroVideoPlat(f.id)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "20px",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        border: sel ? "1px solid #0f172a" : "1px solid #cbd5e1",
+                        background: sel ? "#0f172a" : "#fff",
+                        color: sel ? "#fff" : "#475569",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ minWidth: "220px" }}>
+                <FormInput
+                  placeholder="Filtrar por título..."
+                  value={buscaVideo}
+                  onChange={(v) => setBuscaVideo(v)}
+                />
+              </div>
+            </div>
+
+            {/* Listagem dos Vídeos da Tabela videos_portal */}
+            <div style={{ display: "grid", gap: "10px" }}>
+              {portalVideos
+                .filter((v) => {
+                  if (filtroVideoPlat === "rascunho") return v.status === "rascunho";
+                  if (filtroVideoPlat !== "todas") return v.plataforma?.toLowerCase() === filtroVideoPlat;
+                  return true;
+                })
+                .filter((v) => !buscaVideo.trim() || v.titulo.toLowerCase().includes(buscaVideo.toLowerCase()))
+                .map((v) => {
+                  const thumb = getVideoThumbnail(v);
+                  return (
+                    <div
+                      key={v.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "12px",
+                        padding: "12px",
+                        background: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "14px",
+                        flexWrap: "wrap",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: "1 1 300px" }}>
+                        <div style={{ width: "48px", height: "72px", borderRadius: "8px", overflow: "hidden", background: "#0f172a", flexShrink: 0, border: "1px solid #cbd5e1" }}>
+                          <img src={thumb} alt={v.titulo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
+
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                fontWeight: "800",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                background:
+                                  v.plataforma === "youtube"
+                                    ? "#fee2e2"
+                                    : v.plataforma === "instagram"
+                                    ? "#fdf4ff"
+                                    : v.plataforma === "tiktok"
+                                    ? "#f1f5f9"
+                                    : "#dbeafe",
+                                color:
+                                  v.plataforma === "youtube"
+                                    ? "#dc2626"
+                                    : v.plataforma === "instagram"
+                                    ? "#c026d3"
+                                    : v.plataforma === "tiktok"
+                                    ? "#0f172a"
+                                    : "#2563eb",
+                              }}
+                            >
+                              {v.plataforma?.toUpperCase()}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => void alternarStatusVideoPortal(v.id, v.status)}
+                              title="Clique para alternar entre publicado e rascunho"
+                              style={{
+                                fontSize: "10px",
+                                fontWeight: "800",
+                                padding: "2px 8px",
+                                borderRadius: "4px",
+                                border: 0,
+                                cursor: "pointer",
+                                background: v.status === "publicado" ? "#dcfce7" : "#f1f5f9",
+                                color: v.status === "publicado" ? "#166534" : "#64748b",
+                              }}
+                            >
+                              {v.status === "publicado" ? "🟢 Publicado" : "⚪ Rascunho"}
+                            </button>
+                          </div>
+
+                          <strong style={{ display: "block", fontSize: "13px", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {v.titulo}
+                          </strong>
+                          <span style={{ fontSize: "11px", color: "#64748b", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {v.url_video}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Ações */}
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center", flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModalVideo(v)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            border: "1px solid #cbd5e1",
+                            background: "#f8fafc",
+                            color: "#334155",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ▶ Testar Player
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditVideoPortalId(v.id);
+                            setVideoPortalForm({
+                              titulo: v.titulo,
+                              url_video: v.url_video,
+                              plataforma: (v.plataforma as any) || "youtube",
+                              thumbnail_url: v.thumbnail_url || "",
+                              status: (v.status as any) || "publicado",
+                            });
+                            window.scrollTo({ top: 400, behavior: "smooth" });
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            border: "1px solid #bfdbfe",
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void excluirVideoPortal(v.id)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            border: "1px solid #fecdd3",
+                            background: "#fff1f2",
+                            color: "#e11d48",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {portalVideos.length === 0 && (
+                <div style={{ padding: "30px", textAlign: "center", color: "#64748b", background: "#f8fafc", borderRadius: "12px", border: "1px dashed #cbd5e1" }}>
+                  Nenhum vídeo cadastrado ainda. Use o formulário acima para adicionar o primeiro corte ou vídeo vertical!
+                </div>
+              )}
+            </div>
+
+            {/* MODAL DE TESTE DE PLAYER DENTRO DO ADMIN */}
+            {previewModalVideo && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  background: "rgba(0, 0, 0, 0.85)",
+                  backdropFilter: "blur(4px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "16px",
+                }}
+                onClick={() => setPreviewModalVideo(null)}
+              >
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: "420px",
+                    background: "#0f172a",
+                    border: "1px solid #334155",
+                    borderRadius: "20px",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ padding: "14px 18px", background: "#020617", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ fontSize: "10px", fontWeight: "900", color: "#ef4444", textTransform: "uppercase" }}>
+                        TESTE DE PLAYER: {previewModalVideo.plataforma}
+                      </span>
+                      <h4 style={{ fontSize: "13px", color: "#fff", margin: "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {previewModalVideo.titulo}
+                      </h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModalVideo(null)}
+                      style={{ background: "#1e293b", border: 0, color: "#fff", width: "28px", height: "28px", borderRadius: "50%", cursor: "pointer", fontWeight: "800" }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div style={{ width: "100%", aspectRatio: "9/16", maxHeight: "65vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {previewModalVideo.plataforma === "youtube" && (() => {
+                      const ytId = getYoutubeId(previewModalVideo.url_video);
+                      return ytId ? (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`}
+                          style={{ width: "100%", height: "100%", border: 0 }}
+                          title={previewModalVideo.titulo}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>
+                          Link inválido do YouTube.
+                        </div>
+                      );
+                    })()}
+
+                    {previewModalVideo.plataforma === "instagram" && (() => {
+                      const embedUrl = getInstagramEmbedUrl(previewModalVideo.url_video);
+                      return embedUrl ? (
+                        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+                          <iframe
+                            src={embedUrl}
+                            style={{ width: "100%", flex: 1, border: 0, background: "#fff" }}
+                            title={previewModalVideo.titulo}
+                            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                            allowFullScreen
+                          />
+                          <div style={{ background: "#020617", padding: "6px 12px", borderTop: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "#94a3b8" }}>
+                            <span>Bloqueio de áudio/direitos?</span>
+                            <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ color: "#f472b6", fontWeight: "bold", textDecoration: "underline" }}>
+                              Abrir no Instagram ➔
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>
+                          Link do Instagram: <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ color: "#ec4899" }}>Abrir original</a>
+                        </div>
+                      );
+                    })()}
+
+                    {previewModalVideo.plataforma === "tiktok" && (() => {
+                      const tiktokId = getTikTokId(previewModalVideo.url_video);
+                      return tiktokId ? (
+                        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+                          <iframe
+                            src={`https://www.tiktok.com/player/v1/${tiktokId}?autoplay=1`}
+                            style={{ width: "100%", flex: 1, border: 0, background: "#000" }}
+                            title={previewModalVideo.titulo}
+                            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                          <div style={{ background: "#020617", padding: "6px 12px", borderTop: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "#94a3b8" }}>
+                            <span>Player TikTok</span>
+                            <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ color: "#22d3ee", fontWeight: "bold", textDecoration: "underline" }}>
+                              Abrir no App ➔
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ padding: "20px", textAlign: "center", color: "#fff" }}>
+                          <p style={{ fontSize: "13px", color: "#06b6d4", marginBottom: "12px" }}>Vídeo do TikTok</p>
+                          <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ background: "#06b6d4", color: "#000", padding: "8px 16px", borderRadius: "20px", fontWeight: "800", textDecoration: "none", fontSize: "12px" }}>
+                            Abrir no TikTok ➔
+                          </a>
+                        </div>
+                      );
+                    })()}
+
+                    {previewModalVideo.plataforma === "nativo" && (
+                      <video src={previewModalVideo.url_video} controls autoPlay style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
-            <ImageField label="Thumbnail / capa do vídeo" value={videoForm.thumbnailUrl} onChange={(v) => setVideoForm({ ...videoForm, thumbnailUrl: v })} />
-            <FormInput placeholder="Descrição curta do vídeo" value={videoForm.descricao} onChange={(v) => setVideoForm({ ...videoForm, descricao: v })} multiline />
-            <FormInput placeholder="Link da matéria relacionada (opcional)" value={videoForm.materiaUrl} onChange={(v) => setVideoForm({ ...videoForm, materiaUrl: v })} />
-            <SaveButton label={editId ? "Atualizar vídeo" : "Publicar vídeo"} onClick={() => void salvarVideo()} />
-            {filterByCity(videos).map((x) => <AdminItem key={x.id} title={x.titulo} meta={`${x.cidade} · ${x.categoria} · ${x.tipo === "instagram" ? "Instagram" : "Vídeo próprio"}`} image={x.thumbnailUrl} onEdit={() => { setEditId(x.id); setVideoFile(null); setVideoForm({ titulo: x.titulo, descricao: x.descricao, cidade: x.cidade, categoria: x.categoria, tipo: x.tipo, videoUrl: x.videoUrl, instagramUrl: x.instagramUrl, thumbnailUrl: x.thumbnailUrl, materiaUrl: x.materiaUrl, status: "published" }); }} onDelete={() => void excluir("videos", x.id)} />)}
           </AdminSection>
         )}
 
@@ -1424,4 +2463,69 @@ function Select({ value, onChange, options }: { value: string; onChange: (value:
 function ImageField({ value, onChange, label = "Imagem do anúncio" }: { value: string; onChange: (value: string) => void; label?: string }) { return <div className="image-field"><label>{label}</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 2_500_000) return alert("Escolha uma imagem de até 2 MB"); const reader = new FileReader(); reader.onload = () => onChange(String(reader.result)); reader.readAsDataURL(file); }} /><span>ou cole a URL da imagem abaixo</span><input placeholder="https://..." value={value.startsWith("data:") ? "Imagem carregada" : value} onChange={(e) => onChange(e.target.value)} />{value && <img src={value} alt="Pré-visualização" />}</div>; }
 function VideoFileField({ value, file, onChange }: { value: string; file: File | null; onChange: (file: File | null) => void }) { return <div className="video-file-field"><label>Arquivo de vídeo (MP4 recomendado)</label><input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => onChange(e.target.files?.[0] || null)} /><small>{file ? `Selecionado: ${file.name} (${Math.round(file.size / 1024 / 1024)} MB)` : value ? "Usando vídeo já enviado ou URL direta" : "Nenhum arquivo local selecionado"}</small></div>; }
 function SaveButton({ label, onClick }: { label: string; onClick: () => void }) { return <button className="save-button" onClick={onClick}>{label}</button>; }
-function AdminItem({ title, meta, image, onEdit, onDelete, extraAction }: { title: string; meta: string; image?: string; onEdit: () => void; onDelete: () => void; extraAction?: React.ReactNode }) { return <div className="admin-item">{image && <img src={image} alt={title} />}<div><strong>{title}</strong><span>{meta}</span></div><div className="admin-item-actions">{extraAction}<button onClick={onEdit}>Editar</button><button className="danger" onClick={onDelete}>Excluir</button></div></div>; }
+function AdminItem({
+  title,
+  meta,
+  image,
+  onEdit,
+  onDelete,
+  extraAction,
+  footer,
+}: {
+  title: string;
+  meta: string;
+  image?: string;
+  onEdit: () => void;
+  onDelete: () => void;
+  extraAction?: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  if (!footer) {
+    return (
+      <div className="admin-item">
+        {image && <img src={image} alt={title} />}
+        <div>
+          <strong>{title}</strong>
+          <span>{meta}</span>
+        </div>
+        <div className="admin-item-actions">
+          {extraAction}
+          <button onClick={onEdit}>Editar</button>
+          <button className="danger" onClick={onDelete}>
+            Excluir
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "6px",
+        border: "1px solid #e0e6eb",
+        borderRadius: "10px",
+        padding: "10px",
+        background: "#fbfcfd",
+        marginTop: "4px",
+      }}
+    >
+      <div className="admin-item" style={{ border: 0, padding: 0, background: "transparent", margin: 0 }}>
+        {image && <img src={image} alt={title} />}
+        <div>
+          <strong>{title}</strong>
+          <span>{meta}</span>
+        </div>
+        <div className="admin-item-actions">
+          {extraAction}
+          <button onClick={onEdit}>Editar</button>
+          <button className="danger" onClick={onDelete}>
+            Excluir
+          </button>
+        </div>
+      </div>
+      {footer}
+    </div>
+  );
+}

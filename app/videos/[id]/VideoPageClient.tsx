@@ -21,7 +21,7 @@ function instagramEmbedUrl(url: string) {
   try {
     const parsed = new URL(url);
     const match = parsed.pathname.match(/\/(reel|p|tv)\/([^/]+)/i);
-    return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed` : url;
+    return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed/` : url;
   } catch {
     return url;
   }
@@ -128,29 +128,43 @@ export default function VideoPage({ params }: { params: { id: string } }) {
       </header>
       <div className="video-detail-layout">
         <section className="video-detail-player">
-          {video.tipo === "instagram" && video.instagram_url ? (
-            <div className="video-detail-embed">
-              <iframe
-                src={instagramEmbedUrl(video.instagram_url)}
-                title={video.titulo}
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                allowFullScreen
-              />
-              <a href={video.instagram_url} target="_blank" rel="noreferrer">
-                Abrir origem da publicação ↗
-              </a>
-            </div>
-          ) : (
-            <video
-              controls
-              playsInline
-              preload="metadata"
-              poster={video.thumbnail_url || undefined}
-            >
-              <source src={video.video_url || ""} type="video/mp4" />
-              Seu navegador não suporta vídeo HTML5.
-            </video>
-          )}
+          {(() => {
+            const rawIgUrl =
+              video.instagram_url ||
+              (video.video_url &&
+              (video.video_url.includes("instagram.com/") ||
+                video.video_url.includes("instagr.am/"))
+                ? video.video_url
+                : null);
+
+            if (rawIgUrl) {
+              return (
+                <div className="video-detail-embed">
+                  <iframe
+                    src={instagramEmbedUrl(rawIgUrl)}
+                    title={video.titulo}
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                  <a href={rawIgUrl} target="_blank" rel="noreferrer">
+                    Abrir origem da publicação ↗
+                  </a>
+                </div>
+              );
+            }
+
+            return (
+              <video
+                controls
+                playsInline
+                preload="metadata"
+                poster={video.thumbnail_url || undefined}
+              >
+                <source src={video.video_url || ""} type="video/mp4" />
+                Seu navegador não suporta vídeo HTML5.
+              </video>
+            );
+          })()}
         </section>
         <article className="video-detail-copy">
           <span className="card-kicker">

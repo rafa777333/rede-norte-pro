@@ -13,6 +13,7 @@ import TopUtilityCockpit from "../components/TopUtilityCockpit";
 import MobileBottomNav from "../components/MobileBottomNav";
 import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
 import DarkMediaStrip, { type VideoPortalItem } from "../components/DarkMediaStrip";
+import VideosHubPage from "../components/VideosHubPage";
 
 
 type Noticia = {
@@ -379,9 +380,54 @@ function LargeSponsorCarousel({ sponsors }: { sponsors: Sponsor[] }) {
   );
 }
 
-export default function PortalClient({ initialCity = "Geral" }: { initialCity?: string }) {
+export default function PortalClient({
+  initialCity = "Geral",
+  initialTab = "noticias",
+}: {
+  initialCity?: string;
+  initialTab?: string;
+}) {
   const [cidade, setCidade] = useState(initialCity);
-  const [aba, setAba] = useState("noticias");
+  const [aba, setAba] = useState(initialTab);
+
+  const trocarAba = (novaAba: string) => {
+    setAba(novaAba);
+    if (typeof window !== "undefined") {
+      if (novaAba === "videos") {
+        if (!window.location.pathname.startsWith("/videos")) {
+          window.history.pushState(null, "", "/videos");
+        }
+      } else {
+        if (window.location.pathname.startsWith("/videos")) {
+          window.history.pushState(null, "", "/");
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (typeof window !== "undefined") {
+        if (window.location.pathname.startsWith("/videos")) {
+          setAba("videos");
+        } else if (window.location.pathname === "/" || window.location.pathname === "") {
+          setAba("noticias");
+        }
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (aba === "videos") {
+        document.title = "Vídeos & Cortes Digitais | Rede Apucarana de Comunicação";
+      } else if (aba === "noticias") {
+        document.title = "Rede Apucarana de Comunicação | Jornalismo, Podcasts, Rádio e TV";
+      }
+    }
+  }, [aba]);
   const [categoria, setCategoria] = useState("Todas");
   const [limiteNoticias, setLimiteNoticias] = useState(24);
   const [sel, setSel] = useState<Noticia | null>(null);
@@ -771,7 +817,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
           <div className="article-footer-note"><strong>Encontrou um erro?</strong><span> Fale com a redação para solicitar uma correção ou enviar informação.</span></div>
           <section className="related"><div className="section-heading"><span>Leia também</span><i /></div><div className="related-grid">{todas.filter((n) => n.id !== sel.id).slice(0, 3).map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div></section>
         </article>
-        <MobileBottomNav currentTab={aba} onSelectTab={setAba} />
+        <MobileBottomNav currentTab={aba} onSelectTab={trocarAba} />
     </main>
     );
   }
@@ -881,14 +927,14 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
       <header className="site-header sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <nav className="main-nav" aria-label="Navegação principal">
           <div className="container nav-inner">
-            <button className={aba === "noticias" ? "active" : ""} onClick={() => setAba("noticias")}>Notícias</button>
+            <button className={aba === "noticias" ? "active" : ""} onClick={() => trocarAba("noticias")}>Notícias</button>
             <a href="/esportes" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", color: "#1d4ed8", fontWeight: "800" }}>⚽ Jogos & Placares</a>
             <a href="/tv-online" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}><span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444" }} /> TV Online</a>
-            <button className={aba === "videos" ? "active" : ""} onClick={() => setAba("videos")}>Vídeos</button>
-            <button className={aba === "ondeir" ? "active" : ""} onClick={() => setAba("ondeir")}>Onde Ir</button>
-            <button className={aba === "empregos" ? "active" : ""} onClick={() => setAba("empregos")}>Empregos</button>
-            <button className={aba === "compras" ? "active" : ""} onClick={() => setAba("compras")}>Compras e vendas</button>
-            <button className={aba === "promocoes" ? "active" : ""} onClick={() => setAba("promocoes")}>Promoções</button>
+            <a href="/videos" className={aba === "videos" ? "active" : ""} onClick={(e) => { e.preventDefault(); trocarAba("videos"); }}>Vídeos</a>
+            <button className={aba === "ondeir" ? "active" : ""} onClick={() => trocarAba("ondeir")}>Onde Ir</button>
+            <button className={aba === "empregos" ? "active" : ""} onClick={() => trocarAba("empregos")}>Empregos</button>
+            <button className={aba === "compras" ? "active" : ""} onClick={() => trocarAba("compras")}>Compras e vendas</button>
+            <button className={aba === "promocoes" ? "active" : ""} onClick={() => trocarAba("promocoes")}>Promoções</button>
           </div>
         </nav>
         <div className="city-nav" aria-label="Cidades"><div className="container city-scroll"><button className={cidade === "Geral" ? "active" : ""} onClick={() => setCidade("Geral")}>Geral</button>{cidades.filter((c) => c !== "Geral").map((c) => <a key={c} className={cidade === c ? "active" : ""} href={`/cidades/${cidadeSlug(c)}`}>{c}</a>)}</div></div>
@@ -1157,7 +1203,9 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         </section>
       </>}
 
-      {aba === "videos" && <section className="container utility-page video-page"><span className="eyebrow">CORTES DA REDE APUCARANA</span><h2>Vídeos de {cidade}</h2><p className="video-page-intro">Assista aos cortes das matérias diretamente no portal. Vídeos enviados pela redação e publicações públicas do Instagram aparecem aqui sem você precisar sair da página.</p><div className="video-grid">{videosAdmin.filter((v) => v.categoria !== "Publicidade" && ((cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase())).map((video) => <article className="video-card" key={video.id}><VideoPlayer video={video} /><div className="video-card-copy"><span className="card-kicker"><Badge category={video.categoria}>{video.categoria}</Badge><span>{video.cidade}</span></span><h3>{video.titulo}</h3><p>{video.descricao}</p><small>{video.publishedAt ? new Date(video.publishedAt).toLocaleDateString("pt-BR") : "Agora"}{video.materiaUrl && <> · <a href={video.materiaUrl}>Ler matéria</a></>}</small><a className="video-open-link" href={`/videos/${video.id}`}>Abrir página e compartilhar →</a></div></article>)}{!videosAdmin.filter((v) => v.categoria !== "Publicidade" && ((cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase())).length && <div className="empty-state">Ainda não há vídeos publicados para {cidade}. A redação pode cadastrar cortes pelo painel administrativo.</div>}</div></section>}
+      {aba === "videos" && (
+        <VideosHubPage videos={videosPortal} cidade={cidade} />
+      )}
 
       {aba === "ondeir" && <section className="container utility-page"><span className="eyebrow">GUIA REGIONAL</span><h2>Onde ir em {cidade}</h2><div className="public-list-grid">{locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).map((l: any) => <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} /><span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span></button>)}{!locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Em breve, lugares, serviços e experiências em {cidade}.</div>}</div></section>}
 
@@ -1175,7 +1223,7 @@ export default function PortalClient({ initialCity = "Geral" }: { initialCity?: 
         onClose={() => setSignoAberto(null)}
         onSelectSigno={(s) => setSignoAberto(s)}
       />
-      <MobileBottomNav currentTab={aba} onSelectTab={setAba} />
+      <MobileBottomNav currentTab={aba} onSelectTab={trocarAba} />
     </main>
   );
 }

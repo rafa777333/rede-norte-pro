@@ -37,9 +37,25 @@ export function getInstagramCode(url: string): string | null {
   return match ? match[2] : null;
 }
 
+export function getInstagramEmbedUrl(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/\/(reel|p|tv)\/([^/?#]+)/i);
+  if (!match) return null;
+  const type = match[1].toLowerCase();
+  const code = match[2];
+  return `https://www.instagram.com/${type}/${code}/embed/`;
+}
+
+export function getTikTokId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/\/video\/(\d+)/i) || url.match(/\/v\/(\d+)/i);
+  return match ? match[1] : null;
+}
+
 export function getVideoThumbnail(video: { url_video?: string; videoUrl?: string; plataforma?: string; thumbnail_url?: string; thumbnailUrl?: string }): string {
-  const thumb = video.thumbnail_url || video.thumbnailUrl;
-  if (thumb && thumb.trim().length > 0) {
+  const thumb = (video.thumbnail_url || video.thumbnailUrl || "").trim();
+  const isPostUrl = thumb.includes("instagram.com/") || thumb.includes("facebook.com/") || thumb.includes("tiktok.com/") || thumb.includes("youtube.com/");
+  if (thumb && !isPostUrl) {
     return thumb;
   }
   const url = video.url_video || video.videoUrl || "";
@@ -367,17 +383,30 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
                 );
               })()}
 
-              {/* Player do Instagram Reel */}
+              {/* Player do Instagram Reel / Post */}
               {activeVideo.plataforma === "instagram" && (() => {
-                const code = getInstagramCode(activeVideo.url_video);
-                return code ? (
-                  <iframe
-                    src={`https://www.instagram.com/reel/${code}/embed`}
-                    className="w-full h-full border-0 bg-white"
-                    title={activeVideo.titulo}
-                    allowTransparency
-                    allowFullScreen
-                  />
+                const embedUrl = getInstagramEmbedUrl(activeVideo.url_video);
+                return embedUrl ? (
+                  <div className="relative w-full h-full flex flex-col">
+                    <iframe
+                      src={embedUrl}
+                      className="w-full flex-1 border-0 bg-white"
+                      title={activeVideo.titulo}
+                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                    <div className="bg-slate-900 border-t border-slate-800 p-2 text-center text-[11px] text-slate-300 flex items-center justify-between px-3">
+                      <span>Bloqueio de áudio ou DRM?</span>
+                      <a
+                        href={activeVideo.url_video}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-pink-400 hover:text-pink-300 font-bold underline"
+                      >
+                        Abrir no Instagram ↗
+                      </a>
+                    </div>
+                  </div>
                 ) : (
                   <div className="p-6 text-center text-slate-400">
                     <p>Post do Instagram.</p>
@@ -399,24 +428,48 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
                 />
               )}
 
-              {/* Player TikTok ou outros */}
-              {activeVideo.plataforma === "tiktok" && (
-                <div className="p-8 text-center text-slate-300">
-                  <div className="w-16 h-16 rounded-2xl bg-black border border-cyan-500/50 mx-auto flex items-center justify-center mb-4 text-2xl shadow-lg">
-                    🎵
+              {/* Player TikTok */}
+              {activeVideo.plataforma === "tiktok" && (() => {
+                const tiktokId = getTikTokId(activeVideo.url_video);
+                return tiktokId ? (
+                  <div className="relative w-full h-full flex flex-col">
+                    <iframe
+                      src={`https://www.tiktok.com/player/v1/${tiktokId}?autoplay=1`}
+                      className="w-full flex-1 border-0 bg-black"
+                      title={activeVideo.titulo}
+                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                    <div className="bg-slate-900 border-t border-slate-800 p-2 text-center text-[11px] text-slate-300 flex items-center justify-between px-3">
+                      <span>Vídeo oficial TikTok</span>
+                      <a
+                        href={activeVideo.url_video}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-400 hover:text-cyan-300 font-bold underline"
+                      >
+                        Abrir no App ↗
+                      </a>
+                    </div>
                   </div>
-                  <strong className="block text-white text-base mb-2">Vídeo do TikTok</strong>
-                  <p className="text-xs text-slate-400 mb-4">Clique abaixo para assistir ao corte no aplicativo ou navegador:</p>
-                  <a
-                    href={activeVideo.url_video}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-sm transition-colors"
-                  >
-                    Abrir no TikTok ↗
-                  </a>
-                </div>
-              )}
+                ) : (
+                  <div className="p-8 text-center text-slate-300">
+                    <div className="w-16 h-16 rounded-2xl bg-black border border-cyan-500/50 mx-auto flex items-center justify-center mb-4 text-2xl shadow-lg">
+                      🎵
+                    </div>
+                    <strong className="block text-white text-base mb-2">Vídeo do TikTok</strong>
+                    <p className="text-xs text-slate-400 mb-4">Clique abaixo para assistir ao corte no aplicativo ou navegador:</p>
+                    <a
+                      href={activeVideo.url_video}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-sm transition-colors"
+                    >
+                      Abrir no TikTok ↗
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Rodapé do Modal */}
