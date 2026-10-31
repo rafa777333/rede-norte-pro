@@ -64,6 +64,58 @@ export function formatInstagramCaption(news: {
   return partes.join("\n\n");
 }
 
+let cachedPageToken: { token: string; expires: number } | null = null;
+
+/**
+ * Garante a obtenção do Page Access Token.
+ * Se o token configurado no ambiente for um User Token, consulta automaticamente a Meta
+ * e extrai o Page Access Token correspondente para evitar erro de 'publish_actions'.
+ */
+export async function getPageAccessToken(config: MetaConfig): Promise<string> {
+  if (cachedPageToken && cachedPageToken.expires > Date.now()) {
+    return cachedPageToken.token;
+  }
+
+  // 1. Verifica se o token já é diretamente da Página
+  try {
+    const meRes = await fetch(
+      `https://graph.facebook.com/${config.apiVersion}/me?fields=id&access_token=${encodeURIComponent(config.accessToken)}`
+    );
+    const meData = await meRes.json().catch(() => null);
+    if (meRes.ok && meData?.id === config.pageId) {
+      cachedPageToken = { token: config.accessToken, expires: Date.now() + 1000 * 60 * 30 };
+      return config.accessToken;
+    }
+  } catch {}
+
+  // 2. Se for User Token, obtém o Page Access Token da página especificada
+  try {
+    const pageRes = await fetch(
+      `https://graph.facebook.com/${config.apiVersion}/${config.pageId}?fields=access_token&access_token=${encodeURIComponent(config.accessToken)}`
+    );
+    const pageData = await pageRes.json().catch(() => null);
+    if (pageRes.ok && pageData?.access_token) {
+      cachedPageToken = { token: pageData.access_token, expires: Date.now() + 1000 * 60 * 30 };
+      return pageData.access_token;
+    }
+  } catch {}
+
+  // 3. Fallback: consulta /me/accounts
+  try {
+    const accRes = await fetch(
+      `https://graph.facebook.com/${config.apiVersion}/me/accounts?access_token=${encodeURIComponent(config.accessToken)}`
+    );
+    const accData = await accRes.json().catch(() => null);
+    const target = accData?.data?.find((p: any) => p.id === config.pageId);
+    if (target?.access_token) {
+      cachedPageToken = { token: target.access_token, expires: Date.now() + 1000 * 60 * 30 };
+      return target.access_token;
+    }
+  } catch {}
+
+  return config.accessToken;
+}
+
 async function callMetaApi<T>(endpoint: string, options: RequestInit = {}, timeoutMs = 20000): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -94,12 +146,13 @@ export async function publishFacebookPhoto(
   config: MetaConfig,
   params: { imageUrl: string; caption: string }
 ): Promise<{ id: string; post_id?: string }> {
+  const token = await getPageAccessToken(config);
   const url = `https://graph.facebook.com/${config.apiVersion}/${config.pageId}/photos`;
 
   const payload = {
     url: params.imageUrl,
     caption: params.caption,
-    access_token: config.accessToken,
+    access_token: token,
   };
 
   return await callMetaApi<{ id: string; post_id?: string }>(url, {
@@ -116,12 +169,13 @@ export async function createInstagramContainer(
   config: MetaConfig,
   params: { imageUrl: string; caption: string }
 ): Promise<{ id: string }> {
+  const token = await getPageAccessToken(config);
   const url = `https://graph.facebook.com/${config.apiVersion}/${config.igUserId}/media`;
 
   const payload = {
     image_url: params.imageUrl,
     caption: params.caption,
-    access_token: config.accessToken,
+    access_token: token,
   };
 
   return await callMetaApi<{ id: string }>(url, {
@@ -138,8 +192,9 @@ export async function checkInstagramContainerStatus(
   config: MetaConfig,
   containerId: string
 ): Promise<{ id: string; status_code?: string }> {
+  const token = await getPageAccessToken(config);
   const url = `https://graph.facebook.com/${config.apiVersion}/${containerId}?fields=id,status_code&access_token=${encodeURIComponent(
-    config.accessToken
+    token
   )}`;
 
   return await callMetaApi<{ id: string; status_code?: string }>(url, {
@@ -154,11 +209,12 @@ export async function publishInstagramContainer(
   config: MetaConfig,
   containerId: string
 ): Promise<{ id: string }> {
+  const token = await getPageAccessToken(config);
   const url = `https://graph.facebook.com/${config.apiVersion}/${config.igUserId}/media_publish`;
 
   const payload = {
     creation_id: containerId,
-    access_token: config.accessToken,
+    access_token: token,
   };
 
   return await callMetaApi<{ id: string }>(url, {
@@ -263,8 +319,9 @@ export async function reconcileFacebookPhoto(
   titleSnippet: string
 ): Promise<{ found: boolean; postId?: string; publishedAt?: string; error?: string }> {
   try {
+    const token = await getPageAccessToken(config);
     const url = `https://graph.facebook.com/${config.apiVersion}/${config.pageId}/photos?type=uploaded&fields=id,name,created_time&limit=5&access_token=${encodeURIComponent(
-      config.accessToken
+      token
     )}`;
 
     const data = await callMetaApi<{ data?: Array<{ id: string; name?: string; created_time: string }> }>(url, {
@@ -318,8 +375,9 @@ export async function reconcileInstagramMedia(
     }
 
     // 2. Consulta mídias recentes do feed
+    const token = await getPageAccessToken(config);
     const url = `https://graph.facebook.com/${config.apiVersion}/${config.igUserId}/media?fields=id,caption,timestamp&limit=5&access_token=${encodeURIComponent(
-      config.accessToken
+      token
     )}`;
 
     const data = await callMetaApi<{ data?: Array<{ id: string; caption?: string; timestamp: string }> }>(url, {
