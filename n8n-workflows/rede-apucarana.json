@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.item.json.body || $input.item.json;\n\n// 1. Limpa e normaliza o título original\nconst rawTitle = item.title || item.titulo || \"\";\nconst cleanTitle = rawTitle.replace(/<[^>]*>?/gm, \"\").replace(/\\s+/g, \" \").trim();\n\n// 2. Normaliza a categoria (sempre maiúscula)\nlet category = (item.categoria || item.category || \"NOTÍCIA\").replace(/<[^>]*>?/gm, \"\").trim().toUpperCase();\nif (category === \"GERAL\") category = \"NOTÍCIA\";\n\n// 3. Imagem original da matéria\nconst imageUrl = (item.image_url || item.imageUrl || item.imagem || \"\").trim();\n\n// 4. Link da matéria\nconst slug = item.slug || \"\";\nconst link = item.link || (slug ? `https://www.redeapucarana.com.br/noticias/${slug}` : \"https://www.redeapucarana.com.br\");\n\n// 5. Redes selecionadas\nconst networks = Array.isArray(item.networks) && item.networks.length > 0 ? item.networks : [\"facebook\", \"instagram\"];\nconst publicationId = item.publication_id || item.id || `pub_${Date.now()}`;\nconst newsId = item.news_id || \"\";\n\nreturn {\n  publication_id: publicationId,\n  news_id: newsId,\n  original_title: cleanTitle,\n  category: category,\n  image_url: imageUrl,\n  link: link,\n  networks: networks,\n  created_at: new Date().toISOString()\n};"
+        "jsCode": "const item = $input.item.json.body || $input.item.json;\n\nfunction decodeHtml(str) {\n  if (!str) return \"\";\n  return String(str)\n    .replace(/&#(\\d+);/g, (_, dec) => String.fromCharCode(dec))\n    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))\n    .replace(/&quot;/gi, '\"')\n    .replace(/&apos;/gi, \"'\")\n    .replace(/&amp;/gi, \"&\")\n    .replace(/&lt;/gi, \"<\")\n    .replace(/&gt;/gi, \">\")\n    .replace(/&nbsp;/gi, \" \")\n    .replace(/&ndash;/gi, \"–\")\n    .replace(/&mdash;/gi, \"—\");\n}\n\nfunction generateUUID() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n}\n\n// 1. Limpa e normaliza o título original (decodificando entidades como &#039;)\nconst rawTitle = item.title || item.titulo || \"\";\nconst cleanTitle = decodeHtml(rawTitle).replace(/<[^>]*>?/gm, \"\").replace(/\\s+/g, \" \").trim();\n\n// 2. Normaliza a categoria (sempre maiúscula)\nlet category = decodeHtml(item.categoria || item.category || \"NOTÍCIA\").replace(/<[^>]*>?/gm, \"\").trim().toUpperCase();\nif (category === \"GERAL\") category = \"NOTÍCIA\";\n\n// 3. Imagem original da matéria\nconst imageUrl = (item.image_url || item.imageUrl || item.imagem || \"\").trim();\n\n// 4. Link da matéria\nconst slug = item.slug || \"\";\nconst link = item.link || (slug ? `https://www.redeapucarana.com.br/noticias/${slug}` : \"https://www.redeapucarana.com.br\");\n\n// 5. Redes selecionadas\nconst networks = Array.isArray(item.networks) && item.networks.length > 0 ? item.networks : [\"facebook\", \"instagram\"];\n\n// 6. UUID garantido para evitar erro 22P02 no Supabase\nconst rawPubId = String(item.publication_id || item.id || \"\").trim();\nconst isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPubId);\nconst publicationId = isUuid ? rawPubId : generateUUID();\nconst newsId = item.news_id || \"\";\n\nreturn {\n  publication_id: publicationId,\n  news_id: newsId,\n  original_title: cleanTitle,\n  category: category,\n  image_url: imageUrl,\n  link: link,\n  networks: networks,\n  created_at: new Date().toISOString()\n};"
       },
       "id": "22222222-0001-4000-8000-000000000002",
       "name": "Code - Limpar Dados",
@@ -77,7 +77,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"image_url\": \"{{ $json.image_url }}\",\n  \"headline\": \"{{ $json.headline }}\",\n  \"category\": \"{{ $json.category }}\",\n  \"link\": \"{{ $json.link }}\"\n}",
+        "jsonBody": "={{\n  JSON.stringify({\n    image_url: $json.image_url,\n    headline: $json.headline,\n    category: $json.category,\n    link: $json.link,\n    layout: 'modelo_1'\n  })\n}}",
         "options": {}
       },
       "id": "22222222-0001-4000-8000-000000000005",
@@ -349,8 +349,9 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  JSON.stringify({\n    status: 'published',\n    supabase_image_url: 'https://mrbgxfpxubjodgmcrtuq.supabase.co/storage/v1/object/public/rede-norte-media/social/arte_' + $('Code - Validar Manchete').item.json.publication_id + '.jpg',\n    meta_post_ids: {\n      facebook: $('Meta - Publicar no Facebook')?.item?.json?.id || $('Meta - Publicar no Facebook')?.item?.json?.post_id || '',\n      instagram: $('Meta - Publicar Midia IG')?.item?.json?.id || ''\n    },\n    error_log: null,\n    updated_at: new Date().toISOString()\n  })\n}}",
-        "options": {}
+        "jsonBody": "={{\n  JSON.stringify({\n    status: 'published',\n    supabase_image_url: 'https://mrbgxfpxubjodgmcrtuq.supabase.co/storage/v1/object/public/rede-norte-media/social/arte_' + $('Code - Validar Manchete').item.json.publication_id + '.jpg',\n    meta_post_ids: {\n      facebook: ($('Meta - Publicar no Facebook')?.isExecuted ? ($('Meta - Publicar no Facebook')?.first()?.json?.id || $('Meta - Publicar no Facebook')?.first()?.json?.post_id || '') : ''),\n      instagram: ($('Meta - Publicar Midia IG')?.isExecuted ? ($('Meta - Publicar Midia IG')?.first()?.json?.id || '') : '')\n    },\n    error_log: null,\n    updated_at: new Date().toISOString()\n  })\n}}",
+        "options": {},
+        "onError": "continueRegularOutput"
       },
       "id": "22222222-0001-4000-8000-000000000014",
       "name": "Supabase - Atualizar Status Publicado",
