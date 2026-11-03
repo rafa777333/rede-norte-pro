@@ -185,18 +185,18 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://graph.facebook.com/v21.0/117584158034115/photos",
+        "url": "https://graph.facebook.com/v21.0/117584158034115/feed",
         "sendBody": true,
         "contentType": "form-urlencoded",
         "bodyParameters": {
           "parameters": [
             {
-              "name": "url",
-              "value": "=https://mrbgxfpxubjodgmcrtuq.supabase.co/storage/v1/object/public/rede-norte-media/social/arte_{{ $('Code - Validar Manchete').item.json.publication_id }}.jpg"
+              "name": "message",
+              "value": "={{ $('Code - Validar Manchete').item.json.headline }}\\n\\nConfira todos os detalhes na reportagem completa da Rede Apucarana:"
             },
             {
-              "name": "caption",
-              "value": "={{ $('Code - Validar Manchete').item.json.headline }}\\n\\nLeia a matéria completa no portal: {{ $('Code - Validar Manchete').item.json.link }}"
+              "name": "link",
+              "value": "={{ $('Code - Validar Manchete').item.json.link }}"
             },
             {
               "name": "access_token",
@@ -399,6 +399,39 @@
       ],
       "continueOnFail": true,
       "disabled": true
+    },
+    {
+      "id": "21322509-5db1-402a-b5b4-d27506d411a9",
+      "name": "Meta - Scrape OpenGraph FB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "options": {},
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $('Code - Validar Manchete').item.json.link }}"
+            },
+            {
+              "name": "scrape",
+              "value": "true"
+            },
+            {
+              "name": "access_token",
+              "value": "INSERIR_META_ACCESS_TOKEN"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "url": "https://graph.facebook.com/v21.0/"
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -483,7 +516,7 @@
       "main": [
         [
           {
-            "node": "Meta - Publicar no Facebook",
+            "node": "Meta - Scrape OpenGraph FB",
             "type": "main",
             "index": 0
           }
@@ -564,6 +597,17 @@
         [
           {
             "node": "Log no Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta - Scrape OpenGraph FB": {
+      "main": [
+        [
+          {
+            "node": "Meta - Publicar no Facebook",
             "type": "main",
             "index": 0
           }

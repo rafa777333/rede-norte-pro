@@ -128,6 +128,14 @@ export async function generateMetadata({
     paragraphs(news.conteudo)[0] ||
     "Leia a notícia completa na Rede Apucarana de Comunicação.";
   const url = `${SITE_URL}/noticias/${encodeURIComponent(news.slug || news.id)}`;
+
+  const titulo = news.titulo || "";
+  const categoria = news.categoria || "NOTÍCIA";
+  const fotoOriginal = news.imagem || "";
+
+  // Capa oficial de compartilhamento carimbada em 1200x630 (Link Preview Card Facebook)
+  const ogImageUrl = `${SITE_URL}/api/og-facebook?title=${encodeURIComponent(titulo)}&category=${encodeURIComponent(categoria)}&image_url=${encodeURIComponent(fotoOriginal)}`;
+
   return {
     title: `${news.titulo} | Rede Apucarana`,
     description,
@@ -139,13 +147,20 @@ export async function generateMetadata({
       type: "article",
       siteName: "Rede Apucarana de Comunicação",
       locale: "pt_BR",
-      images: news.imagem ? [{ url: news.imagem, alt: news.titulo }] : [],
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: news.titulo,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: news.titulo,
       description,
-      images: news.imagem ? [news.imagem] : [],
+      images: [ogImageUrl],
     },
   };
 }

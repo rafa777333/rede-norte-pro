@@ -39,7 +39,7 @@ async function dispararTeste() {
   const newsId = newsItem?.id || "4e84f377-862b-471d-b197-532603127e14";
   const testTitle = newsItem?.titulo || "Novo Centro Tecnológico e Inovação é inaugurado em Apucarana";
   const testImage = newsItem?.imagem || "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1200&auto=format&fit=crop&q=80";
-  const testNetworks = ["instagram"];
+  const testNetworks = process.argv[2] ? process.argv[2].split(",") : ["facebook", "instagram"];
 
   // 2. Cria registro real na tabela social_publications com status 'queued'
   const { data: publication, error: dbError } = await supabase

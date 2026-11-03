@@ -9,3 +9,5 @@ out/
 SUBIR_SITE_VERCEL.bat
 scratch/
 supabase/.temp/
+__pycache__/
+*.pyc

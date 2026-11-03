@@ -119,7 +119,7 @@ def generate_single_format(
 
     # 1. Tarja preta com degradê suave embaixo
     gradient = Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
-    start_ratio = 0.44 if format_type == "4_5" else 0.46 if format_type == "1_1" else 0.52
+    start_ratio = 0.35 if format_type == "facebook" else (0.44 if format_type == "4_5" else 0.46 if format_type == "1_1" else 0.52)
     start_y = int(target_h * start_ratio)
 
     for y in range(start_y, target_h):
@@ -131,11 +131,11 @@ def generate_single_format(
     canvas = Image.alpha_composite(canvas.convert("RGBA"), gradient)
     draw = ImageDraw.Draw(canvas)
 
-    # 2. Barra inferior do site (Modelo 1)
+    # 2. Barra inferior do site (Modelo 1 - apenas Instagram)
     bar_h = 72 if format_type == "4_5" else 62 if format_type == "1_1" else 85
     bar_y = target_h - bar_h
 
-    if layout == "modelo_1":
+    if layout == "modelo_1" and format_type != "facebook":
         draw.rectangle([0, bar_y, target_w, target_h], fill="#020726")
         site_font_size = 22 if format_type != "1_1" else 19
         site_font = get_font(FONT_BOLD, site_font_size)
@@ -148,7 +148,18 @@ def generate_single_format(
         draw.text((site_x, site_y), site_text, fill="#E2E8F0", font=site_font)
 
     # 3. Logo Oficial RA
-    if layout == "modelo_1":
+    if format_type == "facebook":
+        # Facebook 1200x630: Logo Oficial no canto inferior direito
+        badge_path = LOGO_TOP_BADGE_PATH if os.path.exists(LOGO_TOP_BADGE_PATH) else LOGO_PATH
+        if os.path.exists(badge_path):
+            badge_img = Image.open(badge_path).convert("RGBA")
+            bw = 175
+            bh = int(bw * (badge_img.height / badge_img.width))
+            badge_resized = badge_img.resize((bw, bh), Image.Resampling.LANCZOS)
+            bx = target_w - 50 - bw
+            by = target_h - 45 - bh
+            canvas.paste(badge_resized, (bx, by), badge_resized)
+    elif layout == "modelo_1":
         # MODELO 1: Logo no Canto Superior Direito (intacta, nunca cortada pelo Instagram)
         badge_path = LOGO_TOP_BADGE_PATH if os.path.exists(LOGO_TOP_BADGE_PATH) else LOGO_PATH
         if os.path.exists(badge_path):
@@ -176,16 +187,16 @@ def generate_single_format(
             canvas.paste(logo_img, (logo_x, logo_y), logo_img)
 
     # 4. Quebra de linha da manchete garantindo no máximo 3 linhas
-    max_text_width = target_w - 140  # 70px de margem em cada lado
-    font_size = 56 if format_type == "4_5" else 50 if format_type == "1_1" else 58
+    max_text_width = (target_w - 280) if format_type == "facebook" else (target_w - 140)
+    font_size = 44 if format_type == "facebook" else (56 if format_type == "4_5" else 50 if format_type == "1_1" else 58)
 
-    # No Modelo 1, a manchete é em caixa alta para máximo impacto visual
-    headline_clean = headline.strip().upper() if layout == "modelo_1" else headline.strip()
+    # No Modelo 1 e no Facebook, a manchete é em caixa alta para máximo impacto visual
+    headline_clean = headline.strip().upper() if (layout == "modelo_1" or format_type == "facebook") else headline.strip()
 
     headline_font = get_font(FONT_EXTRABOLD, font_size)
     lines = wrap_text_to_lines(headline_clean, headline_font, max_text_width, draw)
 
-    while len(lines) > 3 and font_size >= 36:
+    while len(lines) > 3 and font_size >= 32:
         font_size -= 3
         headline_font = get_font(FONT_EXTRABOLD, font_size)
         lines = wrap_text_to_lines(headline_clean, headline_font, max_text_width, draw)
@@ -206,39 +217,48 @@ def generate_single_format(
     total_headline_h += (len(lines) - 1) * line_spacing
 
     # 5. Tag de Categoria Vermelha #FF0000
-    cat_font_size = 32 if format_type != "1_1" else 28
+    cat_font_size = 24 if format_type == "facebook" else (32 if format_type != "1_1" else 28)
     cat_font = get_font(FONT_EXTRABOLD, cat_font_size)
     cat_text = category.strip().upper()
     cat_bb = draw.textbbox((0, 0), cat_text, font=cat_font)
     cat_tw = cat_bb[2] - cat_bb[0]
     cat_th = cat_bb[3] - cat_bb[1]
 
-    pad_x = 26
-    pad_y = 10
+    pad_x = 22 if format_type == "facebook" else 26
+    pad_y = 8 if format_type == "facebook" else 10
     tag_w = cat_tw + (pad_x * 2)
     tag_h = cat_th + (pad_y * 2)
 
     # Posicionamento vertical
-    bottom_boundary = bar_y if layout == "modelo_1" else (target_h - 65 if format_type != "9_16" else target_h - 140)
-    headline_y = bottom_boundary - total_headline_h - 38
-    tag_y = headline_y - tag_h - 26
+    if format_type == "facebook":
+        bottom_boundary = target_h - 45
+        headline_y = bottom_boundary - total_headline_h
+        tag_y = headline_y - tag_h - 18
+    else:
+        bottom_boundary = bar_y if layout == "modelo_1" else (target_h - 65 if format_type != "9_16" else target_h - 140)
+        headline_y = bottom_boundary - total_headline_h - 38
+        tag_y = headline_y - tag_h - 26
 
-    # Posicionamento horizontal (Centralizado no Modelo 1)
-    if layout == "modelo_1":
+    # Posicionamento horizontal (Centralizado no Modelo 1 do Instagram, Alinhado à esquerda no Facebook)
+    if format_type == "facebook":
+        tag_x = 60
+    elif layout == "modelo_1":
         tag_x = (target_w - tag_w) // 2
     else:
         tag_x = 70
 
     # Desenhar Tag Vermelha arredondada
-    draw.rounded_rectangle([tag_x, tag_y, tag_x + tag_w, tag_y + tag_h], radius=12, fill="#FF0000")
+    draw.rounded_rectangle([tag_x, tag_y, tag_x + tag_w, tag_y + tag_h], radius=10 if format_type == "facebook" else 12, fill="#FF0000")
     draw.text((tag_x + pad_x, tag_y + pad_y - 2), cat_text, fill="#FFFFFF", font=cat_font)
 
-    # Desenhar Manchete em Branco Montserrat-ExtraBold (Centralizada no Modelo 1)
+    # Desenhar Manchete em Branco Montserrat-ExtraBold
     cur_y = headline_y
     for i, line in enumerate(lines):
         bb = draw.textbbox((0, 0), line, font=headline_font)
         lw = bb[2] - bb[0]
-        if layout == "modelo_1":
+        if format_type == "facebook":
+            lx = 60
+        elif layout == "modelo_1":
             lx = (target_w - lw) // 2
         else:
             lx = 70
@@ -313,6 +333,12 @@ async def generate_images(req: GenerateRequest, request: Request):
         path_9_16 = OUTPUT_DIR / filename_9_16
         img_9_16.save(str(path_9_16), "JPEG", quality=95)
 
+        # 4. Formato 1200x630 (Link Preview Card Facebook)
+        img_fb = generate_single_format(base_img, 1200, 630, req.category, req.headline, "facebook", layout="facebook")
+        filename_fb = f"arte_{run_id}_1200x630.jpg"
+        path_fb = OUTPUT_DIR / filename_fb
+        img_fb.save(str(path_fb), "JPEG", quality=95)
+
         base_url = str(request.base_url).rstrip("/")
 
         return {
@@ -346,6 +372,14 @@ async def generate_images(req: GenerateRequest, request: Request):
                     "ratio": "9:16",
                     "path": str(path_9_16),
                     "url": f"{base_url}/output/{filename_9_16}"
+                },
+                "facebook_1200x630": {
+                    "filename": filename_fb,
+                    "width": 1200,
+                    "height": 630,
+                    "ratio": "1.91:1",
+                    "path": str(path_fb),
+                    "url": f"{base_url}/output/{filename_fb}"
                 }
             }
         }
