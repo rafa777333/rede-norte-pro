@@ -29,16 +29,21 @@ async function dispararTeste() {
   console.log("   SIMULAÇÃO DE DISPARO DE TESTE - N8N SOCIAL WEBHOOK     ");
   console.log("==========================================================");
 
-  // 1. Busca notícia existente no banco ou usa payload de teste
+  // 1. Busca notícia real existente no banco com slug válido publicado
   const { data: newsItem } = await supabase
     .from("news")
-    .select("id, titulo, imagem, slug")
+    .select("id, titulo, imagem, slug, categoria")
+    .not("slug", "is", null)
+    .neq("slug", "")
+    .order("created_at", { ascending: false })
     .limit(1)
     .single();
 
-  const newsId = newsItem?.id || "4e84f377-862b-471d-b197-532603127e14";
-  const testTitle = newsItem?.titulo || "Novo Centro Tecnológico e Inovação é inaugurado em Apucarana";
-  const testImage = newsItem?.imagem || "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1200&auto=format&fit=crop&q=80";
+  const newsId = newsItem?.id || "fc0d2ed5-b297-45bb-b974-4a54d72aef04";
+  const testTitle = newsItem?.titulo || "Com dois feirões em novembro, Procon de Apucarana orienta consumidores a renegociar dívidas com segurança";
+  const testImage = newsItem?.imagem || "https://www.apucarana.pr.gov.br/site/wp-content/uploads/2026/11/WhatsApp-Image-2026-11-03-at-10.58.11-1024x683.jpeg";
+  const testSlug = newsItem?.slug || "com-dois-feiroes-em-novembro-procon-de-apucarana-orienta-consumidores-a-renegociar-dividas-com-seguranca-491";
+  const testCategory = newsItem?.categoria || "Cidade";
   const testNetworks = process.argv[2] ? process.argv[2].split(",") : ["facebook", "instagram"];
 
   // 2. Cria registro real na tabela social_publications com status 'queued'
@@ -72,9 +77,11 @@ async function dispararTeste() {
     news_id: newsId,
     title: testTitle,
     image_url: testImage,
+    categoria: testCategory,
     resumo: "Matéria de teste gerada para validação do webhook n8n integrado ao Carimbo Oficial e Meta.",
     conteudo: "Matéria completa de teste para validação de automação social.",
-    slug: newsItem?.slug || "noticia-teste-automacao-social",
+    slug: testSlug,
+    link: `https://www.redeapucarana.com.br/noticias/${testSlug}`,
     networks: testNetworks,
     created_at: publication.created_at,
   };

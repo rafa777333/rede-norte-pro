@@ -192,7 +192,7 @@
           "parameters": [
             {
               "name": "message",
-              "value": "={{ $('Code - Validar Manchete').item.json.headline }}\\n\\nConfira todos os detalhes na reportagem completa da Rede Apucarana:"
+              "value": "={{ $('Code - Validar Manchete').item.json.headline + '\\n\\nConfira todos os detalhes na reportagem completa da Rede Apucarana:' }}"
             },
             {
               "name": "link",
@@ -262,7 +262,7 @@
             },
             {
               "name": "caption",
-              "value": "={{ $('Code - Validar Manchete').item.json.headline }}\\n\\n📲 Saiba mais acessando o link na bio ou nosso portal: {{ $('Code - Validar Manchete').item.json.link }}"
+              "value": "={{ $('Code - Validar Manchete').item.json.headline + '\\n\\n📲 Saiba mais acessando o link na bio ou nosso portal: ' + $('Code - Validar Manchete').item.json.link }}"
             },
             {
               "name": "access_token",
