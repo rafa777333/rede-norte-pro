@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "test:social": "node scripts/test-social-publish.cjs",
+    "test:lighthouse": "npx lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html --view",
     "stamper": "python -m uvicorn app:app --app-dir services/image-stamper --host 0.0.0.0 --port 5000"
   },
   "dependencies": {
+    "@next/third-parties": "^14.2.5",
     "@supabase/supabase-js": "^2.118.0",
     "next": "14.2.5",
     "react": "18.3.1",

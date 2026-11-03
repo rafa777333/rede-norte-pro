@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
+import { GoogleTagManager, GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -13,10 +15,13 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Rede Apucarana de Comunicação | Jornalismo, Rádio, TV e Esportes",
   description: "Notícias de Apucarana, Arapongas e Vale do Ivaí com informação local, esportes ao vivo, rádio, vídeos e utilidade pública.",
   metadataBase: new URL("https://www.redeapucarana.com.br"),
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
+  },
   openGraph: {
     title: "Rede Apucarana de Comunicação | Jornalismo, Rádio, TV e Esportes",
     description: "Informação local, serviço e notícias do Paraná.",
@@ -26,9 +31,14 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+
   return (
     <html lang="pt-BR" className={`${plusJakartaSans.variable} ${inter.variable}`}>
       <body className="bg-slate-50 text-slate-800 antialiased font-sans">{children}</body>
+      {gtmId && <GoogleTagManager gtmId={gtmId} />}
+      {gaId && <GoogleAnalytics gaId={gaId} />}
     </html>
   );
 }
