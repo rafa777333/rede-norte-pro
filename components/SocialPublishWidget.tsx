@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useTransition } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { decodeHtmlEntities } from "@/lib/text-utils";
 import {
   SocialPublication,
   SocialPublicationNetwork,
@@ -193,7 +194,7 @@ export default function SocialPublishWidget({
         },
         body: JSON.stringify({
           news_id: newsId,
-          title,
+          title: decodeHtmlEntities(title),
           image_url: imageUrl,
           networks: selectedNetworks,
         }),
@@ -434,7 +435,7 @@ export default function SocialPublishWidget({
       )}
 
       {/* MENSAGEM DE ERRO (CASO HAJA FALHA OU ERRO NA AÇÃO) */}
-      {(actionError || (publication?.status === "failed" && publication.error_log)) && (
+      {!submitting && (actionError || (publication?.status === "failed" && publication.error_log)) && (
         <div
           style={{
             fontSize: "11px",

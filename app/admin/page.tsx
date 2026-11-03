@@ -2,6 +2,7 @@
 
 import { getYoutubeId, getInstagramCode, getInstagramEmbedUrl, getTikTokId, getVideoThumbnail } from "@/components/DarkMediaStrip";
 import SocialPublishWidget from "@/components/SocialPublishWidget";
+import { decodeHtmlEntities } from "@/lib/text-utils";
 import { useEffect, useMemo, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
 
@@ -2497,13 +2498,19 @@ function AdminItem({
   extraAction?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const decodedTitle = decodeHtmlEntities(title);
+
   if (!footer) {
     return (
       <div className="admin-item">
-        {image && <img src={image} alt={title} />}
-        <div>
-          <strong>{title}</strong>
-          <span>{meta}</span>
+        {image && <img src={image} alt={decodedTitle} />}
+        <div className="admin-item-copy" style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+          <strong style={{ display: "block", fontSize: "13px", lineHeight: "1.4", marginBottom: "4px", color: "#0f172a" }}>
+            {decodedTitle}
+          </strong>
+          <span style={{ display: "block", color: "#64748b", fontSize: "11px", lineHeight: "1.3" }}>
+            {meta}
+          </span>
         </div>
         <div className="admin-item-actions">
           {extraAction}
@@ -2529,10 +2536,14 @@ function AdminItem({
       }}
     >
       <div className="admin-item" style={{ border: 0, padding: 0, background: "transparent", margin: 0 }}>
-        {image && <img src={image} alt={title} />}
-        <div>
-          <strong>{title}</strong>
-          <span>{meta}</span>
+        {image && <img src={image} alt={decodedTitle} />}
+        <div className="admin-item-copy" style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+          <strong style={{ display: "block", fontSize: "13px", lineHeight: "1.4", marginBottom: "4px", color: "#0f172a" }}>
+            {decodedTitle}
+          </strong>
+          <span style={{ display: "block", color: "#64748b", fontSize: "11px", lineHeight: "1.3" }}>
+            {meta}
+          </span>
         </div>
         <div className="admin-item-actions">
           {extraAction}

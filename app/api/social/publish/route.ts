@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { decodeHtmlEntities } from "@/lib/text-utils";
 import {
   getMetaConfig,
   formatFacebookCaption,
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const finalTitle = customTitle || news.titulo;
+      const finalTitle = decodeHtmlEntities(customTitle || news.titulo);
       const finalImageUrl = customImageUrl || news.imagem;
 
       // Inserção do registro inicial na tabela social_publications com status 'queued'
@@ -144,10 +145,20 @@ export async function POST(req: NextRequest) {
         rawEnvUrl === "COLE_AQUI_A_URL_DO_SEU_WEBHOOK" ||
         !rawEnvUrl.startsWith("http");
 
-      // Se for placeholder ou não configurado, prioriza a URL de teste e produção do n8n local
-      const primaryUrl = isPlaceholder
-        ? "http://localhost:5678/webhook-test/social-publish"
-        : rawEnvUrl;
+      // Monta lista de URLs prioritárias para disparar ao n8n
+      const candidateUrls: string[] = [];
+      if (rawEnvUrl && !isPlaceholder) {
+        candidateUrls.push(rawEnvUrl);
+        if (rawEnvUrl.includes("/webhook/social-publish")) {
+          candidateUrls.push(rawEnvUrl.replace("/webhook/social-publish", "/webhook-test/social-publish"));
+        }
+      }
+      candidateUrls.push("http://127.0.0.1:5678/webhook/social-publish");
+      candidateUrls.push("http://localhost:5678/webhook/social-publish");
+      candidateUrls.push("http://127.0.0.1:5678/webhook-test/social-publish");
+      candidateUrls.push("http://localhost:5678/webhook-test/social-publish");
+
+      const uniqueCandidateUrls = Array.from(new Set(candidateUrls));
 
       const n8nPayload = {
         publication_id: newPublication.id,
@@ -165,15 +176,7 @@ export async function POST(req: NextRequest) {
         let n8nRes: Response | null = null;
         let lastErrorText = "";
 
-        // Lista de URLs candidatas (suporta alternância inteligente entre webhook-test e webhook de produção)
-        const candidateUrls = [primaryUrl];
-        if (primaryUrl.includes("/webhook/social-publish")) {
-          candidateUrls.push(primaryUrl.replace("/webhook/social-publish", "/webhook-test/social-publish"));
-        } else if (primaryUrl.includes("/webhook-test/social-publish")) {
-          candidateUrls.push(primaryUrl.replace("/webhook-test/social-publish", "/webhook/social-publish"));
-        }
-
-        for (const url of candidateUrls) {
+        for (const url of uniqueCandidateUrls) {
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -193,7 +196,7 @@ export async function POST(req: NextRequest) {
             if (res.ok) {
               n8nRes = res;
               break;
-            } else if (res.status === 404 && candidateUrls.length > 1) {
+            } else if (res.status === 404 && uniqueCandidateUrls.length > 1) {
               lastErrorText = `Status 404 em ${url}`;
               continue;
             } else {
