@@ -91,8 +91,8 @@ export const SOCIAL_STATUS_CONFIG: Record<
     isLoading: true,
   },
   generating: {
-    label: "Criando no Canva",
-    description: "Gerando arte personalizada via API do Canva",
+    label: "Carimbando Arte RA",
+    description: "Gerando arte nos padrões oficiais pelo micro-serviço local",
     badgeBg: "#f3e8ff",
     badgeText: "#7e22ce",
     badgeBorder: "#d8b4fe",

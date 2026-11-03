@@ -1349,7 +1349,7 @@ const salvarVideo = async () => {
                   }
                   footer={
                     <div style={{ borderTop: "1px solid #edf2f7", paddingTop: "8px", marginTop: "2px", display: "grid", gap: "10px" }}>
-                      {/* COMPONENTE SOCIAL PUBLISH WIDGET (CANVA + META VIA N8N) */}
+                      {/* COMPONENTE SOCIAL PUBLISH WIDGET (CARIMBO OFICIAL RA + META VIA N8N) */}
                       <SocialPublishWidget
                         newsId={n.id}
                         title={n.titulo}

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // ETAPA 2: FLUXO DE PUBLICAÇÃO AUTOMATIZADA (n8n + Canva + Meta)
+    // ETAPA 2: FLUXO DE PUBLICAÇÃO AUTOMATIZADA (Carimbo Oficial RA + Meta via n8n)
     // Ativado quando o array de 'networks' é enviado pelo SocialPublishWidget
     // =========================================================================
     if (Array.isArray(body.networks) && body.networks.length > 0) {

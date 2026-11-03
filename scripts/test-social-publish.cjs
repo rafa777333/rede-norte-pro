@@ -72,7 +72,7 @@ async function dispararTeste() {
     news_id: newsId,
     title: testTitle,
     image_url: testImage,
-    resumo: "Matéria de teste gerada para validação do webhook n8n integrado ao Canva e Meta.",
+    resumo: "Matéria de teste gerada para validação do webhook n8n integrado ao Carimbo Oficial e Meta.",
     conteudo: "Matéria completa de teste para validação de automação social.",
     slug: newsItem?.slug || "noticia-teste-automacao-social",
     networks: testNetworks,

@@ -254,7 +254,7 @@ export default function SocialPublishWidget({
               letterSpacing: "-0.2px",
             }}
           >
-            Publicação Social Automatizada (Canva + Meta via n8n)
+            Publicação Social Automatizada (Carimbo Oficial RA)
           </span>
         </div>
 
@@ -528,7 +528,7 @@ export default function SocialPublishWidget({
               Notícia já divulgada nas redes sociais
             </span>
           ) : (
-            <span>Pronto para gerar arte no Canva e postar</span>
+            <span>Pronto para carimbar arte oficial e postar</span>
           )}
         </div>
 
@@ -586,7 +586,7 @@ export default function SocialPublishWidget({
               />
               <span>
                 {publication?.status === "generating"
-                  ? "Criando no Canva..."
+                  ? "Carimbando Arte..."
                   : publication?.status === "publishing"
                   ? "Postando na Meta..."
                   : "Processando..."}
