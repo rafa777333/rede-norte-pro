@@ -211,7 +211,13 @@ export async function POST(req: NextRequest) {
         }
 
         if (!n8nRes || !n8nRes.ok) {
-          throw new Error(lastErrorText || "Webhook do n8n não respondeu.");
+          console.warn(`Webhook direto do n8n não respondeu (${lastErrorText || "offline"}). Publicação mantida na fila do Supabase com status 'queued' para processamento autônomo.`);
+          return NextResponse.json({
+            success: true,
+            queued: true,
+            message: "Publicação registrada na fila do Supabase com sucesso. O robô n8n processará o item automaticamente.",
+            publication: newPublication,
+          });
         }
 
         return NextResponse.json({
@@ -220,32 +226,17 @@ export async function POST(req: NextRequest) {
           publication: newPublication,
         });
       } catch (n8nError: any) {
-        const errorMsg =
-          n8nError?.name === "AbortError"
-            ? "Timeout ao aguardar resposta do webhook do n8n (15s)."
-            : n8nError?.message || "Falha de conexão com o webhook do n8n.";
+        console.warn("Disparo direto para o webhook do n8n falhou, mantendo publicação na fila do Supabase:", n8nError?.message);
 
-        console.error("Erro ao disparar webhook para o n8n:", errorMsg);
-
-        // Atualização do status para 'failed' e gravação no error_log conforme especificação
-        const { data: updatedPub } = await supabaseAdmin
-          .from("social_publications")
-          .update({
-            status: "failed",
-            error_log: errorMsg,
-          })
-          .eq("id", newPublication.id)
-          .select()
-          .single();
-
-        return NextResponse.json(
-          {
-            error: `Falha ao acionar automação no n8n: ${errorMsg}`,
-            publication: updatedPub || { ...newPublication, status: "failed", error_log: errorMsg },
-            status: "failed",
-          },
-          { status: 502 }
-        );
+        // A publicação já foi salva com status 'queued' no Supabase.
+        // Como o site roda na nuvem (Vercel) e o n8n pode estar na máquina local,
+        // não marcamos como falha, pois a automação consumirá a fila diretamente do Supabase.
+        return NextResponse.json({
+          success: true,
+          queued: true,
+          message: "Publicação registrada na fila do Supabase com sucesso. O robô n8n processará o item automaticamente.",
+          publication: newPublication,
+        });
       }
     }
 

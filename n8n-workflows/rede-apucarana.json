@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.item.json.body || $input.item.json;\n\nfunction decodeHtml(str) {\n  if (!str) return \"\";\n  return String(str)\n    .replace(/&#(\\d+);/g, (_, dec) => String.fromCharCode(dec))\n    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))\n    .replace(/&quot;/gi, '\"')\n    .replace(/&apos;/gi, \"'\")\n    .replace(/&amp;/gi, \"&\")\n    .replace(/&lt;/gi, \"<\")\n    .replace(/&gt;/gi, \">\")\n    .replace(/&nbsp;/gi, \" \")\n    .replace(/&ndash;/gi, \"–\")\n    .replace(/&mdash;/gi, \"—\");\n}\n\nfunction generateUUID() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n}\n\n// 1. Limpa e normaliza o título original (decodificando entidades como &#039;)\nconst rawTitle = item.title || item.titulo || \"\";\nconst cleanTitle = decodeHtml(rawTitle).replace(/<[^>]*>?/gm, \"\").replace(/\\s+/g, \" \").trim();\n\n// 2. Normaliza a categoria (sempre maiúscula)\nlet category = decodeHtml(item.categoria || item.category || \"NOTÍCIA\").replace(/<[^>]*>?/gm, \"\").trim().toUpperCase();\nif (category === \"GERAL\") category = \"NOTÍCIA\";\n\n// 3. Imagem original da matéria\nconst imageUrl = (item.image_url || item.imageUrl || item.imagem || \"\").trim();\n\n// 4. Link da matéria\nconst slug = item.slug || \"\";\nconst link = item.link || (slug ? `https://www.redeapucarana.com.br/noticias/${slug}` : \"https://www.redeapucarana.com.br\");\n\n// 5. Redes selecionadas\nconst networks = Array.isArray(item.networks) && item.networks.length > 0 ? item.networks : [\"facebook\", \"instagram\"];\n\n// 6. UUID garantido para evitar erro 22P02 no Supabase\nconst rawPubId = String(item.publication_id || item.id || \"\").trim();\nconst isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPubId);\nconst publicationId = isUuid ? rawPubId : generateUUID();\nconst newsId = item.news_id || \"\";\n\nreturn {\n  publication_id: publicationId,\n  news_id: newsId,\n  original_title: cleanTitle,\n  category: category,\n  image_url: imageUrl,\n  link: link,\n  networks: networks,\n  created_at: new Date().toISOString()\n};"
+        "jsCode": "const raw = $input.item.json.body || $input.item.json;\nconst newsObj = raw.news || {};\n\nfunction decodeHtml(str) {\n  if (!str) return \"\";\n  return String(str)\n    .replace(/&#(\\d+);/g, (_, dec) => String.fromCharCode(dec))\n    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))\n    .replace(/&quot;/gi, '\"')\n    .replace(/&apos;/gi, \"'\")\n    .replace(/&amp;/gi, \"&\")\n    .replace(/&lt;/gi, \"<\")\n    .replace(/&gt;/gi, \">\")\n    .replace(/&nbsp;/gi, \" \")\n    .replace(/&ndash;/gi, \"–\")\n    .replace(/&mdash;/gi, \"—\");\n}\n\nfunction generateUUID() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n}\n\n// 1. Limpa e normaliza o título original\nconst rawTitle = raw.title || raw.titulo || newsObj.titulo || \"\";\nconst cleanTitle = decodeHtml(rawTitle).replace(/<[^>]*>?/gm, \"\").replace(/\\s+/g, \" \").trim();\n\n// 2. Normaliza a categoria (sempre maiúscula)\nlet category = decodeHtml(raw.categoria || raw.category || newsObj.categoria || \"NOTÍCIA\").replace(/<[^>]*>?/gm, \"\").trim().toUpperCase();\nif (category === \"GERAL\") category = \"NOTÍCIA\";\n\n// 3. Imagem original da matéria\nconst imageUrl = (raw.image_url || raw.imageUrl || raw.imagem || newsObj.imagem || \"\").trim();\n\n// 4. Link da matéria\nconst slug = raw.slug || newsObj.slug || \"\";\nconst link = raw.link || (slug ? `https://www.redeapucarana.com.br/noticias/${slug}` : \"https://www.redeapucarana.com.br\");\n\n// 5. Redes selecionadas\nconst networks = Array.isArray(raw.networks) && raw.networks.length > 0 ? raw.networks : [\"facebook\", \"instagram\"];\n\n// 6. UUID garantido\nconst rawPubId = String(raw.publication_id || raw.id || \"\").trim();\nconst isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPubId);\nconst publicationId = isUuid ? rawPubId : generateUUID();\nconst newsId = raw.news_id || newsObj.id || \"\";\n\nreturn {\n  publication_id: publicationId,\n  news_id: newsId,\n  original_title: cleanTitle,\n  category: category,\n  image_url: imageUrl,\n  link: link,\n  networks: networks,\n  created_at: new Date().toISOString()\n};"
       },
       "id": "22222222-0001-4000-8000-000000000002",
       "name": "Code - Limpar Dados",
@@ -432,6 +432,97 @@
         "url": "https://graph.facebook.com/v21.0/"
       },
       "onError": "continueRegularOutput"
+    },
+    {
+      "id": "f08baf95-67b8-43ee-abdf-b5a97fdd193d",
+      "name": "⏰ Fila Supabase (A cada 30s)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        120
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 30
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "87089a15-3477-4297-ac21-858c8c6588b8",
+      "name": "Supabase - Buscar Fila Pendente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        120
+      ],
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERIR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer INSERIR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "method": "GET",
+        "options": {},
+        "sendHeaders": true,
+        "url": "https://mrbgxfpxubjodgmcrtuq.supabase.co/rest/v1/social_publications?select=*,news(id,titulo,resumo,conteudo,imagem,slug,categoria)&status=eq.queued&order=created_at.asc&limit=1"
+      }
+    },
+    {
+      "id": "b3000a2d-a5e9-47d1-b8c7-d1bfe32c9024",
+      "name": "Supabase - Travar Item Fila",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        688,
+        120
+      ],
+      "parameters": {
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERIR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer INSERIR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "jsonBody": "{\"status\":\"generating\"}",
+        "method": "PATCH",
+        "options": {},
+        "sendBody": true,
+        "sendHeaders": true,
+        "specifyBody": "json",
+        "url": "=https://mrbgxfpxubjodgmcrtuq.supabase.co/rest/v1/social_publications?id=eq.{{ $json.id }}&select=*,news(id,titulo,resumo,conteudo,imagem,slug,categoria)"
+      }
     }
   ],
   "connections": {
@@ -608,6 +699,39 @@
         [
           {
             "node": "Meta - Publicar no Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Fila Supabase (A cada 30s)": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Buscar Fila Pendente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Buscar Fila Pendente": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Travar Item Fila",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Travar Item Fila": {
+      "main": [
+        [
+          {
+            "node": "Code - Limpar Dados",
             "type": "main",
             "index": 0
           }
