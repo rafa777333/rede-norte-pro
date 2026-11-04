@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { cidadeSlug, getSupabase } from "../lib/supabase";
 import { getHoroscopoDoDia, type SignoPrevisao } from "../lib/horoscope";
 import HoroscopeModal from "../components/HoroscopeModal";
@@ -950,14 +951,6 @@ export default function PortalClient({
           currentCity={cidade}
           onSelectCity={(selectedCity) => {
             setCidade(selectedCity);
-            if (typeof window !== "undefined") {
-              const targetSlug = cidadeSlug(selectedCity);
-              if (selectedCity === "Geral") {
-                window.history.pushState(null, "", "/");
-              } else {
-                window.history.pushState(null, "", `/cidades/${targetSlug}`);
-              }
-            }
           }}
         />
       </header>
@@ -984,10 +977,36 @@ export default function PortalClient({
           ))}
         </div>
 
+        {/* Banner Indicador de Cidade Municipal */}
+        {cidade !== "Geral" && (
+          <div className="container mx-auto my-3 px-4 py-3 bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border border-red-800/40 rounded-xl flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+              <div>
+                <span className="text-[11px] font-bold text-red-400 uppercase tracking-wider block">
+                  Edição Municipal do Vale do Ivaí
+                </span>
+                <h1 className="text-base sm:text-xl font-bold text-white font-sans">
+                  Notícias e Acontecimentos de {cidade}
+                </h1>
+              </div>
+            </div>
+            <Link
+              href="/"
+              onClick={() => setCidade("Geral")}
+              className="text-xs bg-white/10 hover:bg-white/20 text-white font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all flex items-center gap-1.5"
+            >
+              <span>←</span>
+              <span className="hidden sm:inline">Ver Capa Geral</span>
+              <span className="sm:hidden">Geral</span>
+            </Link>
+          </div>
+        )}
+
         {/* DOBRA 1: BENTO GRID EDITORIAL 2026 (SUPER-MANCHETE 60% + DESTAQUES & PLANTÃO 40%) */}
         {categoria === "Todas" && (
           <EditorialBentoGrid
-            news={todas}
+            news={filtradas.length > 0 ? filtradas : todas}
             currentCity={cidade}
           />
         )}

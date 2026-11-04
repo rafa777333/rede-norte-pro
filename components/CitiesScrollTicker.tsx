@@ -1,44 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { cidadeSlug } from "@/lib/supabase";
 
-const CIDADES_PRIORITARIAS = [
-  "Geral",
-  "Apucarana",
-  "Arapongas",
-  "Ivaiporã",
-  "Jandaia do Sul",
-];
-
-const DEMAIS_CIDADES = [
-  "Arapuã",
-  "Ariranha do Ivaí",
-  "Bom Sucesso",
-  "Borrazópolis",
-  "Califórnia",
-  "Cambira",
-  "Cruzmaltina",
-  "Faxinal",
-  "Godoy Moreira",
-  "Grandes Rios",
-  "Jardim Alegre",
-  "Kaloré",
-  "Lidianópolis",
-  "Lunardelli",
-  "Marilândia do Sul",
-  "Marumbi",
-  "Mauá da Serra",
-  "Novo Itacolomi",
-  "Rio Bom",
-  "Rio Branco do Ivaí",
-  "Rosário do Ivaí",
-  "São João do Ivaí",
-  "São Pedro do Ivaí",
-];
-
-const TODAS_AS_CIDADES = [
+export const TODAS_AS_CIDADES = [
   "Apucarana",
   "Arapongas",
   "Arapuã",
@@ -67,6 +33,8 @@ const TODAS_AS_CIDADES = [
   "São João do Ivaí",
   "São Pedro do Ivaí",
 ];
+
+const POLOS = ["Apucarana", "Arapongas", "Ivaiporã", "Jandaia do Sul"];
 
 interface CitiesScrollTickerProps {
   currentCity?: string;
@@ -78,153 +46,218 @@ export default function CitiesScrollTicker({
   onSelectCity,
 }: CitiesScrollTickerProps) {
   const [modalAberto, setModalAberto] = useState(false);
+  const [busca, setBusca] = useState("");
 
-  const handleClickCity = (e: React.MouseEvent, c: string) => {
+  // Fechar com tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setModalAberto(false);
+    };
+    if (modalAberto) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [modalAberto]);
+
+  // Cidades filtradas pela busca
+  const cidadesFiltradas = useMemo(() => {
+    if (!busca.trim()) return TODAS_AS_CIDADES;
+    const termo = busca.toLowerCase().trim();
+    return TODAS_AS_CIDADES.filter((c) => c.toLowerCase().includes(termo));
+  }, [busca]);
+
+  const handleCitySelect = (c: string) => {
+    setModalAberto(false);
+    setBusca("");
     if (onSelectCity) {
-      e.preventDefault();
       onSelectCity(c);
-      setModalAberto(false);
     }
   };
 
+  const isCidadeAtiva = currentCity && currentCity !== "Geral";
+
   return (
     <>
+      {/* Barra Ultra Limpa: Apenas o Botão Centralizado / Alinhado */}
       <nav
-        className="w-full bg-[#0d1522] border-y border-slate-800/80 shadow-inner py-1.5 px-3 z-30"
+        className="w-full bg-[#0d1522] border-y border-slate-800/80 shadow-inner py-2 px-3 z-30"
         aria-label="Cidades do Vale do Ivaí"
       >
-        <div className="container mx-auto flex items-center gap-2">
-          {/* Tag Local */}
-          <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-bold text-red-400 uppercase tracking-wider shrink-0 px-2 py-1 rounded bg-red-950/60 border border-red-900/40">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            Vale do Ivaí
-          </span>
+        <div className="container mx-auto flex items-center justify-between gap-3">
+          {/* Botão Único: Vale do Ivaí - 27 Cidades */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setModalAberto(true)}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-sm hover:shadow-md border border-red-500/40 transition-all cursor-pointer group"
+              title="Clique para escolher uma das 27 cidades do Vale do Ivaí"
+            >
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span>
+                {isCidadeAtiva
+                  ? `📍 ${currentCity} · Vale do Ivaí (27 Cidades)`
+                  : "Vale do Ivaí — 27 Cidades"}
+              </span>
+              <span className="text-[10px] sm:text-xs transition-transform duration-200 group-hover:translate-y-0.5">
+                ▼
+              </span>
+            </button>
 
-          {/* Fita de Cidades com Scroll Horizontal Suave */}
-          <div className="flex-1 overflow-x-auto no-scrollbar flex items-center gap-1.5 py-0.5">
-            {/* Prioritárias */}
-            {CIDADES_PRIORITARIAS.map((c) => {
-              const active = currentCity === c;
-              const href = c === "Geral" ? "/" : `/cidades/${cidadeSlug(c)}`;
-
-              return (
-                <Link
-                  key={c}
-                  href={href}
-                  onClick={(e) => handleClickCity(e, c)}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-150 ${
-                    active
-                      ? "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-sm font-bold scale-[1.02]"
-                      : "bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 hover:text-white border border-slate-700/50"
-                  }`}
-                >
-                  {c}
-                </Link>
-              );
-            })}
-
-            <span className="text-slate-700 font-light px-0.5">|</span>
-
-            {/* Demais cidades em linha */}
-            {DEMAIS_CIDADES.map((c) => {
-              const active = currentCity === c;
-              const href = `/cidades/${cidadeSlug(c)}`;
-
-              return (
-                <Link
-                  key={c}
-                  href={href}
-                  onClick={(e) => handleClickCity(e, c)}
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-xs transition-colors ${
-                    active
-                      ? "bg-red-600 text-white font-bold"
-                      : "bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800"
-                  }`}
-                >
-                  {c}
-                </Link>
-              );
-            })}
+            {/* Atalho para Capa Geral quando uma cidade específica estiver aberta */}
+            {isCidadeAtiva && (
+              <Link
+                href="/"
+                onClick={() => handleCitySelect("Geral")}
+                className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 border border-slate-700/60 transition-colors"
+                title="Voltar para a Capa Geral de todo o portal"
+              >
+                ← Capa Geral
+              </Link>
+            )}
           </div>
 
-          {/* Botão Dropdown / Modal com todas as 27 cidades */}
-          <button
-            type="button"
-            onClick={() => setModalAberto(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all"
-            title="Ver todas as 27 cidades do Vale do Ivaí"
-          >
-            <span>27 Cidades</span>
-            <span className="text-[10px]">▾</span>
-          </button>
+          {/* Selo Informativo à Direita */}
+          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 font-medium">
+            <span className="text-slate-600">•</span>
+            <span>Jornalismo Regional em Tempo Real</span>
+            <span className="text-slate-600">•</span>
+            <span className="text-amber-400/90 font-semibold">Norte do Paraná</span>
+          </div>
         </div>
       </nav>
 
-      {/* Modal / Sheet Elegante de Todas as Cidades */}
+      {/* Modal / Aba Completa das 27 Cidades do Vale do Ivaí */}
       {modalAberto && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
           onClick={() => setModalAberto(false)}
         >
           <div
-            className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 overflow-hidden"
+            className="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[88vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            {/* Cabeçalho do Modal */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100 shrink-0">
               <div>
-                <span className="text-xs font-bold text-red-600 tracking-wider uppercase">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-600 uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping" />
                   Região Norte & Vale do Ivaí
                 </span>
-                <h3 className="text-xl font-bold text-slate-900 font-sans">
-                  Todas as 27 Cidades Cobertas
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-sans mt-0.5">
+                  Escolha sua Cidade
                 </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Selecione para abrir o portal de notícias exclusivo do seu município.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setModalAberto(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold"
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-base font-bold transition-colors shrink-0 ml-2"
+                aria-label="Fechar"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mt-4 max-h-[60vh] overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {/* Campo de Busca Rápida */}
+            <div className="mt-3.5 mb-2 shrink-0">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="🔍 Digite o nome da cidade para filtrar..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  autoFocus
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all"
+                />
+                {busca && (
+                  <button
+                    type="button"
+                    onClick={() => setBusca("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 px-1"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Lista com as 27 Cidades em Grid Responsivo */}
+            <div className="overflow-y-auto pr-1 py-2 flex-1">
+              {/* Botão Capa Geral em Destaque */}
+              <div className="mb-3">
                 <Link
                   href="/"
-                  onClick={(e) => handleClickCity(e, "Geral")}
-                  className={`p-2.5 rounded-lg text-xs font-bold border transition-all text-center ${
-                    currentCity === "Geral"
-                      ? "bg-red-600 text-white border-red-600 shadow-sm"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200"
+                  onClick={() => handleCitySelect("Geral")}
+                  className={`w-full p-3 rounded-xl text-xs sm:text-sm font-bold border transition-all flex items-center justify-between ${
+                    !isCidadeAtiva
+                      ? "bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-300"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200"
                   }`}
                 >
-                  🌐 Capa Geral
+                  <span className="flex items-center gap-2">
+                    <span className="text-base">🌐</span>
+                    <span>Capa Geral (Todas as Notícias do Vale & Brasil)</span>
+                  </span>
+                  <span className="text-[11px] opacity-80 font-normal">Edição Principal</span>
                 </Link>
+              </div>
 
-                {TODAS_AS_CIDADES.map((c) => {
+              {/* Grid das Cidades */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {cidadesFiltradas.map((c) => {
                   const active = currentCity === c;
+                  const isPolo = POLOS.includes(c);
+                  const slug = cidadeSlug(c);
+
                   return (
                     <Link
                       key={c}
-                      href={`/cidades/${cidadeSlug(c)}`}
-                      onClick={(e) => handleClickCity(e, c)}
-                      className={`p-2.5 rounded-lg text-xs font-medium border transition-all text-center truncate ${
+                      href={`/cidades/${slug}`}
+                      onClick={() => handleCitySelect(c)}
+                      className={`p-2.5 rounded-xl text-xs font-medium border transition-all flex items-center justify-between text-left group ${
                         active
-                          ? "bg-red-600 text-white font-bold border-red-600 shadow-sm"
-                          : "bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-200"
+                          ? "bg-red-600 text-white font-bold border-red-600 shadow-md"
+                          : "bg-slate-50 hover:bg-red-50/50 hover:border-red-200 text-slate-700 hover:text-red-700 border-slate-200"
                       }`}
-                      title={c}
+                      title={`Abrir notícias de ${c}`}
                     >
-                      {c}
+                      <span className="truncate pr-1">
+                        {isPolo && !active ? (
+                          <span className="font-bold text-slate-900 group-hover:text-red-700">
+                            {c}
+                          </span>
+                        ) : (
+                          c
+                        )}
+                      </span>
+                      {isPolo && (
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
+                            active
+                              ? "bg-white/20 text-white"
+                              : "bg-amber-100 text-amber-800 border border-amber-200"
+                          }`}
+                        >
+                          Polo
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
               </div>
+
+              {cidadesFiltradas.length === 0 && (
+                <div className="text-center py-8 text-slate-500 text-sm">
+                  Nenhuma cidade encontrada com "<strong>{busca}</strong>".
+                </div>
+              )}
             </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Selecione sua cidade para ver matérias locais.</span>
+            {/* Rodapé do Modal */}
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0">
+              <span>27 Municípios atendidos pela Rede Apucarana</span>
               <button
                 type="button"
                 onClick={() => setModalAberto(false)}
