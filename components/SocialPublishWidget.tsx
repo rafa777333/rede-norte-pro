@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { decodeHtmlEntities } from "@/lib/text-utils";
 import {
@@ -78,7 +78,43 @@ export default function SocialPublishWidget({
   const [actionError, setActionError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  // 1. Busca publicação mais recente desta notícia e inscreve no Supabase Realtime
+  // 1. Função reutilizável para carregar o registro mais recente desta matéria no Supabase
+  const carregarPublicacaoRecente = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase || !newsId) {
+      setLoadingInitial(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("social_publications")
+        .select("*")
+        .eq("news_id", newsId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        startTransition(() => {
+          setPublication(data as SocialPublication);
+          if (data.status === "published") {
+            setActionError(null);
+            if (onPublished) onPublished(data as SocialPublication);
+          }
+          if (data.networks && Array.isArray(data.networks) && data.networks.length > 0) {
+            setSelectedNetworks(data.networks as SocialPublicationNetwork[]);
+          }
+        });
+      }
+    } catch (err) {
+      console.warn("Aviso ao carregar publicação recente:", err);
+    } finally {
+      setLoadingInitial(false);
+    }
+  }, [newsId, onPublished]);
+
+  // Carga inicial e inscrição Supabase Realtime
   useEffect(() => {
     let isMounted = true;
     const supabase = getSupabase();
@@ -86,31 +122,6 @@ export default function SocialPublishWidget({
       setLoadingInitial(false);
       return;
     }
-
-    // Busca o status mais recente no banco
-    const carregarPublicacaoRecente = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("social_publications")
-          .select("*")
-          .eq("news_id", newsId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (isMounted) {
-          if (!error && data) {
-            setPublication(data as SocialPublication);
-            if (data.networks && Array.isArray(data.networks) && data.networks.length > 0) {
-              setSelectedNetworks(data.networks as SocialPublicationNetwork[]);
-            }
-          }
-          setLoadingInitial(false);
-        }
-      } catch {
-        if (isMounted) setLoadingInitial(false);
-      }
-    };
 
     void carregarPublicacaoRecente();
 
@@ -132,8 +143,9 @@ export default function SocialPublishWidget({
           if (updated && updated.id) {
             startTransition(() => {
               setPublication(updated);
-              if (updated.status === "published" && onPublished) {
-                onPublished(updated);
+              if (updated.status === "published") {
+                setActionError(null);
+                if (onPublished) onPublished(updated);
               }
             });
           }
@@ -145,7 +157,7 @@ export default function SocialPublishWidget({
       isMounted = false;
       void supabase.removeChannel(channel);
     };
-  }, [newsId, onPublished]);
+  }, [newsId, onPublished, carregarPublicacaoRecente]);
 
   // Alterna a seleção de uma rede
   const toggleNetwork = (net: SocialPublicationNetwork) => {
@@ -163,6 +175,17 @@ export default function SocialPublishWidget({
     publication?.status === "publishing";
 
   const isButtonDisabled = submitting || isProcessing || selectedNetworks.length === 0;
+
+  // Polling automático ativo: quando houver processamento em andamento, verifica o status a cada 2.5s
+  useEffect(() => {
+    if (!isProcessing || !newsId) return;
+
+    const intervalId = setInterval(() => {
+      void carregarPublicacaoRecente();
+    }, 2500);
+
+    return () => clearInterval(intervalId);
+  }, [isProcessing, newsId, carregarPublicacaoRecente]);
 
   // Disparo para a API Route /api/social/publish
   const handlePublish = async () => {
@@ -259,39 +282,64 @@ export default function SocialPublishWidget({
           </span>
         </div>
 
-        {/* BADGE DE STATUS DINÂMICO */}
-        {publication && statusConfig && (
-          <div
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          {/* BOTÃO ATUALIZAR STATUS */}
+          <button
+            type="button"
+            onClick={() => void carregarPublicacaoRecente()}
+            title="Atualizar status da publicação agora"
             style={{
+              background: "#f1f5f9",
+              border: "1px solid #cbd5e1",
+              borderRadius: "6px",
+              padding: "2px 6px",
+              cursor: "pointer",
+              fontSize: "11px",
+              color: "#475569",
               display: "inline-flex",
               alignItems: "center",
-              gap: "5px",
-              padding: "3px 9px",
-              borderRadius: "999px",
-              fontSize: "11px",
-              fontWeight: 700,
-              backgroundColor: statusConfig.badgeBg,
-              color: statusConfig.badgeText,
-              border: `1px solid ${statusConfig.badgeBorder}`,
+              gap: "3px",
+              transition: "all 0.15s ease",
             }}
           >
-            <span>{statusConfig.icon}</span>
-            <span>{statusConfig.label}</span>
-            {statusConfig.isLoading && (
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "8px",
-                  height: "8px",
-                  border: `2px solid ${statusConfig.badgeText}`,
-                  borderTopColor: "transparent",
-                  borderRadius: "50%",
-                  animation: "spin 0.8s linear infinite",
-                }}
-              />
-            )}
-          </div>
-        )}
+            <span>🔄</span>
+            <span style={{ fontSize: "10px", fontWeight: 600 }}>Atualizar</span>
+          </button>
+
+          {/* BADGE DE STATUS DINÂMICO */}
+          {publication && statusConfig && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "3px 9px",
+                borderRadius: "999px",
+                fontSize: "11px",
+                fontWeight: 700,
+                backgroundColor: statusConfig.badgeBg,
+                color: statusConfig.badgeText,
+                border: `1px solid ${statusConfig.badgeBorder}`,
+              }}
+            >
+              <span>{statusConfig.icon}</span>
+              <span>{statusConfig.label}</span>
+              {statusConfig.isLoading && (
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "8px",
+                    height: "8px",
+                    border: `2px solid ${statusConfig.badgeText}`,
+                    borderTopColor: "transparent",
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* SELETOR DE REDES SOCIAIS (CHECKBOXES) */}

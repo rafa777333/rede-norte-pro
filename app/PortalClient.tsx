@@ -14,6 +14,13 @@ import MobileBottomNav from "../components/MobileBottomNav";
 import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
 import DarkMediaStrip, { type VideoPortalItem } from "../components/DarkMediaStrip";
 import VideosHubPage from "../components/VideosHubPage";
+import CitiesScrollTicker from "../components/CitiesScrollTicker";
+import FootballScoreboardTicker from "../components/FootballScoreboardTicker";
+import CommercialAdSlot from "../components/CommercialAdSlot";
+import EditorialBentoGrid from "../components/EditorialBentoGrid";
+import ValePublicUtilitiesHub from "../components/ValePublicUtilitiesHub";
+import DiscoverNationalSection from "../components/DiscoverNationalSection";
+import type { PortalInitialData } from "../lib/portal-data";
 
 
 type Noticia = {
@@ -383,9 +390,11 @@ function LargeSponsorCarousel({ sponsors }: { sponsors: Sponsor[] }) {
 export default function PortalClient({
   initialCity = "Geral",
   initialTab = "noticias",
+  initialData,
 }: {
   initialCity?: string;
   initialTab?: string;
+  initialData?: PortalInitialData;
 }) {
   const [cidade, setCidade] = useState(initialCity);
   const [aba, setAba] = useState(initialTab);
@@ -432,11 +441,11 @@ export default function PortalClient({
   const [limiteNoticias, setLimiteNoticias] = useState(24);
   const [sel, setSel] = useState<Noticia | null>(null);
   const [busca, setBusca] = useState("");
-  const [carregandoNoticias, setCarregandoNoticias] = useState(true);
-  const [noticiasAdmin, setNoticiasAdmin] = useState<any[]>([]);
+  const [carregandoNoticias, setCarregandoNoticias] = useState(!initialData?.allNews?.length);
+  const [noticiasAdmin, setNoticiasAdmin] = useState<any[]>(initialData?.allNews || []);
   const [locaisAdmin, setLocaisAdmin] = useState<any[]>([]);
-  const [vagasAdmin, setVagasAdmin] = useState<any[]>([]);
-  const [classifAdmin, setClassifAdmin] = useState<any[]>([]);
+  const [vagasAdmin, setVagasAdmin] = useState<any[]>(initialData?.jobs || []);
+  const [classifAdmin, setClassifAdmin] = useState<any[]>(initialData?.classificados || []);
   const [promocoesAdmin, setPromocoesAdmin] = useState<any[]>([]);
   const [videosAdmin, setVideosAdmin] = useState<Video[]>([]);
   const [videosPortal, setVideosPortal] = useState<VideoPortalItem[]>([]);
@@ -937,187 +946,139 @@ export default function PortalClient({
             <button className={aba === "promocoes" ? "active" : ""} onClick={() => trocarAba("promocoes")}>Promoções</button>
           </div>
         </nav>
-        <div className="city-nav" aria-label="Cidades"><div className="container city-scroll"><button className={cidade === "Geral" ? "active" : ""} onClick={() => setCidade("Geral")}>Geral</button>{cidades.filter((c) => c !== "Geral").map((c) => <a key={c} className={cidade === c ? "active" : ""} href={`/cidades/${cidadeSlug(c)}`}>{c}</a>)}</div></div>
+        <CitiesScrollTicker
+          currentCity={cidade}
+          onSelectCity={(selectedCity) => {
+            setCidade(selectedCity);
+            if (typeof window !== "undefined") {
+              const targetSlug = cidadeSlug(selectedCity);
+              if (selectedCity === "Geral") {
+                window.history.pushState(null, "", "/");
+              } else {
+                window.history.pushState(null, "", `/cidades/${targetSlug}`);
+              }
+            }
+          }}
+        />
       </header>
       <audio ref={radioRef} src={RADIO_STREAM_URL} preload="none" />
 
-      <TopHeroBanner config={topBannerConfig} />
-
+      {/* CLIMA DO VALE DO IVAÍ */}
       <WeatherHeroBar currentCity={cidade} />
 
-      <div className="container" style={{ margin: "14px auto 8px" }}>
-        <FutebolWidget variant="carousel" />
+      {/* DOBRA 0: SCOREBOARD TICKER HORIZONTAL DE FUTEBOL (PADRÃO UOL / GE) */}
+      <div className="container" style={{ margin: "6px auto 10px" }}>
+        <FootballScoreboardTicker />
       </div>
 
       {aba === "noticias" && <>
-        <div className="container category-scroll">{categorias.map((c) => <button key={c} className={categoria === c ? "active" : ""} onClick={() => setCategoria(c)}>{c}</button>)}</div>
+        <div className="container category-scroll">
+          {categorias.map((c) => (
+            <button
+              key={c}
+              className={categoria === c ? "active" : ""}
+              onClick={() => setCategoria(c)}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {/* DOBRA 1: BENTO GRID EDITORIAL 2026 (SUPER-MANCHETE 60% + DESTAQUES & PLANTÃO 40%) */}
+        {categoria === "Todas" && (
+          <EditorialBentoGrid
+            news={todas}
+            currentCity={cidade}
+          />
+        )}
+
+        {/* DOBRA 2: HUB DE UTILIDADE PÚBLICA DO VALE DO IVAÍ (SUPER-APP) */}
+        <ValePublicUtilitiesHub
+          initialCity={cidade}
+          jobs={vagasAdmin}
+          classifieds={classifAdmin}
+        />
+
+        {/* PUBLICIDADE PRINCIPAL 1 (COMERCIAL OU HOUSE AD ELEGANTE) */}
+        <CommercialAdSlot slotId="main_1" houseAdType="anuncie" />
+
         <section className="container grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2 pb-12">
           {/* Coluna Principal de Jornalismo (8 colunas) */}
           <div className="lg:col-span-8 space-y-6">
-            <div className="headline-layout">
-              {destaque ? (
-                <a className="hero-story group" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>
-                  {destaque.img ? (
-                    <img className="hero-image" src={destaque.img} alt={`Imagem da notícia: ${destaque.titulo}`} onError={(event) => { event.currentTarget.style.display = "none"; }} />
-                  ) : (
-                    <div className="hero-image hero-image--empty" aria-label="Imagem não fornecida pela fonte"><span>Imagem não fornecida pela fonte</span></div>
-                  )}
-                  <span className="hero-copy">
-                    <span className="hero-featured-label">{cidade !== "Geral" ? `DESTAQUE EM ${cidade.toUpperCase()}` : "DESTAQUE DA REDAÇÃO"}</span>
-                    <span className="card-kicker">
-                      <Badge category={destaque.cat} variant="subtle">{destaque.cat}</Badge>
-                      <span className="text-slate-300 font-semibold">{destaque.cidade} · <span className="tabular-nums">{destaque.hora}</span></span>
+            {categoria !== "Todas" && (
+              <div className="headline-layout">
+                {destaque ? (
+                  <a className="hero-story group" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>
+                    {destaque.img ? (
+                      <img className="hero-image" src={destaque.img} alt={`Imagem da notícia: ${destaque.titulo}`} onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                    ) : (
+                      <div className="hero-image hero-image--empty" aria-label="Imagem não fornecida pela fonte"><span>Imagem não fornecida pela fonte</span></div>
+                    )}
+                    <span className="hero-copy">
+                      <span className="hero-featured-label">{cidade !== "Geral" ? `DESTAQUE EM ${cidade.toUpperCase()}` : "DESTAQUE DA REDAÇÃO"}</span>
+                      <span className="card-kicker">
+                        <Badge category={destaque.cat} variant="subtle">{destaque.cat}</Badge>
+                        <span className="text-slate-300 font-semibold">{destaque.cidade} · <span className="tabular-nums">{destaque.hora}</span></span>
+                      </span>
+                      <strong className="group-hover:text-blue-200 transition-colors line-clamp-3">{destaque.titulo}</strong>
+                      <span className="line-clamp-2">{destaque.sub}</span>
+                      <small>Leia a matéria completa <b>→</b></small>
                     </span>
-                    <strong className="group-hover:text-blue-200 transition-colors line-clamp-3">{destaque.titulo}</strong>
-                    <span className="line-clamp-2">{destaque.sub}</span>
-                    <small>Leia a matéria completa <b>→</b></small>
-                  </span>
-                </a>
-              ) : (
-                <div className="empty-state">
-                  {carregandoNoticias ? "Carregando notícias mais recentes…" : `Ainda não há notícias cadastradas para ${cidade}. O conteúdo publicado pela redação aparecerá aqui.`}
-                </div>
-              )}
-            </div>
+                  </a>
+                ) : (
+                  <div className="empty-state">
+                    {carregandoNoticias ? "Carregando notícias mais recentes…" : `Ainda não há notícias cadastradas para ${cidade} na categoria ${categoria}.`}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Sub-manchetes: grid de 3 colunas */}
-            {menores.length > 0 && (
+            {/* Sub-manchetes de categoria filtrada */}
+            {categoria !== "Todas" && menores.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}
               </div>
             )}
 
-            {/* Publicidade Principal 1 */}
-            {(() => {
-              const ad = currentMainAds[0];
-              return (
-                <div className="homepage-main-ad" aria-label="Publicidade Principal 1">
-                  {ad.imagem ? (
-                    <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer">
-                      <img src={ad.imagem} alt={ad.titulo} />
-                      <span>PUBLICIDADE PRINCIPAL 1</span>
-                    </a>
-                  ) : (
-                    <div>
-                      <span>PUBLICIDADE PRINCIPAL 1</span>
-                      <strong>Seu anunciante pode ocupar este destaque.</strong>
-                      <small>{cidade !== "Geral" ? `Anuncie com destaque em ${cidade}.` : "Configure o anúncio no painel da redação."}</small>
-                      <a href="/admin">Configurar espaço →</a>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Seção Últimas Notícias com Impostômetro no 5º slot visual */}
-            <section className="news-section latest-section" style={{ marginTop: "1rem" }}>
-              <div className="section-heading">
-                <span>{cidade !== "Geral" ? `Últimas notícias de ${cidade}` : "Últimas notícias"}</span>
-                <i />
-                <a href="#ultimas">Ver todas →</a>
-              </div>
-              <div className="latest-visual-grid" id="ultimas">
-                {primeirasUltimas.slice(0, 4).map((n) => <NewsCard key={n.id} noticia={n} />)}
-                <ImpostometroWidget cidadeAtual={cidade} variant="destaque" />
-                {primeirasUltimas.slice(4).map((n) => <NewsCard key={n.id} noticia={n} />)}
-              </div>
-            </section>
-
-            {/* FAIXA MULTIMÍDIA DARK (VÍDEOS CURTOS, CORTES E PODCAST) */}
+            {/* DOBRA 3: FAIXA MULTIMÍDIA DARK (VÍDEOS CURTOS 9:16, CORTES E PODCAST) */}
             <DarkMediaStrip videos={videosPortal} cidade={cidade} />
 
-            {/* Publicidade Principal 2 */}
-            {(() => {
-              const ad = currentMainAds[1];
-              return (
-                <div className="homepage-main-ad homepage-main-ad--middle" aria-label="Publicidade Principal 2">
-                  {ad.imagem ? (
-                    <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer">
-                      <img src={ad.imagem} alt={ad.titulo} />
-                      <span>PUBLICIDADE PRINCIPAL 2</span>
-                    </a>
-                  ) : (
-                    <div>
-                      <span>PUBLICIDADE PRINCIPAL 2</span>
-                      <strong>Espaço comercial do meio da página.</strong>
-                      <small>{cidade !== "Geral" ? `Anuncie no meio da página de ${cidade}.` : "Configure a imagem no painel da redação."}</small>
-                      <a href="/admin">Configurar espaço →</a>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {/* PUBLICIDADE PRINCIPAL 2 */}
+            <CommercialAdSlot slotId="main_2" houseAdType="vagas_classificados" />
 
-            {/* Esportes */}
-            {todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade.toLowerCase() === cidade.toLowerCase())).length > 0 && (
-              <section className="news-section sports-break">
-                <div className="section-heading">
-                  <span>Esportes</span>
-                  <i />
-                  <a href="/esportes">Ver central de jogos →</a>
-                </div>
-                <div className="latest-visual-grid" id="esportes">
-                  {todas.filter((n) => n.cat.toLowerCase() === "esportes" && ((cidade === "Geral" || cidade === "Todas") || n.cidade.toLowerCase() === cidade.toLowerCase())).slice(0, 6).map((n) => (
-                    <NewsCard key={`esporte-${n.id}`} noticia={n} />
-                  ))}
-                </div>
-              </section>
-            )}
+            {/* DOBRA 4: BRASIL, ECONOMIA & MUNDO (MOTOR GOOGLE DISCOVER + IMPOSTÔMETRO) */}
+            <DiscoverNationalSection news={todas} />
 
-            {/* Mais Notícias */}
-            {restantesUltimas.length > 0 && (
-              <section className="news-section visual-news-section">
-                <div className="section-heading"><span>Mais notícias de {cidade}</span><i /></div>
-                <div className="latest-visual-grid">{restantesUltimas.map((n) => <NewsCard key={n.id} noticia={n} />)}</div>
-              </section>
-            )}
+            {/* PUBLICIDADE PRINCIPAL 3 */}
+            <CommercialAdSlot slotId="main_3" houseAdType="tv_podcast" />
 
-            {/* Carregar Mais Notícias */}
-            {filtradas.length > 3 && (
-              <div className="load-more-container">
-                {temMaisNoticias ? (
+            {/* MAIS NOTÍCIAS DA REGIÃO COM PAGINAÇÃO */}
+            <section className="news-section latest-section" style={{ marginTop: "1rem" }}>
+              <div className="section-heading">
+                <span>{cidade !== "Geral" ? `Mais notícias de ${cidade}` : "Mais notícias do Norte do PR e Vale do Ivaí"}</span>
+                <i />
+              </div>
+              <div className="latest-visual-grid" id="ultimas">
+                {primeirasUltimas.slice(0, limiteNoticias).map((n) => <NewsCard key={n.id} noticia={n} />)}
+              </div>
+              {primeirasUltimas.length > limiteNoticias && (
+                <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
                   <button
                     type="button"
-                    className="load-more-button"
                     onClick={() => setLimiteNoticias((prev) => prev + 12)}
+                    className="px-6 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm"
                   >
-                    <span>+</span> Carregar mais notícias ({filtradas.length - limiteNoticias} disponíveis)
+                    Carregar mais notícias ({primeirasUltimas.length - limiteNoticias} restantes) ↓
                   </button>
-                ) : (
-                  <span className="load-more-end">
-                    ✓ Você visualizou todas as notícias recentes de {cidade}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Publicidade Principal 3 */}
-            {(() => {
-              const ad = currentMainAds[2];
-              return (
-                <div className="homepage-main-ad homepage-main-ad--bottom" aria-label="Publicidade Principal 3">
-                  {ad.imagem ? (
-                    <a href={ad.linkUrl || "/admin"} target={ad.linkUrl ? "_blank" : undefined} rel="noreferrer">
-                      <img src={ad.imagem} alt={ad.titulo} />
-                      <span>PUBLICIDADE PRINCIPAL 3</span>
-                    </a>
-                  ) : (
-                    <div>
-                      <span>PUBLICIDADE PRINCIPAL 3</span>
-                      <strong>Espaço comercial no final da página.</strong>
-                      <small>{cidade !== "Geral" ? `Anuncie no final da página de ${cidade}.` : "Configure a imagem no painel da redação."}</small>
-                      <a href="/admin">Configurar espaço →</a>
-                    </div>
-                  )}
                 </div>
-              );
-            })()}
+              )}
+            </section>
           </div>
 
           {/* Coluna Lateral de Utilidade Viva (4 colunas) */}
           <aside className="sidebar lg:col-span-4 space-y-6">
-            {/* 1. Widget Interativo de Jogos / Placar Estilo Google */}
-            <FutebolWidget variant="compact" />
+            {/* 1. Publicidade Comercial Lateral 1 */}
+            <CommercialAdSlot variant="sidebar" slotId="lateral_1" houseAdType="anuncie" />
 
             {/* 2. Hub de Utilidades Rápidas */}
             <QuickUtilitiesHub
@@ -1132,58 +1093,13 @@ export default function PortalClient({
               }}
             />
 
-            {/* 3. Blocos Patrocinadores LG1 e LM1 */}
-            <div className="lateral-slot-stack lateral-break">
-              {renderLateralBlock("lg1")}
-              {renderLateralBlock("lm1")}
-            </div>
+            {/* 3. Publicidade Comercial Lateral 2 */}
+            <CommercialAdSlot variant="sidebar" slotId="lateral_2" houseAdType="vagas_classificados" />
 
-            {/* 4. TV Loop 1 */}
-            {renderTvLoop(0)}
-
-            {/* 5. Horóscopo do Dia Interativo */}
-            <div className="horoscope-sidebar-card" id="horoscopo">
-              <div className="horoscope-sidebar-head">
-                <span className="eyebrow">PREVISÃO DO DIA</span>
-                <strong>Horóscopo do Dia</strong>
-                <p>Clique no seu signo para abrir a previsão de hoje:</p>
-              </div>
-              <div className="horoscope-signs-grid">
-                {horoscopoSignos.map((s) => (
-                  <button
-                    key={s.slug}
-                    type="button"
-                    className="horoscope-sign-btn"
-                    onClick={() => setSignoAberto(s)}
-                    title={`Ver previsão de ${s.nome}`}
-                  >
-                    <span className="horoscope-sign-glyph">{s.simbolo}</span>
-                    <span className="horoscope-sign-name">{s.nome}</span>
-                    <span className="horoscope-sign-date">{s.periodo.split(" a ")[0]}</span>
-                  </button>
-                ))}
-              </div>
-              <a href="/horoscopo" className="horoscope-sidebar-footer">
-                Ver todos os 12 signos na íntegra →
-              </a>
-            </div>
-
-            {/* 6. Blocos Patrocinadores LG2 e LM2 */}
-            <div className="lateral-slot-stack lateral-break">
-              {renderLateralBlock("lg2")}
-              {renderLateralBlock("lm2")}
-            </div>
-
-            {/* 7. Carrossel de Grandes Patrocinadores em Loop */}
+            {/* 4. Carrossel de Grandes Patrocinadores em Loop */}
             <LargeSponsorCarousel sponsors={sponsors} />
 
-            {/* 8. TV Loop 2 */}
-            {renderTvLoop(1)}
-
-            {/* 9. TV Loop 3 se existir */}
-            {renderTvLoop(2)}
-
-            {/* 10. Comunidade WhatsApp */}
+            {/* 5. Comunidade WhatsApp */}
             {grupoWhatsApp && (
               <a className="whatsapp-card" href={grupoWhatsApp} target="_blank" rel="noreferrer">
                 <span>COMUNIDADE REDE APUCARANA</span>
@@ -1193,11 +1109,11 @@ export default function PortalClient({
               </a>
             )}
 
-            {/* 11. Flash Card & Newsletter */}
+            {/* 6. Flash Card & Newsletter */}
             <div className="flash-card">
               <span className="flash-label">FLASH</span>
               <strong>Informação regional em movimento.</strong>
-              <p>Notícias, serviços e oportunidades para acompanhar ao longo do dia.</p>
+              <p>Notícias, serviços e oportunidades para acompanhar ao longo do dia no Vale do Ivaí.</p>
             </div>
           </aside>
         </section>
@@ -1215,7 +1131,51 @@ export default function PortalClient({
 
       {aba === "promocoes" && <section className="container utility-page"><span className="eyebrow">OFERTAS DA REGIÃO</span><h2>Promoções em {cidade}</h2><div className="public-list-grid">{promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).map((p: any) => <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || noticiasFixas[3].img, hora: "", autor: "Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={p.img || noticiasFixas[3].img} alt={`Imagem da promoção: ${p.titulo}`} /><span><b>{p.categoria}</b><strong>{p.titulo}</strong><small>{p.cidade} · {p.validade}</small></span></button>)}{!promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Ainda não há promoções cadastradas para {cidade}.</div>}</div></section>}
 
-      <footer className="site-footer"><div className="container footer-grid"><div><a className="brand brand--footer" href="/"><img src="/logo-rede-apucarana.png?v=2" alt="Logo Rede Apucarana" className="brand-mark" style={{ objectFit: "cover", width: "40px", height: "40px", padding: 0 }} /><span>REDE APUCARANA</span></a><p>Jornalismo regional para Apucarana e todo o Norte do Paraná.</p></div><div><strong>Redação</strong><a href="/admin">Acesso da redação</a><a href="#">Quem somos</a><a href="#">Contato</a></div><div><strong>Transparência</strong><a href="#">Política de correções</a><a href="#">Privacidade e LGPD</a><a href="#">Publicidade</a></div></div><div className="container footer-bottom"><span>© 2026 Rede Apucarana de Comunicação</span><span>Feito para informar a região.</span></div></footer>
+      {/* DOBRA 5: BANNER INSTITUCIONAL NO FINAL DA HOME */}
+      <div className="container" style={{ margin: "2rem auto 1rem" }}>
+        <TopHeroBanner config={topBannerConfig} />
+      </div>
+
+      {/* RODAPÉ EDITORIAL PROFISSIONAL 2026 */}
+      <footer className="site-footer">
+        <div className="container footer-grid">
+          <div>
+            <a className="brand brand--footer" href="/">
+              <img
+                src="/logo-rede-apucarana.png?v=2"
+                alt="Logo Rede Apucarana"
+                className="brand-mark"
+                style={{ objectFit: "cover", width: "40px", height: "40px", padding: 0 }}
+              />
+              <span>REDE APUCARANA</span>
+            </a>
+            <p>Jornalismo regional para Apucarana, Arapongas, Ivaiporã e todo o Vale do Ivaí e Norte do Paraná.</p>
+          </div>
+          <div>
+            <strong>Redação & Contato</strong>
+            <a href="/quem-somos">Quem somos</a>
+            <a href="/contato">Fale com a Redação</a>
+            <a href="/utilidades">Utilidade Pública</a>
+          </div>
+          <div>
+            <strong>Serviços Regionais</strong>
+            <a href="/empregos">Vagas de Emprego</a>
+            <a href="/classificados">Classificados do Vale</a>
+            <a href="/onde-ir">Guia Comercial</a>
+            <a href="/horoscopo">Horóscopo do Dia</a>
+          </div>
+          <div>
+            <strong>Comercial & Transparência</strong>
+            <a href="/anuncie">Anuncie Conosco</a>
+            <a href="/privacidade">Privacidade & LGPD</a>
+            <a href="/privacidade#termos">Termos de Uso</a>
+          </div>
+        </div>
+        <div className="container footer-bottom">
+          <span>© 2026 Rede Apucarana de Comunicação</span>
+          <span>O Maior Portal de Notícias e Utilidade do Vale do Ivaí.</span>
+        </div>
+      </footer>
 
       <HoroscopeModal
         signo={signoAberto}

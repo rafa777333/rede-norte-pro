@@ -8,7 +8,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ["var(--font-heading)", "Plus Jakarta Sans", "sans-serif"],
+        display: ["var(--font-display)", "Newsreader", "Georgia", "serif"],
+        heading: ["var(--font-display)", "Newsreader", "Georgia", "serif"],
         sans: ["var(--font-sans)", "Inter", "system-ui", "sans-serif"],
       },
       colors: {

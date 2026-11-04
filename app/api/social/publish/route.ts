@@ -146,19 +146,31 @@ export async function POST(req: NextRequest) {
         !rawEnvUrl.startsWith("http");
 
       // Monta lista de URLs prioritárias para disparar ao n8n
+      const isVercel = process.env.VERCEL === "1";
       const candidateUrls: string[] = [];
+      
       if (rawEnvUrl && !isPlaceholder) {
-        candidateUrls.push(rawEnvUrl);
-        if (rawEnvUrl.includes("/webhook/social-publish")) {
-          candidateUrls.push(rawEnvUrl.replace("/webhook/social-publish", "/webhook-test/social-publish"));
+        // Se estiver na Vercel e o webhook for localhost/127.0.0.1, não tenta pois falhará na nuvem
+        const isLocalUrl = rawEnvUrl.includes("127.0.0.1") || rawEnvUrl.includes("localhost");
+        if (!isVercel || !isLocalUrl) {
+          candidateUrls.push(rawEnvUrl);
+          if (rawEnvUrl.includes("/webhook/social-publish")) {
+            candidateUrls.push(rawEnvUrl.replace("/webhook/social-publish", "/webhook-test/social-publish"));
+          }
         }
       }
-      candidateUrls.push("http://127.0.0.1:5678/webhook/social-publish");
-      candidateUrls.push("http://localhost:5678/webhook/social-publish");
-      candidateUrls.push("http://127.0.0.1:5678/webhook-test/social-publish");
-      candidateUrls.push("http://localhost:5678/webhook-test/social-publish");
+
+      // Se NÃO estiver na Vercel (rodando local), adiciona endpoints locais do n8n
+      if (!isVercel) {
+        candidateUrls.push("http://127.0.0.1:5678/webhook/social-publish");
+        candidateUrls.push("http://localhost:5678/webhook/social-publish");
+      }
 
       const uniqueCandidateUrls = Array.from(new Set(candidateUrls));
+
+      const newsSlug = news.slug && news.slug !== "noticia-teste-automacao-social" ? news.slug : "";
+      const validIdentifier = newsSlug || newsId;
+      const publicLink = `https://www.redeapucarana.com.br/noticias/${encodeURIComponent(validIdentifier)}`;
 
       const n8nPayload = {
         publication_id: newPublication.id,
@@ -167,7 +179,8 @@ export async function POST(req: NextRequest) {
         image_url: finalImageUrl,
         resumo: news.resumo || "",
         conteudo: news.conteudo || "",
-        slug: news.slug || "",
+        slug: validIdentifier,
+        link: publicLink,
         networks,
         created_at: newPublication.created_at,
       };
@@ -179,7 +192,7 @@ export async function POST(req: NextRequest) {
         for (const url of uniqueCandidateUrls) {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 12000);
+            const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout rápido para evitar travar a UI
 
             const res = await fetch(url, {
               method: "POST",
@@ -211,7 +224,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (!n8nRes || !n8nRes.ok) {
-          console.warn(`Webhook direto do n8n não respondeu (${lastErrorText || "offline"}). Publicação mantida na fila do Supabase com status 'queued' para processamento autônomo.`);
+          console.warn(`Webhook direto do n8n não respondeu (${lastErrorText || "fila autônoma"}). Publicação mantida na fila do Supabase com status 'queued' para processamento autônomo.`);
           return NextResponse.json({
             success: true,
             queued: true,

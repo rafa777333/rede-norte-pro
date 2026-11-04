@@ -151,17 +151,17 @@ export default function TopUtilityCockpit({
           <span className="text-slate-700 hidden sm:inline-block">|</span>
 
           <a
-            href="/admin"
+            href="/anuncie"
             className="text-slate-300 hover:text-white font-medium transition-colors"
           >
             Anuncie
           </a>
 
           <a
-            href="/admin"
+            href="/contato"
             className="text-slate-400 hover:text-slate-200 font-medium transition-colors hidden sm:inline"
           >
-            Redação
+            Fale Conosco
           </a>
         </div>
       </div>

@@ -1878,3 +1878,81 @@
     gap: 8px;
   }
 }
+
+/* =========================================================================
+   TIPOGRAFIA EDITORIAL 2026 & UTILIDADES MODERNAS (NEWSREADER + INTER)
+   ========================================================================= */
+.font-display {
+  font-family: var(--font-display), Newsreader, Georgia, serif;
+}
+
+.font-sans-ui {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+}
+
+.editorial-headline {
+  font-family: var(--font-display), Newsreader, Georgia, serif;
+  font-size: clamp(1.85rem, 4.2vw, 2.85rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.editorial-headline-medium {
+  font-family: var(--font-display), Newsreader, Georgia, serif;
+  font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.editorial-headline-small {
+  font-family: var(--font-display), Newsreader, Georgia, serif;
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.editorial-kicker {
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dc2626;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editorial-bullet-lead {
+  position: relative;
+  padding-left: 14px;
+}
+.editorial-bullet-lead::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #dc2626;
+}
+
+/* Suporte a scroll horizontal sem barra feia */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

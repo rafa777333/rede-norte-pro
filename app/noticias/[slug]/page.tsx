@@ -140,6 +140,13 @@ export async function generateMetadata({
     title: `${news.titulo} | Rede Apucarana`,
     description,
     alternates: { canonical: url },
+    robots: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
     openGraph: {
       title: news.titulo,
       description,
@@ -195,8 +202,64 @@ export default async function NewsPage({
   const body = isHtml ? [] : paragraphs(news.conteudo);
   const cleanSummary = news.resumo || (news.conteudo ? news.conteudo.replace(/<[^>]+>/g, "").slice(0, 160) : "Confira os detalhes desta notícia.");
 
+  // Geração de 3 Bullets - Resumo em 30 Segundos (Axios Smart Brevity)
+  const bullets = (() => {
+    const list: string[] = [];
+    if (cleanSummary && cleanSummary.length > 20) {
+      list.push(cleanSummary);
+    }
+    if (body.length > 0) {
+      for (const p of body) {
+        const sentences = p.split(/(?<=[.!?])\s+/).filter((s) => s.length > 25);
+        for (const s of sentences) {
+          if (!list.includes(s.trim()) && list.length < 3) {
+            list.push(s.trim());
+          }
+        }
+        if (list.length >= 3) break;
+      }
+    }
+    if (list.length < 2) {
+      list.push(`Fatos apurados pela redação da Rede Apucarana com impacto direto em ${city} e região.`);
+    }
+    if (list.length < 3) {
+      list.push("Acompanhe todos os desdobramentos e detalhes apurados na íntegra da matéria abaixo.");
+    }
+    return list.slice(0, 3);
+  })();
+
+  const newsArticleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": url,
+    },
+    headline: news.titulo,
+    description: cleanSummary,
+    image: [news.imagem].filter(Boolean),
+    datePublished: news.published_at || new Date().toISOString(),
+    dateModified: news.published_at || new Date().toISOString(),
+    author: {
+      "@type": "Person",
+      name: news.autor || "Redação Rede Apucarana",
+    },
+    publisher: {
+      "@type": "NewsMediaOrganization",
+      name: "Rede Apucarana de Comunicação",
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/logo-rede-apucarana.png`,
+      },
+    },
+  };
+
   return (
     <main className="article-page permanent-article">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleJsonLd) }}
+      />
       <ReadingProgressBar />
       <header className="article-header">
         <a className="brand brand--small" href="/">
@@ -223,7 +286,7 @@ export default async function NewsPage({
           <Badge category={news.categoria || "Notícias"}>{news.categoria || "Notícias"}</Badge>
           <span>{city}</span>
         </div>
-        <h1>{news.titulo}</h1>
+        <h1 className="font-display font-bold">{news.titulo}</h1>
         <p className="article-dek">{cleanSummary}</p>
         <div className="article-byline">
           <img
@@ -250,6 +313,24 @@ export default async function NewsPage({
             </figcaption>
           </figure>
         )}
+
+        {/* BOX: RESUMO EM 30 SEGUNDOS (SMART BREVITY - AXIOS / G1) */}
+        <div className="my-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-red-50/30 border-l-4 border-red-600 border-y border-r border-slate-200 shadow-xs">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-red-600 font-black text-sm">⚡</span>
+            <span className="text-xs font-black uppercase tracking-wider text-slate-900 font-sans">
+              Resumo em 30 Segundos · Smart Brevity
+            </span>
+          </div>
+          <ul className="space-y-2 text-sm sm:text-base text-slate-700 font-sans">
+            {bullets.map((bullet, idx) => (
+              <li key={idx} className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-600 shrink-0 mt-2" />
+                <span className="leading-relaxed">{bullet}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
         {isHtml ? (
           <div
             className="article-body"
