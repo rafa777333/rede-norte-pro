@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 
 interface ImpostometroWidgetProps {
   cidadeAtual?: string;
-  variant?: "destaque" | "card";
+  variant?: "destaque" | "card" | "banner";
 }
 
 interface CounterData {
@@ -203,6 +203,97 @@ export default function ImpostometroWidget({
       setData(base);
     }
   };
+
+  // VARIANTE BANNER HORIZONTAL: Estilo Infográfico Moderno de Economia
+  if (variant === "banner") {
+    return (
+      <div className="w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-slate-800 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Lado Esquerdo: Identificação e Escopos */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded border border-emerald-800/60">
+                Impostômetro 2026 · Ao Vivo
+              </span>
+              <span className="text-[10px] text-slate-400 hidden sm:inline">IBPT / ACSP</span>
+            </div>
+
+            {/* Abas Brasil / Paraná / Apucarana */}
+            <div className="inline-flex rounded-lg bg-slate-800/90 p-0.5 border border-slate-700">
+              <button
+                type="button"
+                onClick={() => handleScopeChange("brasil")}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition ${
+                  scope === "brasil"
+                    ? "bg-amber-500 text-slate-950 shadow-sm"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                🇧🇷 Brasil
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScopeChange("parana")}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition ${
+                  scope === "parana"
+                    ? "bg-amber-500 text-slate-950 shadow-sm"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                🏛️ Paraná
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScopeChange("municipio")}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition ${
+                  scope === "municipio"
+                    ? "bg-amber-500 text-slate-950 shadow-sm"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                📍 {cidadeNome}
+              </button>
+            </div>
+          </div>
+
+          {/* Lado Direito: Grande Valor + Ritmo por segundo */}
+          <div className="flex flex-wrap items-baseline gap-3">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-sm font-bold text-amber-400">R$</span>
+              <span className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white tabular-nums font-sans">
+                {formatCurrency(currentTotal)}
+              </span>
+            </div>
+            <span className="text-xs font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-800/60 tabular-nums">
+              {formatRate(data.Incremento)}
+            </span>
+          </div>
+        </div>
+
+        {/* Linha Inferior: Escala horizontal compacta */}
+        <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 font-mono">
+            {breakdown.map((b, idx) => (
+              <span key={idx} className="inline-flex items-center gap-1">
+                <strong className="text-slate-200 font-bold">{b.value}</strong>
+                <span className="text-slate-400 text-[10px]">{b.label}</span>
+                {idx < breakdown.length - 1 && <span className="text-slate-600">·</span>}
+              </span>
+            ))}
+          </div>
+          <a
+            href="https://impostometro.com.br/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-amber-400 hover:text-amber-300 text-[10px] font-semibold underline decoration-amber-500/50"
+          >
+            Painel oficial IBPT ↗
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <article

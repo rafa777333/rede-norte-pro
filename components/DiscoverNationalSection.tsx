@@ -26,17 +26,18 @@ export default function DiscoverNationalSection({
   noticiasNacionais = [],
   cidadeAtual = "Geral",
 }: DiscoverNationalSectionProps) {
-  // Pega matérias nacionais/economia/mundo ou até 6 da lista geral
+  // Pega matérias nacionais/economia/mundo ou até 8 da lista geral (2 linhas perfeitas de 4 colunas)
   const filteredFromNews = (news || []).filter((n) => {
     const cat = (n.cat || "").toLowerCase();
-    return ["brasil", "economia", "mundo", "política", "paraná"].includes(cat);
+    return ["brasil", "economia", "mundo", "política", "politica", "paraná", "parana"].includes(cat);
   });
 
   const candidates = noticiasNacionais.length > 0
     ? noticiasNacionais
-    : (filteredFromNews.length >= 3 ? filteredFromNews : (news || []));
+    : (filteredFromNews.length >= 4 ? filteredFromNews : (news || []));
 
-  const items = candidates.slice(0, 6);
+  // Pega exatamente 4 ou 8 matérias para formar colunas completas e alinhadas
+  const items = candidates.length >= 8 ? candidates.slice(0, 8) : candidates.slice(0, 4);
 
   return (
     <section
@@ -62,37 +63,11 @@ export default function DiscoverNationalSection({
         </div>
       </div>
 
-      {/* Grade com 1 Card de Economia (Impostômetro compacto) + 5 a 6 matérias nacionais */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {/* Card de Economia / Impostômetro Compacto Integrado */}
-        <div className="md:col-span-1 flex flex-col">
-          <div className="h-full rounded-xl border border-amber-200/90 bg-gradient-to-b from-amber-50/70 to-slate-50 p-4 flex flex-col justify-between shadow-xs">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                  Economia & Cidadania
-                </span>
-                <span className="text-sm">🪙</span>
-              </div>
-              <h4 className="text-base font-bold text-slate-900 font-sans tracking-tight">
-                Impostômetro em Tempo Real
-              </h4>
-              <p className="text-xs text-slate-600 mt-1">
-                Acompanhe o total de tributos federais, estaduais e municipais arrecadados no Brasil neste ano.
-              </p>
-            </div>
+      {/* FAIXA HORIZONTAL DO IMPOSTÔMETRO (ESTILO INFOGRÁFICO DE ECONOMIA) */}
+      <ImpostometroWidget cidadeAtual={cidadeAtual} variant="banner" />
 
-            <div className="my-3">
-              <ImpostometroWidget cidadeAtual={cidadeAtual} variant="card" />
-            </div>
-
-            <span className="text-[10px] text-slate-500 font-medium">
-              Fonte: IBPT / Associação Comercial
-            </span>
-          </div>
-        </div>
-
-        {/* Matérias Nacionais / Discover */}
+      {/* GRADE HARMONIOSA DE NOTÍCIAS (4 COLUNAS SEM ESTICAMENTO) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {items.map((n) => {
           const href = n.slug ? `/noticias/${n.slug}` : `/noticias/${n.id}`;
 
