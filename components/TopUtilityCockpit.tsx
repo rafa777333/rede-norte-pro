@@ -7,12 +7,14 @@ interface TopUtilityCockpitProps {
   radioTocando?: boolean;
   onToggleRadio?: () => void;
   whatsappUrl?: string;
+  onOpenClima?: () => void;
 }
 
 export default function TopUtilityCockpit({
   radioTocando = false,
   onToggleRadio,
   whatsappUrl = "https://chat.whatsapp.com/Irl8tuJypYR1kNqTZklqwz",
+  onOpenClima,
 }: TopUtilityCockpitProps) {
   const [agora, setAgora] = useState(new Date());
   const [weatherInfo, setWeatherInfo] = useState<{
@@ -109,13 +111,24 @@ export default function TopUtilityCockpit({
           <span className="hidden md:inline-block text-slate-700">|</span>
 
           {/* Clima de Apucarana */}
-          <div className="inline-flex items-center gap-1.5 text-slate-300 whitespace-nowrap font-medium">
+          <a
+            href="/clima"
+            onClick={(e) => {
+              if (onOpenClima) {
+                e.preventDefault();
+                onOpenClima();
+              }
+            }}
+            className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white whitespace-nowrap font-medium transition-colors cursor-pointer group"
+            title="Clique para ver a previsão do tempo completa e radar"
+          >
             <span className="text-sm">{weatherInfo.icone}</span>
             <span>{weatherInfo.cidade}:</span>
-            <strong className="text-white tabular-nums font-bold">
+            <strong className="text-white tabular-nums font-bold group-hover:underline">
               {weatherInfo.temp !== null ? `${weatherInfo.temp}°C` : "--"}
             </strong>
-          </div>
+            <span className="text-[10px] text-sky-400 font-semibold hidden lg:inline">↗</span>
+          </a>
         </div>
 
         {/* Direita: Atalhos Rápidos */}

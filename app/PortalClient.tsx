@@ -6,7 +6,6 @@ import { cidadeSlug, getSupabase } from "../lib/supabase";
 import { getHoroscopoDoDia, type SignoPrevisao } from "../lib/horoscope";
 import HoroscopeModal from "../components/HoroscopeModal";
 import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner";
-import WeatherHeroBar from "../components/WeatherHeroBar";
 import ImpostometroWidget from "../components/ImpostometroWidget";
 import FutebolWidget from "../components/FutebolWidget";
 import Badge from "../components/Badge";
@@ -16,11 +15,12 @@ import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
 import DarkMediaStrip, { type VideoPortalItem } from "../components/DarkMediaStrip";
 import VideosHubPage from "../components/VideosHubPage";
 import CitiesScrollTicker from "../components/CitiesScrollTicker";
-import FootballScoreboardTicker from "../components/FootballScoreboardTicker";
 import CommercialAdSlot from "../components/CommercialAdSlot";
 import EditorialBentoGrid from "../components/EditorialBentoGrid";
 import ValePublicUtilitiesHub from "../components/ValePublicUtilitiesHub";
 import DiscoverNationalSection from "../components/DiscoverNationalSection";
+import SportsSection from "../components/SportsSection";
+import WeatherHubView from "../components/WeatherHubView";
 import type { PortalInitialData } from "../lib/portal-data";
 
 
@@ -407,8 +407,12 @@ export default function PortalClient({
         if (!window.location.pathname.startsWith("/videos")) {
           window.history.pushState(null, "", "/videos");
         }
+      } else if (novaAba === "clima") {
+        if (!window.location.pathname.startsWith("/clima")) {
+          window.history.pushState(null, "", "/clima");
+        }
       } else {
-        if (window.location.pathname.startsWith("/videos")) {
+        if (window.location.pathname.startsWith("/videos") || window.location.pathname.startsWith("/clima")) {
           window.history.pushState(null, "", "/");
         }
       }
@@ -420,6 +424,8 @@ export default function PortalClient({
       if (typeof window !== "undefined") {
         if (window.location.pathname.startsWith("/videos")) {
           setAba("videos");
+        } else if (window.location.pathname.startsWith("/clima")) {
+          setAba("clima");
         } else if (window.location.pathname === "/" || window.location.pathname === "") {
           setAba("noticias");
         }
@@ -433,6 +439,8 @@ export default function PortalClient({
     if (typeof document !== "undefined") {
       if (aba === "videos") {
         document.title = "Vídeos & Cortes Digitais | Rede Apucarana de Comunicação";
+      } else if (aba === "clima") {
+        document.title = "Previsão do Tempo e Clima no Vale do Ivaí | Rede Apucarana";
       } else if (aba === "noticias") {
         document.title = "Rede Apucarana de Comunicação | Jornalismo, Podcasts, Rádio e TV";
       }
@@ -916,7 +924,12 @@ export default function PortalClient({
 
   return (
     <main className="site-shell">
-      <TopUtilityCockpit radioTocando={radioTocando} onToggleRadio={alternarRadio} whatsappUrl={grupoWhatsApp} />
+      <TopUtilityCockpit
+        radioTocando={radioTocando}
+        onToggleRadio={alternarRadio}
+        whatsappUrl={grupoWhatsApp}
+        onOpenClima={() => trocarAba("clima")}
+      />
       
       {/* Faixa da Marca e Ações (Logo Rede Apucarana, Ouvir Rádio, Busca) - rola naturalmente com o topo */}
       <div className="header-brand-bar bg-white border-b border-slate-200/80">
@@ -933,11 +946,12 @@ export default function PortalClient({
         </div>
       </div>
 
-      {/* Barra de Abas Sticky (Notícias, Jogos, TV + Cidades) - fixa no topo de forma ultra leve sem travar */}
+      {/* Barra de Abas Sticky (Notícias, Jogos, Clima, TV + Cidades) - fixa no topo de forma ultra leve sem travar */}
       <header className="site-header sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <nav className="main-nav" aria-label="Navegação principal">
           <div className="container nav-inner">
             <button className={aba === "noticias" ? "active" : ""} onClick={() => trocarAba("noticias")}>Notícias</button>
+            <button className={aba === "clima" ? "active" : ""} onClick={() => trocarAba("clima")}>🌦️ Clima & Tempo</button>
             <a href="/esportes" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", color: "#1d4ed8", fontWeight: "800" }}>⚽ Jogos & Placares</a>
             <a href="/tv-online" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}><span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444" }} /> TV Online</a>
             <a href="/videos" className={aba === "videos" ? "active" : ""} onClick={(e) => { e.preventDefault(); trocarAba("videos"); }}>Vídeos</a>
@@ -955,14 +969,6 @@ export default function PortalClient({
         />
       </header>
       <audio ref={radioRef} src={RADIO_STREAM_URL} preload="none" />
-
-      {/* CLIMA DO VALE DO IVAÍ */}
-      <WeatherHeroBar currentCity={cidade} />
-
-      {/* DOBRA 0: SCOREBOARD TICKER HORIZONTAL DE FUTEBOL (PADRÃO UOL / GE) */}
-      <div className="container" style={{ margin: "6px auto 10px" }}>
-        <FootballScoreboardTicker />
-      </div>
 
       {aba === "noticias" && <>
         <div className="container category-scroll">
@@ -1068,6 +1074,9 @@ export default function PortalClient({
             {/* DOBRA 4: BRASIL, ECONOMIA & MUNDO (MOTOR GOOGLE DISCOVER + IMPOSTÔMETRO) */}
             <DiscoverNationalSection news={todas} />
 
+            {/* SEÇÃO DE ESPORTES NA ROLAGEM COM A FITA DE TIMES / PLACARES */}
+            <SportsSection news={todas} cidadeAtual={cidade} />
+
             {/* PUBLICIDADE PRINCIPAL 3 */}
             <CommercialAdSlot slotId="main_3" houseAdType="tv_podcast" />
 
@@ -1140,6 +1149,10 @@ export default function PortalClient({
 
       {aba === "videos" && (
         <VideosHubPage videos={videosPortal} cidade={cidade} />
+      )}
+
+      {aba === "clima" && (
+        <WeatherHubView currentCity={cidade} onSelectCity={(c) => setCidade(c)} />
       )}
 
       {aba === "ondeir" && <section className="container utility-page"><span className="eyebrow">GUIA REGIONAL</span><h2>Onde ir em {cidade}</h2><div className="public-list-grid">{locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).map((l: any) => <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} /><span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span></button>)}{!locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Em breve, lugares, serviços e experiências em {cidade}.</div>}</div></section>}
