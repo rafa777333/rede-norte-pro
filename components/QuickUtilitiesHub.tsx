@@ -38,7 +38,11 @@ export default function QuickUtilitiesHub({
       corBadge: "bg-blue-100 text-blue-800 border-blue-200",
       badgeText: classifCount > 0 ? `${classifCount} anúncios` : "Anunciar grátis",
       tag: "Mercado",
-      action: () => onSelectAba("compras"),
+      action: () => {
+        if (typeof window !== "undefined") {
+          window.location.href = "/comprasevendas";
+        }
+      },
     },
     {
       id: "ondeir",

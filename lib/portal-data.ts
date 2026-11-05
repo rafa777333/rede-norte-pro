@@ -132,7 +132,7 @@ export async function getInitialPortalData(cidade: string = "Geral"): Promise<Po
         .order("published_at", { ascending: false })
         .limit(100),
       supabase.from("site_settings").select("key,value"),
-      supabase.from("futebol_jogos").select("*").order("data_jogo", { ascending: false }).limit(15),
+      supabase.from("futebol_jogos").select("*").order("data_jogo", { ascending: false }).limit(40),
       supabase.from("jobs").select("*").eq("status", "published").limit(6),
       supabase.from("classified_ads").select("*").limit(6),
     ]);

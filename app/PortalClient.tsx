@@ -22,6 +22,7 @@ import DiscoverNationalSection from "../components/DiscoverNationalSection";
 import SportsSection from "../components/SportsSection";
 import WeatherHubView from "../components/WeatherHubView";
 import HomeOndeIrSection from "../components/HomeOndeIrSection";
+import HomeClassificadosSection from "../components/HomeClassificadosSection";
 import ClassificadosMarketplace from "../components/ClassificadosMarketplace";
 import { MOCK_CLASSIFICADOS, normalizeClassifiedAd } from "../lib/classificados-data";
 import type { PortalInitialData } from "../lib/portal-data";
@@ -963,7 +964,31 @@ export default function PortalClient({
               <span style={{ fontSize: "9px", background: "#f59e0b", color: "#fff", padding: "1px 5px", borderRadius: "9999px", textTransform: "uppercase" }}>Cupons</span>
             </a>
             <button className={aba === "empregos" ? "active" : ""} onClick={() => trocarAba("empregos")}>Empregos</button>
-            <button className={aba === "compras" ? "active" : ""} onClick={() => trocarAba("compras")}>Compras e vendas</button>
+            <a
+              href="/comprasevendas"
+              style={{
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                color: "#b45309",
+                fontWeight: "800",
+              }}
+            >
+              <span>🏷️</span> Compras & Vendas
+              <span
+                style={{
+                  fontSize: "9px",
+                  background: "#f59e0b",
+                  color: "#fff",
+                  padding: "1px 5px",
+                  borderRadius: "9999px",
+                  textTransform: "uppercase",
+                }}
+              >
+                Grátis
+              </span>
+            </a>
             <a href="/ofertas" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "5px", color: "#059669", fontWeight: "800" }}>
               <span>🛒</span> Ofertas & Encartes
               <span style={{ fontSize: "9px", background: "#10b981", color: "#fff", padding: "1px 5px", borderRadius: "9999px", textTransform: "uppercase" }}>Preços</span>
@@ -1088,6 +1113,9 @@ export default function PortalClient({
 
             {/* SEÇÃO VITRINE ONDE IR NO VALE - GASTRONOMIA, VÍDEO 9:16 & CUPONS */}
             <HomeOndeIrSection cidadeAtual={cidade} />
+
+            {/* SEÇÃO COMPRAS E VENDAS NO VALE DO IVAÍ - CLASSIFICADOS & ROLO */}
+            <HomeClassificadosSection cidadeAtual={cidade} />
 
             {/* PUBLICIDADE PRINCIPAL 3 */}
             <CommercialAdSlot slotId="main_3" houseAdType="tv_podcast" />

@@ -137,16 +137,14 @@ export default function FutebolWidget({
     if (campeonato !== "Todos") {
       filtrados = filtrados.filter((j) => j.campeonato === campeonato);
     }
-    // Prioriza jogos ao vivo, depois agendados, depois encerrados
+    // Prioriza jogos ao vivo, depois jogos mais próximos do momento atual (ontem e hoje)
+    const now = Date.now();
     return [...filtrados].sort((a, b) => {
-      const pesoStatus = (st: string) => {
-        if (st === "ao_vivo") return 0;
-        if (st === "agendado") return 1;
-        return 2;
-      };
-      const pesoDiff = pesoStatus(a.status) - pesoStatus(b.status);
-      if (pesoDiff !== 0) return pesoDiff;
-      return new Date(a.data_jogo).getTime() - new Date(b.data_jogo).getTime();
+      if (a.status === "ao_vivo" && b.status !== "ao_vivo") return -1;
+      if (b.status === "ao_vivo" && a.status !== "ao_vivo") return 1;
+      const distA = Math.abs(new Date(a.data_jogo).getTime() - now);
+      const distB = Math.abs(new Date(b.data_jogo).getTime() - now);
+      return distA - distB;
     });
   }, [jogos, campeonato]);
 

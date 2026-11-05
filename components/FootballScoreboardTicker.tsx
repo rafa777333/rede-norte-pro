@@ -103,8 +103,21 @@ interface FootballScoreboardTickerProps {
 export default function FootballScoreboardTicker({
   initialMatches,
 }: FootballScoreboardTickerProps) {
+  const sortMatchesByProximity = (list: ScoreboardMatch[]) => {
+    const now = Date.now();
+    return [...list].sort((a, b) => {
+      if (a.status === "ao_vivo" && b.status !== "ao_vivo") return -1;
+      if (b.status === "ao_vivo" && a.status !== "ao_vivo") return 1;
+      const distA = Math.abs(new Date(a.data_jogo).getTime() - now);
+      const distB = Math.abs(new Date(b.data_jogo).getTime() - now);
+      return distA - distB;
+    });
+  };
+
   const [matches, setMatches] = useState<ScoreboardMatch[]>(
-    initialMatches && initialMatches.length > 0 ? initialMatches : JOGOS_FALLBACK
+    initialMatches && initialMatches.length > 0
+      ? sortMatchesByProximity(initialMatches)
+      : JOGOS_FALLBACK
   );
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -117,17 +130,10 @@ export default function FootballScoreboardTicker({
           .from("futebol_jogos")
           .select("*")
           .order("data_jogo", { ascending: false })
-          .limit(15);
+          .limit(40);
 
         if (data && data.length > 0) {
-          // Ordena: ao vivo primeiro, depois agendados, depois encerrados recentes
-          const sorted = [...data].sort((a, b) => {
-            const peso = (st: string) => (st === "ao_vivo" ? 0 : st === "agendado" ? 1 : 2);
-            const pDiff = peso(a.status) - peso(b.status);
-            if (pDiff !== 0) return pDiff;
-            return new Date(b.data_jogo).getTime() - new Date(a.data_jogo).getTime();
-          });
-          setMatches(sorted);
+          setMatches(sortMatchesByProximity(data));
         }
       } catch {
         // mantém fallback elegante
