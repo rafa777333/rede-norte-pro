@@ -42,13 +42,17 @@ export default function QuickUtilitiesHub({
     },
     {
       id: "ondeir",
-      titulo: "Onde Ir & Guia Regional",
-      descricao: "Lojas, restaurantes, serviços e empresas verificadas",
-      icone: "📍",
-      corBadge: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      badgeText: locaisCount > 0 ? `${locaisCount} cadastros` : "Explorar",
-      tag: "Guia Local",
-      action: () => onSelectAba("ondeir"),
+      titulo: "Onde Ir & Vitrine de Cupons",
+      descricao: "Restaurantes, bares, vídeos 9:16 e pedidos no Zap",
+      icone: "🍽️",
+      corBadge: "bg-amber-100 text-amber-800 border-amber-200",
+      badgeText: "🔥 Cupons Ativos",
+      tag: "Gastronomia & Lazer",
+      action: () => {
+        if (typeof window !== "undefined") {
+          window.location.href = "/onde-ir";
+        }
+      },
     },
     {
       id: "horoscopo",

@@ -21,6 +21,7 @@ import ValePublicUtilitiesHub from "../components/ValePublicUtilitiesHub";
 import DiscoverNationalSection from "../components/DiscoverNationalSection";
 import SportsSection from "../components/SportsSection";
 import WeatherHubView from "../components/WeatherHubView";
+import HomeOndeIrSection from "../components/HomeOndeIrSection";
 import type { PortalInitialData } from "../lib/portal-data";
 
 
@@ -955,7 +956,10 @@ export default function PortalClient({
             <a href="/esportes" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", color: "#1d4ed8", fontWeight: "800" }}>⚽ Jogos & Placares</a>
             <a href="/tv-online" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}><span style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444" }} /> TV Online</a>
             <a href="/videos" className={aba === "videos" ? "active" : ""} onClick={(e) => { e.preventDefault(); trocarAba("videos"); }}>Vídeos</a>
-            <button className={aba === "ondeir" ? "active" : ""} onClick={() => trocarAba("ondeir")}>Onde Ir</button>
+            <a href="/onde-ir" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "5px", color: "#d97706", fontWeight: "800" }}>
+              <span>🍽️</span> Onde Ir
+              <span style={{ fontSize: "9px", background: "#f59e0b", color: "#fff", padding: "1px 5px", borderRadius: "9999px", textTransform: "uppercase" }}>Cupons</span>
+            </a>
             <button className={aba === "empregos" ? "active" : ""} onClick={() => trocarAba("empregos")}>Empregos</button>
             <button className={aba === "compras" ? "active" : ""} onClick={() => trocarAba("compras")}>Compras e vendas</button>
             <button className={aba === "promocoes" ? "active" : ""} onClick={() => trocarAba("promocoes")}>Promoções</button>
@@ -1077,6 +1081,9 @@ export default function PortalClient({
             {/* SEÇÃO DE ESPORTES NA ROLAGEM COM A FITA DE TIMES / PLACARES */}
             <SportsSection news={todas} cidadeAtual={cidade} />
 
+            {/* SEÇÃO VITRINE ONDE IR NO VALE - GASTRONOMIA, VÍDEO 9:16 & CUPONS */}
+            <HomeOndeIrSection cidadeAtual={cidade} />
+
             {/* PUBLICIDADE PRINCIPAL 3 */}
             <CommercialAdSlot slotId="main_3" houseAdType="tv_podcast" />
 
@@ -1155,7 +1162,39 @@ export default function PortalClient({
         <WeatherHubView currentCity={cidade} onSelectCity={(c) => setCidade(c)} />
       )}
 
-      {aba === "ondeir" && <section className="container utility-page"><span className="eyebrow">GUIA REGIONAL</span><h2>Onde ir em {cidade}</h2><div className="public-list-grid">{locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).map((l: any) => <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} /><span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span></button>)}{!locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Em breve, lugares, serviços e experiências em {cidade}.</div>}</div></section>}
+      {aba === "ondeir" && (
+        <section className="container utility-page">
+          <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-2xl p-6 text-center my-6">
+            <span className="text-3xl">🍽️</span>
+            <h2 className="text-2xl font-bold text-slate-900 mt-2">Vitrine Onde Ir & Cupons no Vale do Ivaí</h2>
+            <p className="text-slate-600 max-w-xl mx-auto mt-2 text-sm">
+              Conheça os melhores restaurantes, bares, cafeterias e hotéis com tours em vídeo 9:16, cardápio com pedido no WhatsApp e cupons exclusivos.
+            </p>
+            <div className="mt-4">
+              <Link
+                href="/onde-ir"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm shadow-md transition"
+              >
+                <span>Abrir Vitrine Interativa Completa (/onde-ir)</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
+          <span className="eyebrow">GUIA REGIONAL</span>
+          <h2>Cadastros e Serviços em {cidade}</h2>
+          <div className="public-list-grid">
+            {locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).map((l: any) => (
+              <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}>
+                <img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} />
+                <span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span>
+              </button>
+            ))}
+            {!locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).length && (
+              <div className="empty-state">Em breve, novos cadastros e serviços em {cidade}.</div>
+            )}
+          </div>
+        </section>
+      )}
 
       {aba === "empregos" && <section className="container utility-page jobs-page"><span className="eyebrow">OPORTUNIDADES</span><h2>Vagas em {cidade}</h2><p className="jobs-intro">Empresas podem publicar oportunidades e pedidos de contratação. Todo envio passa pela revisão da equipe Rede Apucarana antes de aparecer no portal.</p><div className="jobs-layout"><form className="jobs-form" onSubmit={(event) => { event.preventDefault(); void enviarVaga(); }}><h3>Publicar uma vaga</h3><input required placeholder="Cargo ou função" value={jobForm.vaga} onChange={(e) => setJobForm({ ...jobForm, vaga: e.target.value })} /><input required placeholder="Empresa ou contratante" value={jobForm.empresa} onChange={(e) => setJobForm({ ...jobForm, empresa: e.target.value })} /><div className="form-row"><select value={jobForm.cidade} onChange={(e) => setJobForm({ ...jobForm, cidade: e.target.value })}>{cidades.filter((item) => item !== "Todas").map((item) => <option key={item}>{item}</option>)}</select><select value={jobForm.tipo} onChange={(e) => setJobForm({ ...jobForm, tipo: e.target.value })}>{["Precisa-se", "Contratação", "Estágio / Jovem Aprendiz"].map((item) => <option key={item}>{item}</option>)}</select></div><input required placeholder="WhatsApp ou telefone para candidatura" value={jobForm.contato} onChange={(e) => setJobForm({ ...jobForm, contato: e.target.value })} /><textarea required placeholder="Descreva requisitos, salário, horário e como se candidatar" value={jobForm.descricao} onChange={(e) => setJobForm({ ...jobForm, descricao: e.target.value })} /><button className="classified-submit" type="submit" disabled={enviandoJob}>{enviandoJob ? "Enviando..." : "Enviar vaga para análise"}</button>{jobEnviado && <p className="classified-success">Recebemos a vaga. Ela ficará visível depois da revisão da equipe.</p>}</form><div className="jobs-side-note"><strong>Você é autônomo?</strong><p>Para oferecer seu próprio serviço, anuncie em Compras e vendas. Essa área é ideal para profissionais, prestadores e autônomos.</p><button type="button" onClick={() => setAba("compras")}>Oferecer serviço em Compras e vendas →</button></div></div><div className="public-list-grid">{vagasAdmin.filter((v: any) => (cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase()).map((v: any) => <button className="public-list-card" key={v.id} onClick={() => setSel({ id: v.id, titulo: v.cargo, cidade: v.cidade, cat: "Emprego", sub: v.empresa, resumo: v.detalhes || "Confira os detalhes desta oportunidade.", texto: v.detalhes || "Confira os detalhes desta oportunidade.", img: v.img || "https://www.redeapucarana.com.br/vagas-padrao.svg", hora: "", autor: v.empresa || "Rede Apucarana", credit: "Capa padrão Rede Apucarana" })}><img src={v.img || "https://www.redeapucarana.com.br/vagas-padrao.svg"} alt={`Imagem da vaga: ${v.cargo}`} /><span><b>Emprego</b><strong>{v.cargo}</strong><small>{v.empresa} · {v.cidade}</small><small>{v.detalhes || "Clique para ver detalhes"}</small><a href={`https://wa.me/${(v.zap || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Chamar no WhatsApp</a></span></button>)}{!vagasAdmin.filter((v: any) => (cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Em breve, oportunidades de trabalho em {cidade}.</div>}</div></section>}
 
