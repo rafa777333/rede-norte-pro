@@ -3,6 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import ImpostometroWidget from "./ImpostometroWidget";
+import { formatNewsTime, hasVideoContent, truncateWords } from "../lib/text-utils";
+import WhatsAppShareButton from "./WhatsAppShareButton";
 
 export interface NationalNewsItem {
   id: string;
@@ -10,31 +12,44 @@ export interface NationalNewsItem {
   titulo: string;
   cat?: string;
   resumo?: string;
+  sub?: string;
   img?: string;
   hora?: string;
   autor?: string;
+  published_at?: string;
+  video_url?: string;
 }
 
 interface DiscoverNationalSectionProps {
   news?: NationalNewsItem[];
   noticiasNacionais?: NationalNewsItem[];
   cidadeAtual?: string;
+  excludeIds?: string[] | Set<string>;
 }
 
 export default function DiscoverNationalSection({
   news,
   noticiasNacionais = [],
   cidadeAtual = "Geral",
+  excludeIds,
 }: DiscoverNationalSectionProps) {
-  // Pega matérias nacionais/economia/mundo ou até 8 da lista geral (2 linhas perfeitas de 4 colunas)
-  const filteredFromNews = (news || []).filter((n) => {
+  const excludeSet = excludeIds instanceof Set ? excludeIds : new Set(excludeIds || []);
+
+  // Filtra matérias excluindo as que já apareceram no Topo (Desduplicação Estrita)
+  const sourceList = (news || []).filter((n) => !excludeSet.has(n.id) && (!n.slug || !excludeSet.has(n.slug)));
+
+  const filteredFromNews = sourceList.filter((n) => {
     const cat = (n.cat || "").toLowerCase();
-    return ["brasil", "economia", "mundo", "política", "politica", "paraná", "parana"].includes(cat);
+    return ["brasil", "economia", "mundo", "política", "politica", "justiça", "agronegócio", "paraná", "parana"].some((c) => cat.includes(c));
   });
 
-  const candidates = noticiasNacionais.length > 0
-    ? noticiasNacionais
-    : (filteredFromNews.length >= 4 ? filteredFromNews : (news || []));
+  const candidatesSource = noticiasNacionais.length > 0
+    ? noticiasNacionais.filter((n) => !excludeSet.has(n.id) && (!n.slug || !excludeSet.has(n.slug)))
+    : [];
+
+  const candidates = candidatesSource.length > 0
+    ? candidatesSource
+    : (filteredFromNews.length >= 4 ? filteredFromNews : sourceList);
 
   // Pega exatamente 4 ou 8 matérias para formar colunas completas e alinhadas
   const items = candidates.length >= 8 ? candidates.slice(0, 8) : candidates.slice(0, 4);
@@ -50,7 +65,7 @@ export default function DiscoverNationalSection({
           <span className="w-2.5 h-6 rounded-full bg-blue-600 shrink-0" />
           <div>
             <span className="text-[11px] font-black uppercase text-blue-600 tracking-wider">
-              Motor Nacional & Global · Google Discover
+              Giro Nacional & Internacional
             </span>
             <h3 className="text-xl sm:text-2xl font-bold text-slate-900 font-sans tracking-tight">
               Brasil, Economia & Mundo
@@ -70,14 +85,16 @@ export default function DiscoverNationalSection({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {items.map((n) => {
           const href = n.slug ? `/noticias/${n.slug}` : `/noticias/${n.id}`;
+          const horaFormatada = formatNewsTime(n.published_at, n.hora);
+          const resumoFormatado = truncateWords(n.resumo || n.sub || "", 140);
+          const hasVideo = hasVideoContent(n);
 
           return (
-            <Link
+            <article
               key={n.id}
-              href={href}
-              className="group flex flex-col rounded-xl overflow-hidden border border-slate-200/80 bg-white hover:border-blue-400 hover:shadow-md transition-all duration-200"
+              className="group flex flex-col justify-between rounded-xl overflow-hidden border border-slate-200/80 bg-white hover:border-blue-400 hover:shadow-md transition-all duration-200"
             >
-              <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
+              <Link href={href} className="block relative aspect-video w-full overflow-hidden bg-slate-100">
                 {n.img ? (
                   <img
                     src={n.img}
@@ -90,29 +107,46 @@ export default function DiscoverNationalSection({
                     Rede Apucarana
                   </div>
                 )}
+
                 <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white shadow-sm">
                   {n.cat || "Brasil"}
                 </span>
-              </div>
+
+                {hasVideo && (
+                  <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-xs">
+                    ▶️ Vídeo
+                  </span>
+                )}
+              </Link>
 
               <div className="p-3.5 flex flex-col flex-1 justify-between">
                 <div>
                   <h4 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-blue-600 line-clamp-3 leading-snug tracking-tight transition-colors">
-                    {n.titulo}
+                    <Link href={href}>
+                      {n.titulo}
+                    </Link>
                   </h4>
-                  {n.resumo && (
+                  {resumoFormatado && (
                     <p className="text-xs text-slate-500 line-clamp-2 mt-1.5 leading-relaxed font-sans">
-                      {n.resumo}
+                      {resumoFormatado}
                     </p>
                   )}
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-sans">
-                  <span>{n.autor || "Redação Nacional"}</span>
-                  <span className="tabular-nums">{n.hora || "Recente"}</span>
+                {/* Metadados limpos: categoria sutil e tempo relativo dinâmico, sem autor longo */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-sans">
+                  <span className="tabular-nums font-semibold text-slate-500">
+                    {horaFormatada}
+                  </span>
+
+                  <WhatsAppShareButton
+                    titulo={n.titulo}
+                    href={href}
+                    variant="icon"
+                  />
                 </div>
               </div>
-            </Link>
+            </article>
           );
         })}
       </div>

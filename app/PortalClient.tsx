@@ -36,6 +36,16 @@ import HomeClassificadosSection from "../components/HomeClassificadosSection";
 import ClassificadosMarketplace from "../components/ClassificadosMarketplace";
 import { MOCK_CLASSIFICADOS, normalizeClassifiedAd } from "../lib/classificados-data";
 import type { PortalInitialData } from "../lib/portal-data";
+import {
+  decodeHtmlEntities,
+  truncateWords,
+  formatNewsTime,
+  refineNewsCategory,
+  isNoticiaRegional,
+  detectCityGeoTag,
+  hasVideoContent,
+} from "../lib/text-utils";
+import WhatsAppShareButton from "../components/WhatsAppShareButton";
 
 
 type Noticia = {
@@ -52,6 +62,8 @@ type Noticia = {
   hora?: string;
   autor?: string;
   credit?: string;
+  published_at?: string;
+  video_url?: string;
 };
 type Video = { id: string; titulo: string; descricao: string; cidade: string; categoria: string; videoUrl: string; thumbnailUrl: string; instagramUrl: string; materiaUrl: string; tipo: "upload" | "instagram"; publishedAt?: string };
 type Sponsor = { id: string; titulo: string; imagem: string; linkUrl: string; ordem: number };
@@ -206,13 +218,13 @@ const noticiasFixas: Noticia[] = [
 ];
 
 function resumoSeguro(conteudo: unknown, resumo: unknown): string {
-  if (typeof resumo === "string" && resumo.trim()) return resumo.trim().slice(0, 180);
+  if (typeof resumo === "string" && resumo.trim()) return truncateWords(resumo, 180);
   let texto = typeof conteudo === "string" ? conteudo : "";
   try {
     const parsed = JSON.parse(texto);
     if (Array.isArray(parsed)) texto = parsed.filter((part) => typeof part === "string").join(" ");
   } catch { /* usa o texto recebido */ }
-  return texto.replace(/\\n/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+  return truncateWords(texto, 180);
 }
 
 function noticiaValida(item: any): boolean {
@@ -224,53 +236,95 @@ function noticiaValida(item: any): boolean {
 }
 
 function formatarNoticiasAdmin(items: any[]): Noticia[] {
-  return items.map((n: any, index) => ({
-    id: String(n.id ?? `admin-${index}`),
-    slug: n.slug || String(n.id ?? `admin-${index}`),
-    cidade: n.cidade || "Apucarana",
-    cidade_slug: n.cidade_slug || (n.cidade ? cidadeSlug(n.cidade) : "apucarana"),
-    cat: n.cat || "Cidade",
-    titulo: n.titulo || "Nova notícia",
-    sub: n.resumo || "Confira os principais detalhes desta notícia.",
-    resumo: n.resumo || "Confira os principais detalhes desta notícia.",
-    texto: n.texto || n.resumo || "Confira os principais detalhes desta notícia.",
-    img: n.img || noticiasFixas[index % noticiasFixas.length].img,
-    hora: n.hora || "Agora",
-    autor: n.autor || "Redação Rede Apucarana",
-    credit: n.credit || "Imagem ilustrativa",
-  }));
+  return items.map((n: any, index) => {
+    const titulo = n.titulo || "Nova notícia";
+    const conteudo = n.conteudo || n.texto || "";
+    const resumo = n.resumo || n.sub || "";
+    const catRefinada = refineNewsCategory(n.categoria || n.cat, titulo, conteudo || resumo);
+    const hora = formatNewsTime(n.published_at, n.hora);
+
+    return {
+      id: String(n.id ?? `admin-${index}`),
+      slug: n.slug || String(n.id ?? `admin-${index}`),
+      cidade: n.cidade || "Apucarana",
+      cidade_slug: n.cidade_slug || (n.cidade ? cidadeSlug(n.cidade) : "apucarana"),
+      cat: catRefinada,
+      titulo,
+      sub: resumoSeguro(conteudo, resumo),
+      resumo: resumoSeguro(conteudo, resumo),
+      texto: conteudo || resumo || "Confira os principais detalhes desta notícia.",
+      img: n.img || n.imagem || noticiasFixas[index % noticiasFixas.length].img,
+      hora,
+      autor: n.autor || "Redação Rede Apucarana",
+      credit: n.credit || "Imagem ilustrativa",
+      published_at: n.published_at,
+      video_url: n.video_url || n.videoUrl,
+    };
+  });
 }
 
 // Badge is imported from components/Badge
 
 function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: boolean }) {
   const href = `/noticias/${encodeURIComponent(noticia.slug || noticia.id)}`;
+  const geoTag = detectCityGeoTag(noticia);
+  const temVideo = hasVideoContent(noticia);
+  const horaFormatada = formatNewsTime(noticia.published_at, noticia.hora);
+  const resumoFormatado = truncateWords(noticia.resumo || noticia.sub || "", compact ? 90 : 160);
+
   return (
-    <a className={`news-card group ${compact ? "news-card--compact" : ""}`} href={href}>
-      {noticia.img ? (
-        <img
-          src={noticia.img}
-          alt={`Imagem da notícia: ${noticia.titulo}`}
-          loading="lazy"
-          className="transition-transform duration-500 ease-out group-hover:scale-105"
-          onError={(event) => { event.currentTarget.style.display = "none"; }}
-        />
-      ) : (
-        <div className="news-card-placeholder" aria-label="Imagem não fornecida pela fonte">
-          <span>RA</span>
-          <small>Imagem não fornecida pela fonte</small>
-        </div>
-      )}
+    <article className={`news-card group ${compact ? "news-card--compact" : ""}`}>
+      <Link href={href} className="block relative overflow-hidden">
+        {noticia.img ? (
+          <img
+            src={noticia.img}
+            alt={`Imagem da notícia: ${noticia.titulo}`}
+            loading="lazy"
+            className="transition-transform duration-500 ease-out group-hover:scale-105"
+            onError={(event) => { event.currentTarget.style.display = "none"; }}
+          />
+        ) : (
+          <div className="news-card-placeholder" aria-label="Imagem não fornecida pela fonte">
+            <span>RA</span>
+            <small>Rede Apucarana</small>
+          </div>
+        )}
+
+        {temVideo && (
+          <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-xs shadow-xs">
+            ▶️ Vídeo
+          </span>
+        )}
+      </Link>
+
       <span className="card-content">
-        <span className="card-kicker">
-          <Badge category={noticia.cat}>{noticia.cat}</Badge>
-          <span>{noticia.cidade}</span>
+        <span className="card-kicker flex items-center justify-between gap-1 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge category={noticia.cat}>{noticia.cat}</Badge>
+            {geoTag && (
+              <span className="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-0.5">
+                <span>📍</span> {geoTag}
+              </span>
+            )}
+          </div>
+          <WhatsAppShareButton titulo={noticia.titulo} href={href} variant="icon" />
         </span>
-        <strong className="group-hover:text-blue-600 transition-colors duration-200">{noticia.titulo}</strong>
-        {!compact && <span className="card-summary">{noticia.sub}</span>}
-        <span className="card-meta tabular-nums">{noticia.hora || "Agora"} · {noticia.autor || "Redação Rede Apucarana"}</span>
+
+        <h3 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-blue-600 transition-colors duration-200 line-clamp-3">
+          <Link href={href}>{noticia.titulo}</Link>
+        </h3>
+
+        {!compact && resumoFormatado && (
+          <p className="card-summary line-clamp-2 text-xs text-slate-500 mt-1">
+            {resumoFormatado}
+          </p>
+        )}
+
+        <span className="card-meta tabular-nums text-slate-400 font-sans mt-2 pt-1 border-t border-slate-100 flex items-center justify-between text-[11px]">
+          <span>{horaFormatada}</span>
+        </span>
       </span>
-    </a>
+    </article>
   );
 }
 
@@ -545,15 +599,17 @@ export default function PortalClient({
                   slug: n.slug || n.id,
                   cidade: cidade,
                   cidade_slug: n.cidade_slug,
-                  cat: n.categoria || "Cidade",
+                  cat: refineNewsCategory(n.categoria, n.titulo, n.conteudo || n.resumo),
                   titulo: n.titulo,
                   sub: resumoSeguro(n.conteudo, n.resumo),
                   resumo: resumoSeguro(n.conteudo, n.resumo),
                   texto: n.conteudo || n.resumo || "",
                   img: n.imagem || "",
-                  hora: n.published_at ? new Date(n.published_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Agora",
+                  hora: formatNewsTime(n.published_at),
                   autor: n.autor || "Redação Rede Apucarana",
                   credit: n.autor || "Redação Rede Apucarana",
+                  published_at: n.published_at,
+                  video_url: n.video_url,
                 }));
                 setNoticiasAdmin((prev) => {
                   const idSet = new Set(prev.map((p) => p.id));
@@ -637,15 +693,17 @@ export default function PortalClient({
         slug: n.slug || n.id,
         cidade: cityMap.get(n.cidade_slug) || (n.cidade_slug === "geral" ? "Geral" : n.cidade_slug) || "Geral",
         cidade_slug: n.cidade_slug || "geral",
-        cat: n.categoria || "Cidade",
+        cat: refineNewsCategory(n.categoria, n.titulo, n.conteudo || n.resumo),
         titulo: n.titulo,
         sub: resumoSeguro(n.conteudo, n.resumo),
         resumo: resumoSeguro(n.conteudo, n.resumo),
         texto: n.conteudo || n.resumo || "",
         img: n.imagem || "",
-        hora: n.published_at ? new Date(n.published_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Agora",
+        hora: formatNewsTime(n.published_at),
         autor: n.autor || "Redação Rede Apucarana",
         credit: n.autor || "Redação Rede Apucarana",
+        published_at: n.published_at,
+        video_url: n.video_url,
       })));
       if (services?.length) setLocaisAdmin(services.map((item: any) => ({ id: item.id, nome: item.nome, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, end: item.endereco || "", zap: item.whatsapp || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (jobs?.length) setVagasAdmin(jobs.map((item: any) => ({ id: item.id, cargo: item.vaga, empresa: item.empresa, cidade: cityMap.get(item.cidade_slug) || "Apucarana", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
@@ -716,6 +774,38 @@ export default function PortalClient({
     const passaBusca = !termo || `${n.titulo} ${n.resumo} ${n.cidade} ${n.cat}`.toLowerCase().includes(termo);
     return passaCidade && passaCategoria && passaBusca;
   }), [todas, cidade, categoria, busca, noticiasPromovidasGeral, noticiasAdmin.length]);
+
+  // Desduplicação Estrita entre Topo Editorial e Seções Inferiores (Brasil, Economia & Mundo)
+  const topBentoIds = useMemo(() => {
+    const newsPool = filtradas.length > 0 ? filtradas : todas;
+    if (!newsPool.length) return new Set<string>();
+
+    const regionais = newsPool.filter(isNoticiaRegional);
+    const outras = newsPool.filter((n) => !isNoticiaRegional(n));
+    const poolPrioritario = [...regionais, ...outras];
+
+    const regComImg = regionais.find((n) => Boolean(n.img && n.img.startsWith("http")));
+    const principal = regComImg || regionais[0] || poolPrioritario[0];
+
+    const poolRestante = poolPrioritario.filter((n) => n.id !== principal?.id);
+    const sub = poolRestante.slice(0, 3);
+    const used = new Set<string>([principal?.id, ...sub.map((s) => s.id)].filter(Boolean) as string[]);
+
+    const remainingReg = regionais.filter((n) => !used.has(n.id) && Boolean(n.img));
+    const poolAfterSub = poolRestante.filter((n) => !used.has(n.id));
+    const destaques = (remainingReg.length >= 2 ? remainingReg : poolAfterSub).slice(0, 2);
+    destaques.forEach((d) => used.add(d.id));
+
+    const plantao = newsPool.filter((n) => !used.has(n.id)).slice(0, 5);
+    plantao.forEach((p) => used.add(p.id));
+
+    const allTopItems = [principal, ...sub, ...destaques, ...plantao].filter(Boolean);
+    allTopItems.forEach((item) => {
+      if (item?.slug) used.add(item.slug);
+    });
+
+    return used;
+  }, [filtradas, todas]);
 
   const horoscopoSignos = useMemo<SignoPrevisao[]>(() => {
     const customStr = settingsMap.get("horoscopo_diario");
@@ -1255,7 +1345,9 @@ export default function PortalClient({
           </div>
         )}
 
-        {/* DOBRA 1: BENTO GRID EDITORIAL 2026 (SUPER-MANCHETE 60% + DESTAQUES & PLANTÃO 40%) */}
+        {/* =========================================================================
+            DOBRA 1: TOPO EDITORIAL (MANCHETES E COBERTURA PRINCIPAL BENTO GRID)
+           ========================================================================= */}
         {categoria === "Todas" && (
           <EditorialBentoGrid
             news={filtradas.length > 0 ? filtradas : todas}
@@ -1263,16 +1355,58 @@ export default function PortalClient({
           />
         )}
 
-        {/* DOBRA 2: HUB DE UTILIDADE PÚBLICA DO VALE DO IVAÍ (SUPER-APP) */}
+        {/* =========================================================================
+            DOBRA 2: VÍDEOS CURTOS (CORTES & REELS 9:16 DA REDE APUCARANA)
+            Imediatamente abaixo da dobra principal de notícias, antes do Hub de Serviços
+           ========================================================================= */}
+        <DarkMediaStrip videos={videosPortal} cidade={cidade} />
+
+        {/* =========================================================================
+            DOBRA 3: ESPAÇO COMERCIAL / BANNER PRINCIPAL
+           ========================================================================= */}
+        <CommercialAdSlot slotId="main_1" houseAdType="anuncie" />
+
+        {/* =========================================================================
+            DOBRA 4: SUPER-APP (HUB DE SERVIÇOS & UTILIDADE PÚBLICA DO VALE DO IVAÍ)
+            Empregos, Ofertas, Onde Ir, Classificados, Utilidades e Horóscopo
+           ========================================================================= */}
         <ValePublicUtilitiesHub
           initialCity={cidade}
           jobs={vagasAdmin}
           classifieds={classifAdmin}
         />
 
-        {/* PUBLICIDADE PRINCIPAL 1 (COMERCIAL OU HOUSE AD ELEGANTE) */}
-        <CommercialAdSlot slotId="main_1" houseAdType="anuncie" />
+        {/* =========================================================================
+            DOBRA 5: NOTICIÁRIO NACIONAL (BRASIL, ECONOMIA & MUNDO + IMPOSTÔMETRO)
+            Com Desduplicação Estrita (exclui tudo que foi renderizado no Topo)
+           ========================================================================= */}
+        <DiscoverNationalSection
+          news={todas}
+          excludeIds={topBentoIds}
+          cidadeAtual={cidade}
+        />
 
+        {/* =========================================================================
+            SEÇÃO DE ESPORTES NA ROLAGEM COM A FITA DE TIMES / PLACARES
+           ========================================================================= */}
+        <SportsSection news={todas} cidadeAtual={cidade} initialMatches={initialData?.futebolJogos} />
+
+        {/* =========================================================================
+            VITRINE ONDE IR NO VALE - GASTRONOMIA, VÍDEO 9:16 & CUPONS
+           ========================================================================= */}
+        <HomeOndeIrSection cidadeAtual={cidade} />
+
+        {/* =========================================================================
+            COMPRAS E VENDAS NO VALE DO IVAÍ - CLASSIFICADOS & ROLO
+           ========================================================================= */}
+        <HomeClassificadosSection cidadeAtual={cidade} />
+
+        {/* PUBLICIDADE PRINCIPAL 2 */}
+        <CommercialAdSlot slotId="main_2" houseAdType="vagas_classificados" />
+
+        {/* =========================================================================
+            COLUNA DE MAIS NOTÍCIAS + COLUNA LATERAL DE UTILIDADES E ANÚNCIOS
+           ========================================================================= */}
         <section className="container grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2 pb-12">
           {/* Coluna Principal de Jornalismo (8 colunas) */}
           <div className="lg:col-span-8 space-y-6">
@@ -1310,24 +1444,6 @@ export default function PortalClient({
                 {menores.map((n) => <NewsCard key={n.id} noticia={n} compact />)}
               </div>
             )}
-
-            {/* DOBRA 3: FAIXA MULTIMÍDIA DARK (VÍDEOS CURTOS 9:16, CORTES E PODCAST) */}
-            <DarkMediaStrip videos={videosPortal} cidade={cidade} />
-
-            {/* PUBLICIDADE PRINCIPAL 2 */}
-            <CommercialAdSlot slotId="main_2" houseAdType="vagas_classificados" />
-
-            {/* DOBRA 4: BRASIL, ECONOMIA & MUNDO (MOTOR GOOGLE DISCOVER + IMPOSTÔMETRO) */}
-            <DiscoverNationalSection news={todas} />
-
-            {/* SEÇÃO DE ESPORTES NA ROLAGEM COM A FITA DE TIMES / PLACARES */}
-            <SportsSection news={todas} cidadeAtual={cidade} initialMatches={initialData?.futebolJogos} />
-
-            {/* SEÇÃO VITRINE ONDE IR NO VALE - GASTRONOMIA, VÍDEO 9:16 & CUPONS */}
-            <HomeOndeIrSection cidadeAtual={cidade} />
-
-            {/* SEÇÃO COMPRAS E VENDAS NO VALE DO IVAÍ - CLASSIFICADOS & ROLO */}
-            <HomeClassificadosSection cidadeAtual={cidade} />
 
             {/* PUBLICIDADE PRINCIPAL 3 */}
             <CommercialAdSlot slotId="main_3" houseAdType="tv_podcast" />

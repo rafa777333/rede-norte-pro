@@ -2,11 +2,20 @@
 
 import React from "react";
 import Link from "next/link";
+import {
+  formatNewsTime,
+  isNoticiaRegional,
+  detectCityGeoTag,
+  hasVideoContent,
+  truncateWords,
+} from "../lib/text-utils";
+import WhatsAppShareButton from "./WhatsAppShareButton";
 
 export interface BentoNewsItem {
   id: string;
   slug?: string;
   cidade?: string;
+  cidade_slug?: string;
   cat?: string;
   titulo: string;
   sub?: string;
@@ -14,6 +23,8 @@ export interface BentoNewsItem {
   img?: string;
   hora?: string;
   autor?: string;
+  published_at?: string;
+  video_url?: string;
 }
 
 interface EditorialBentoGridProps {
@@ -27,7 +38,7 @@ interface EditorialBentoGridProps {
 }
 
 export default function EditorialBentoGrid({
-  news,
+  news = [],
   manchetePrincipal,
   subManchetes = [],
   destaquesRegionais = [],
@@ -36,16 +47,60 @@ export default function EditorialBentoGrid({
   currentCity,
 }: EditorialBentoGridProps) {
   const activeCity = cidadeAtual || currentCity || "Geral";
-  const finalPrincipal = manchetePrincipal || (news && news.length > 0 ? news[0] : null);
-  const finalSubManchetes = subManchetes.length > 0 ? subManchetes : (news ? news.slice(1, 4) : []);
-  const finalDestaques = destaquesRegionais.length > 0 ? destaquesRegionais : (news ? news.slice(4, 6) : []);
-  const finalPlantao = plantaoUltimas.length > 0 ? plantaoUltimas : (news ? news.slice(6, 12) : []);
+
+  // Priorização Regional no Topo:
+  // Notícias locais e do Vale do Ivaí ganham a capa principal e os destaques.
+  // Notícias nacionais (Agência Brasil, etc.) entram como fallback caso faltem regionais.
+  const regionais = news.filter(isNoticiaRegional);
+  const outras = news.filter((n) => !isNoticiaRegional(n));
+  const poolPrioritario = [...regionais, ...outras];
+
+  // 1. Super-Manchete Principal
+  const regComImg = regionais.find((n) => Boolean(n.img && n.img.startsWith("http")));
+  const finalPrincipal =
+    manchetePrincipal ||
+    regComImg ||
+    regionais[0] ||
+    poolPrioritario.find((n) => Boolean(n.img && n.img.startsWith("http"))) ||
+    poolPrioritario[0] ||
+    null;
 
   if (!finalPrincipal) return null;
+
+  const poolRestante = poolPrioritario.filter((n) => n.id !== finalPrincipal.id);
+
+  // 2. Sub-Manchetes (3 itens prioritários)
+  const finalSubManchetes =
+    subManchetes.length > 0 ? subManchetes : poolRestante.slice(0, 3);
+
+  const usedIds = new Set([
+    finalPrincipal.id,
+    ...finalSubManchetes.map((s) => s.id),
+  ]);
+
+  // 3. Destaques Regionais (prioriza 2 notícias regionais com imagem)
+  const remainingReg = regionais.filter((n) => !usedIds.has(n.id) && Boolean(n.img));
+  const poolAfterSub = poolRestante.filter((n) => !usedIds.has(n.id));
+  const finalDestaques =
+    destaquesRegionais.length > 0
+      ? destaquesRegionais
+      : (remainingReg.length >= 2 ? remainingReg : poolAfterSub).slice(0, 2);
+  finalDestaques.forEach((d) => usedIds.add(d.id));
+
+  // 4. Plantão & Últimas (próximas 5 notícias)
+  const finalPlantao =
+    plantaoUltimas.length > 0
+      ? plantaoUltimas
+      : news.filter((n) => !usedIds.has(n.id)).slice(0, 5);
 
   const mainHref = finalPrincipal.slug
     ? `/noticias/${finalPrincipal.slug}`
     : `/noticias/${finalPrincipal.id}`;
+
+  const mainGeoTag = detectCityGeoTag(finalPrincipal);
+  const mainHasVideo = hasVideoContent(finalPrincipal);
+  const mainHoraFormatada = formatNewsTime(finalPrincipal.published_at, finalPrincipal.hora);
+  const mainResumo = truncateWords(finalPrincipal.resumo || finalPrincipal.sub || "", 180);
 
   return (
     <section
@@ -76,14 +131,23 @@ export default function EditorialBentoGrid({
                 </div>
               )}
 
-              {/* Tag / Chapéu Flutuante */}
-              <div className="absolute top-3 left-3 flex items-center gap-2">
+              {/* Tags Flutuantes: Categoria + Geo-Tag + Selo de Vídeo */}
+              <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span className="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-red-600 text-white shadow-md">
                   {finalPrincipal.cat || "Vale do Ivaí"}
                 </span>
-                {finalPrincipal.cidade && finalPrincipal.cidade !== "Geral" && (
-                  <span className="px-2.5 py-1 rounded-md text-[11px] font-bold text-slate-100 bg-slate-900/80 backdrop-blur-sm border border-white/20">
-                    {finalPrincipal.cidade}
+
+                {mainGeoTag && (
+                  <span className="px-2.5 py-1 rounded-md text-[11px] font-black tracking-wider text-amber-300 bg-slate-950/85 backdrop-blur-sm border border-amber-400/30 flex items-center gap-1 shadow-md">
+                    <span>📍</span>
+                    <span>{mainGeoTag}</span>
+                  </span>
+                )}
+
+                {mainHasVideo && (
+                  <span className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white bg-black/80 backdrop-blur-sm border border-white/20 flex items-center gap-1 shadow-md">
+                    <span>▶️</span>
+                    <span>Vídeo</span>
                   </span>
                 )}
               </div>
@@ -93,7 +157,7 @@ export default function EditorialBentoGrid({
             <div className="p-4 sm:p-6">
               <span className="editorial-kicker mb-2">
                 <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-                Destaque de Capa {activeCity !== "Geral" ? `· ${activeCity}` : ""}
+                {activeCity !== "Geral" ? `Destaque em ${activeCity}` : "Destaque Principal do Vale"}
               </span>
 
               <h2 className="editorial-headline group-hover:text-red-700 transition-colors">
@@ -102,44 +166,85 @@ export default function EditorialBentoGrid({
                 </Link>
               </h2>
 
-              {finalPrincipal.resumo && (
-                <p className="mt-3 text-sm sm:text-base text-slate-600 font-sans leading-relaxed line-clamp-2">
-                  {finalPrincipal.resumo}
+              {mainResumo && (
+                <p className="mt-3 text-sm sm:text-base text-slate-600 font-sans leading-relaxed line-clamp-2 sm:line-clamp-3">
+                  {mainResumo}
                 </p>
               )}
 
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-sans">
-                <span>{finalPrincipal.autor || "Redação Rede Apucarana"}</span>
-                <span className="tabular-nums font-semibold text-slate-500">{finalPrincipal.hora || "Hoje"}</span>
+              {/* Metadados Limpos: Sem autor longo, apenas tempo relativo e compartilhamento WhatsApp */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-sans">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">
+                    {finalPrincipal.cidade && finalPrincipal.cidade !== "Geral"
+                      ? finalPrincipal.cidade
+                      : "Vale do Ivaí"}
+                  </span>
+                  <span>•</span>
+                  <span className="tabular-nums font-semibold text-slate-500">{mainHoraFormatada}</span>
+                </div>
+
+                <WhatsAppShareButton
+                  titulo={finalPrincipal.titulo}
+                  href={mainHref}
+                />
               </div>
             </div>
           </article>
 
-          {/* 3 Sub-Manchetes com Bullet Points (Padrão Folha / G1) */}
+          {/* 3 Sub-Manchetes com Bullet Points: 🔥 Em Alta & Destaques */}
           {finalSubManchetes.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200/90 p-4 sm:p-5 shadow-xs">
-              <div className="flex items-center gap-2 pb-2.5 mb-3 border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-700">
-                <span className="text-red-600 font-black">●</span>
-                <span>Desdobramentos & Notícias Relacionadas</span>
+              <div className="flex items-center gap-2 pb-2.5 mb-3 border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-800">
+                <span className="text-red-600 text-sm">🔥</span>
+                <span className="font-black text-slate-900">Em Alta & Destaques</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {finalSubManchetes.slice(0, 3).map((sub) => {
                   const href = sub.slug ? `/noticias/${sub.slug}` : `/noticias/${sub.id}`;
+                  const subGeo = detectCityGeoTag(sub);
+                  const subHora = formatNewsTime(sub.published_at, sub.hora);
+                  const subHasVideo = hasVideoContent(sub);
 
                   return (
                     <article key={sub.id} className="group flex flex-col justify-between">
                       <Link href={href} className="editorial-bullet-lead block">
-                        <span className="text-[10px] font-black uppercase text-red-600 block mb-1">
-                          {sub.cat || "Região"}
-                        </span>
+                        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                          <span className="text-[10px] font-black uppercase text-red-600 tracking-wider">
+                            {sub.cat || "Região"}
+                          </span>
+
+                          {subGeo && (
+                            <span className="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-0.5">
+                              <span>📍</span> {subGeo}
+                            </span>
+                          )}
+
+                          {subHasVideo && (
+                            <span className="text-[9px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                              ▶️ Vídeo
+                            </span>
+                          )}
+                        </div>
+
                         <h3 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-red-600 line-clamp-3 leading-snug tracking-tight transition-colors">
                           {sub.titulo}
                         </h3>
                       </Link>
-                      <span className="text-[10px] text-slate-400 mt-2 block font-sans">
-                        {sub.cidade || "Vale do Ivaí"} · <span className="tabular-nums">{sub.hora || "Recente"}</span>
-                      </span>
+
+                      {/* Metadados limpos: apenas horário e compartilhamento WhatsApp */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 mt-3 pt-2 border-t border-slate-50 font-sans">
+                        <span className="tabular-nums font-semibold text-slate-500">
+                          {subHora}
+                        </span>
+
+                        <WhatsAppShareButton
+                          titulo={sub.titulo}
+                          href={href}
+                          variant="icon"
+                        />
+                      </div>
                     </article>
                   );
                 })}
@@ -155,13 +260,16 @@ export default function EditorialBentoGrid({
           {/* 2 Destaques Regionais com Foto Horizontal */}
           {finalDestaques.slice(0, 2).map((reg) => {
             const href = reg.slug ? `/noticias/${reg.slug}` : `/noticias/${reg.id}`;
+            const regGeo = detectCityGeoTag(reg);
+            const regHora = formatNewsTime(reg.published_at, reg.hora);
+            const regHasVideo = hasVideoContent(reg);
 
             return (
               <article
                 key={reg.id}
                 className="group bg-white rounded-xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-row items-center gap-3 p-3"
               >
-                {/* Foto miniatura 100x80 */}
+                {/* Foto miniatura 100x80 com selo de vídeo opcional */}
                 <Link
                   href={href}
                   className="w-24 sm:w-28 h-20 sm:h-24 rounded-lg overflow-hidden shrink-0 bg-slate-900 block relative"
@@ -178,22 +286,44 @@ export default function EditorialBentoGrid({
                       RA
                     </div>
                   )}
+
+                  {regHasVideo && (
+                    <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                      ▶️
+                    </span>
+                  )}
                 </Link>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     <span className="text-[9px] font-black uppercase text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
-                      {reg.cidade || reg.cat || "Região"}
+                      {reg.cat || "Região"}
                     </span>
+
+                    {regGeo && (
+                      <span className="text-[9px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-0.5">
+                        <span>📍</span> {regGeo}
+                      </span>
+                    )}
                   </div>
+
                   <h3 className="font-display font-bold text-xs sm:text-sm text-slate-900 group-hover:text-red-600 line-clamp-2 leading-snug tracking-tight transition-colors">
                     <Link href={href}>
                       {reg.titulo}
                     </Link>
                   </h3>
-                  <span className="text-[10px] text-slate-400 mt-1 block tabular-nums">
-                    {reg.hora || "Hoje"}
-                  </span>
+
+                  <div className="flex items-center justify-between mt-2 pt-1">
+                    <span className="text-[10px] text-slate-400 font-sans tabular-nums font-medium">
+                      {regHora}
+                    </span>
+
+                    <WhatsAppShareButton
+                      titulo={reg.titulo}
+                      href={href}
+                      variant="icon"
+                    />
+                  </div>
                 </div>
               </article>
             );
@@ -214,14 +344,19 @@ export default function EditorialBentoGrid({
             <div className="divide-y divide-slate-100 flex flex-col">
               {finalPlantao.slice(0, 5).map((p) => {
                 const href = p.slug ? `/noticias/${p.slug}` : `/noticias/${p.id}`;
+                const pHora = formatNewsTime(p.published_at, p.hora);
+                const pGeo = detectCityGeoTag(p);
 
                 return (
                   <article key={p.id} className="group py-2.5 first:pt-0 last:pb-0">
                     <Link href={href} className="block">
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-0.5">
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-0.5 flex-wrap">
                         <span className="font-bold text-red-600">{p.cat || "Urgente"}</span>
+                        {pGeo && (
+                          <span className="font-bold text-amber-700">📍 {pGeo}</span>
+                        )}
                         <span>•</span>
-                        <span className="tabular-nums font-semibold">{p.hora || "Agora"}</span>
+                        <span className="tabular-nums font-semibold text-slate-500">{pHora}</span>
                       </div>
                       <h4 className="font-display font-bold text-xs sm:text-sm text-slate-800 group-hover:text-red-600 line-clamp-2 leading-snug tracking-tight transition-colors">
                         {p.titulo}

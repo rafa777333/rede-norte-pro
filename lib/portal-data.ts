@@ -1,5 +1,11 @@
 import { getSupabase } from "./supabase";
-import { decodeHtmlEntities } from "./text-utils";
+import {
+  decodeHtmlEntities,
+  truncateWords,
+  formatNewsTime,
+  refineNewsCategory,
+  isNoticiaRegional,
+} from "./text-utils";
 
 export interface PortalNews {
   id: string;
@@ -64,12 +70,8 @@ const CITY_NAME_MAP: Record<string, string> = {
 
 function formatNewsItem(n: any): PortalNews {
   const cleanTitle = decodeHtmlEntities(n.titulo || "").trim();
-  const cleanCategory = decodeHtmlEntities(n.categoria || "Geral").trim();
-  const cleanResumo = decodeHtmlEntities(n.resumo || n.conteudo || "")
-    .replace(/<[^>]*>?/gm, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 160);
+  const refinedCategory = refineNewsCategory(n.categoria, cleanTitle, n.conteudo || n.resumo);
+  const cleanResumo = truncateWords(n.resumo || n.conteudo || "", 180);
 
   const cityName =
     n.cidade_slug && CITY_NAME_MAP[n.cidade_slug]
@@ -78,22 +80,14 @@ function formatNewsItem(n: any): PortalNews {
       ? n.cidade_slug
       : "Vale do Ivaí";
 
-  let hora = "Hoje";
-  if (n.published_at) {
-    try {
-      const dt = new Date(n.published_at);
-      hora = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    } catch {
-      hora = "Hoje";
-    }
-  }
+  const hora = formatNewsTime(n.published_at);
 
   return {
     id: n.id,
     slug: n.slug || n.id,
     cidade: cityName,
     cidade_slug: n.cidade_slug || "geral",
-    cat: cleanCategory,
+    cat: refinedCategory,
     titulo: cleanTitle,
     sub: cleanResumo,
     resumo: cleanResumo,
@@ -148,35 +142,48 @@ export async function getInitialPortalData(cidade: string = "Geral"): Promise<Po
       }
     }
 
-    // Organização Editorial para a Nova Capa 2026:
-    // 1. Manchete Principal: notícia prioritária com imagem válida
-    const withImages = formattedNews.filter((n) => Boolean(n.img && n.img.startsWith("http")));
-    const manchetePrincipal = withImages[0] || formattedNews[0] || null;
+    // Organização Editorial com PRIORIDADE REGIONAL no Topo e DESDUPLICAÇÃO ESTRITA:
+    // Separa notícias regionais do Vale do Ivaí e outras (Agência Brasil / nacionais)
+    const regionais = formattedNews.filter(isNoticiaRegional);
+    const outras = formattedNews.filter((n) => !isNoticiaRegional(n));
+    const poolPrioritario = [...regionais, ...outras];
 
-    // 2. Sub-manchetes (próximas 3 notícias após a principal)
-    const remaining = formattedNews.filter((n) => n.id !== manchetePrincipal?.id);
-    const subManchetes = remaining.slice(0, 3);
+    // 1. Manchete Principal: prioriza notícia regional com imagem válida (fallback: nacional com imagem)
+    const regionalComImagem = regionais.find((n) => Boolean(n.img && n.img.startsWith("http")));
+    const manchetePrincipal =
+      regionalComImagem ||
+      regionais[0] ||
+      poolPrioritario.find((n) => Boolean(n.img && n.img.startsWith("http"))) ||
+      poolPrioritario[0] ||
+      null;
 
-    // 3. Destaques Regionais (prioriza cidades do Vale do Ivaí com imagem)
-    const afterSub = remaining.slice(3);
-    const regionais = afterSub.filter(
-      (n) => n.cidade_slug && n.cidade_slug !== "geral" && Boolean(n.img)
-    );
-    const destaquesRegionais = (regionais.length >= 2 ? regionais : afterSub).slice(0, 2);
+    const poolRestante = poolPrioritario.filter((n) => n.id !== manchetePrincipal?.id);
 
-    // 4. Plantão & Últimas (próximas 5 notícias urgentes)
-    const usedIds = new Set([
+    // 2. Sub-manchetes (próximas 3 notícias prioritárias)
+    const subManchetes = poolRestante.slice(0, 3);
+    const usedTopIds = new Set([
       manchetePrincipal?.id,
       ...subManchetes.map((s) => s.id),
-      ...destaquesRegionais.map((d) => d.id),
     ]);
-    const plantaoUltimas = formattedNews.filter((n) => !usedIds.has(n.id)).slice(0, 5);
 
-    // 5. Motor Brasil & Mundo (Google Discover): categorias nacionais/globais
-    const nationalCategories = ["brasil", "economia", "mundo", "política", "politica", "segurança", "agronegócio"];
-    const noticiasNacionais = formattedNews
-      .filter((n) => nationalCategories.some((cat) => n.cat.toLowerCase().includes(cat)))
-      .slice(0, 6);
+    // 3. Destaques Regionais (prioriza 2 notícias regionais que sobraram com imagem)
+    const remainingRegionais = regionais.filter((n) => !usedTopIds.has(n.id) && Boolean(n.img));
+    const poolAfterSub = poolRestante.filter((n) => !usedTopIds.has(n.id));
+    const destaquesRegionais = (remainingRegionais.length >= 2 ? remainingRegionais : poolAfterSub).slice(0, 2);
+    destaquesRegionais.forEach((d) => usedTopIds.add(d.id));
+
+    // 4. Plantão & Últimas (próximas 5 notícias para a coluna da direita)
+    const plantaoUltimas = formattedNews.filter((n) => !usedTopIds.has(n.id)).slice(0, 5);
+    plantaoUltimas.forEach((p) => usedTopIds.add(p.id));
+
+    // 5. Motor Brasil & Mundo (Giro Nacional & Internacional):
+    // REGRA DE OURO: Qualquer notícia do Topo NÃO PODE aparecer aqui (Desduplicação Estrita)!
+    const nationalCategories = ["brasil", "economia", "mundo", "política", "politica", "segurança", "agronegócio", "justiça"];
+    const poolParaNacional = formattedNews.filter((n) => !usedTopIds.has(n.id));
+    const noticiasNacionaisFiltradas = poolParaNacional.filter((n) =>
+      nationalCategories.some((cat) => n.cat.toLowerCase().includes(cat))
+    );
+    const noticiasNacionais = (noticiasNacionaisFiltradas.length >= 4 ? noticiasNacionaisFiltradas : poolParaNacional).slice(0, 8);
 
     return {
       allNews: formattedNews,
@@ -184,7 +191,7 @@ export async function getInitialPortalData(cidade: string = "Geral"): Promise<Po
       subManchetes,
       destaquesRegionais,
       plantaoUltimas,
-      noticiasNacionais: noticiasNacionais.length > 0 ? noticiasNacionais : formattedNews.slice(10, 16),
+      noticiasNacionais,
       futebolJogos: futebolRes.data || [],
       siteSettings,
       jobs: jobsRes.data || [],

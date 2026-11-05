@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { refineNewsCategory, truncateWords } from "@/lib/text-utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
@@ -50,8 +51,8 @@ export async function GET(request: Request) {
       slug: item.slug || item.id,
       url: `https://www.redeapucarana.com.br/noticias/${encodeURIComponent(item.slug || item.id)}`,
       titulo: item.titulo,
-      categoria: item.categoria || "Geral",
-      resumo: item.resumo || "",
+      categoria: refineNewsCategory(item.categoria, item.titulo, item.conteudo || item.resumo),
+      resumo: truncateWords(item.resumo || item.conteudo || "", 180),
       imagem: item.imagem || null,
       cidade: item.cidade_slug || "apucarana",
       autor: item.autor || "Redação Rede Apucarana",
