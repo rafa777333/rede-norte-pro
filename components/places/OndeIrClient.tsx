@@ -28,6 +28,20 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
   const [apenasComPromo, setApenasComPromo] = useState(false);
   const [localSelecionado, setLocalSelecionado] = useState<PlaceItem | null>(null);
 
+  // Auto-seleciona local caso venha na URL (?local=slug)
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const localSlug = params.get("local");
+      if (localSlug) {
+        const found = initialPlaces.find((p) => p.slug === localSlug || p.id === localSlug);
+        if (found) {
+          setLocalSelecionado(found);
+        }
+      }
+    }
+  }, [initialPlaces]);
+
   // Sugestão contextual conforme a hora do dia
   const sugestaoContextual = useMemo(() => {
     const hora = new Date().getHours();

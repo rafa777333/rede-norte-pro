@@ -6,20 +6,42 @@ import { MOCK_PLACES, isOpenNow } from "@/lib/mock-places";
 
 interface HomeOndeIrSectionProps {
   cidadeAtual?: string;
+  initialPlaces?: any[];
 }
 
-export default function HomeOndeIrSection({ cidadeAtual = "Geral" }: HomeOndeIrSectionProps) {
+export default function HomeOndeIrSection({
+  cidadeAtual = "Geral",
+  initialPlaces,
+}: HomeOndeIrSectionProps) {
+  const [allPlaces, setAllPlaces] = React.useState<any[]>(initialPlaces || MOCK_PLACES);
+
+  // Busca atualizada do banco de dados em segundo plano
+  React.useEffect(() => {
+    let cancel = false;
+    fetch("/api/onde-ir")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancel && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setAllPlaces(data.data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
   // Filtra por cidade se selecionada, senão pega os 4 principais parceiros VIP
   const places = React.useMemo(() => {
-    let list = MOCK_PLACES;
+    let list = allPlaces;
     if (cidadeAtual && cidadeAtual !== "Geral" && cidadeAtual !== "Todas") {
       const byCity = list.filter(
-        (p) => p.city.toLowerCase() === cidadeAtual.toLowerCase()
+        (p) => p.city?.toLowerCase() === cidadeAtual.toLowerCase()
       );
       if (byCity.length > 0) list = byCity;
     }
     return list.slice(0, 4);
-  }, [cidadeAtual]);
+  }, [cidadeAtual, allPlaces]);
 
   return (
     <section

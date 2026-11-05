@@ -40,6 +40,7 @@ export interface PlaceItem {
   googleMapsUrl?: string;
   instagram?: string;
   isVip: boolean;
+  isActive?: boolean;
   rating?: number;
   ratingCount?: number;
   openHours: PlaceOpenHours;

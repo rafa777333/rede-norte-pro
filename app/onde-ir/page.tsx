@@ -1,9 +1,8 @@
 import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getSupabase } from "@/lib/supabase";
-import { MOCK_PLACES } from "@/lib/mock-places";
-import { PlaceItem, PlaceCategory } from "@/types/places";
+import { PlaceItem } from "@/types/places";
+import { fetchOndeIrPlaces } from "@/lib/places-service";
 import OndeIrClient from "@/components/places/OndeIrClient";
 
 export const revalidate = 60;
@@ -27,48 +26,7 @@ export const metadata: Metadata = {
 };
 
 export default async function OndeIrPage() {
-  const supabase = getSupabase();
-  let supabasePlaces: PlaceItem[] = [];
-
-  if (supabase) {
-    try {
-      const { data } = await supabase
-        .from("service_providers")
-        .select("*")
-        .limit(30);
-
-      if (data && data.length > 0) {
-        supabasePlaces = data.map((item: any) => ({
-          id: `sp-${item.id}`,
-          slug: item.id?.toString() || "local",
-          name: item.nome || "Estabelecimento",
-          tagline: item.descricao || "Atendimento e serviços no Vale do Ivaí",
-          category: (item.categoria || "Restaurantes & Almoço") as PlaceCategory,
-          city: item.cidade || "Apucarana",
-          neighborhood: "Centro",
-          address: item.endereco || "Vale do Ivaí - PR",
-          isVip: false,
-          openHours: { open: "11:00", close: "23:00", days: "Terça a Domingo" },
-          coverImage: item.imagem || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80",
-          whatsapp: item.whatsapp || "43999999999",
-          menuHighlights: [
-            {
-              id: `m-sp-${item.id}`,
-              name: "Especialidade da Casa",
-              description: item.descricao || "Consulte o cardápio e opções disponíveis no WhatsApp.",
-              price: 39.9,
-              badge: "Destaque",
-            },
-          ],
-        }));
-      }
-    } catch {
-      // Graceful fallback to mock data
-    }
-  }
-
-  // Combina MOCK_PLACES prioritários + itens cadastrados no Supabase
-  const allPlaces: PlaceItem[] = [...MOCK_PLACES, ...supabasePlaces];
+  const allPlaces: PlaceItem[] = await fetchOndeIrPlaces();
 
   // Schema Markup JSON-LD para SEO Local
   const jsonLd = {
