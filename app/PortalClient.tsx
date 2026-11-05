@@ -962,13 +962,13 @@ export default function PortalClient({
       {/* Barra de Abas Sticky (Notícias, Jogos, Clima, TV + Cidades) - Linha única perfeita, ícones vetoriais e cápsulas sofisticadas */}
       <header className="site-header sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
         <nav className="w-full" aria-label="Navegação principal">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8">
             <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 overflow-x-auto no-scrollbar h-13 sm:h-14 py-1.5 whitespace-nowrap">
               {/* 1. Notícias (Editorial Puro) */}
               <button
                 type="button"
                 onClick={() => trocarAba("noticias")}
-                className={`relative inline-flex items-center h-10 px-3 sm:px-3.5 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
+                className={`relative inline-flex items-center h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
                   aba === "noticias"
                     ? "text-slate-950 font-extrabold bg-slate-100/90"
                     : "text-slate-600 hover:text-slate-950 hover:bg-slate-100/60"
@@ -976,7 +976,7 @@ export default function PortalClient({
               >
                 <span>Notícias</span>
                 {aba === "noticias" && (
-                  <span className="absolute bottom-1 left-3 right-3 h-0.5 bg-red-600 rounded-full" />
+                  <span className="absolute bottom-1 left-2.5 right-2.5 h-0.5 bg-red-600 rounded-full" />
                 )}
               </button>
 
@@ -984,7 +984,7 @@ export default function PortalClient({
               <button
                 type="button"
                 onClick={() => trocarAba("clima")}
-                className={`inline-flex items-center gap-1.5 h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
+                className={`inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
                   aba === "clima"
                     ? "text-sky-700 bg-sky-50 font-bold"
                     : "text-slate-600 hover:text-sky-700 hover:bg-sky-50/70"
@@ -997,7 +997,7 @@ export default function PortalClient({
               {/* 3. Jogos & Placares */}
               <Link
                 href="/esportes"
-                className="inline-flex items-center gap-1.5 h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 shrink-0"
+                className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 shrink-0"
               >
                 <Trophy className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={2} />
                 <span>Jogos & Placares</span>
@@ -1006,7 +1006,7 @@ export default function PortalClient({
               {/* 4. TV Online */}
               <Link
                 href="/tv-online"
-                className="inline-flex items-center gap-2 h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-red-700 hover:bg-red-50/70 shrink-0"
+                className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-red-700 hover:bg-red-50/70 shrink-0"
               >
                 <span className="relative flex h-2 w-2 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
@@ -1022,7 +1022,7 @@ export default function PortalClient({
                   e.preventDefault();
                   trocarAba("videos");
                 }}
-                className={`inline-flex items-center gap-1.5 h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
+                className={`inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
                   aba === "videos"
                     ? "text-red-700 bg-red-50 font-bold"
                     : "text-slate-700 hover:text-red-700 hover:bg-red-50/70"
@@ -1034,14 +1034,14 @@ export default function PortalClient({
 
               {/* Separador Editorial vs. Hub de Serviços */}
               <div
-                className="h-5 w-px bg-slate-200/90 mx-1 lg:mx-2 shrink-0 hidden sm:block"
+                className="h-4.5 w-px bg-slate-200/90 mx-0.5 lg:mx-1 shrink-0 hidden sm:block"
                 aria-hidden="true"
               />
 
               {/* 6. Onde Ir (Cápsula / Pill) */}
               <Link
                 href="/onde-ir"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-amber-50/80 hover:bg-amber-100/90 border border-amber-200/80 text-amber-950 shadow-2xs hover:shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-amber-50/80 hover:bg-amber-100/90 border border-amber-200/80 text-amber-950 shadow-2xs hover:shadow-xs shrink-0"
               >
                 <Utensils className="w-3.5 h-3.5 text-amber-700 shrink-0" strokeWidth={2} />
                 <span>Onde Ir</span>
@@ -1054,7 +1054,7 @@ export default function PortalClient({
               <button
                 type="button"
                 onClick={() => trocarAba("empregos")}
-                className={`inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shadow-2xs hover:shadow-xs shrink-0 ${
+                className={`inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shadow-2xs hover:shadow-xs shrink-0 ${
                   aba === "empregos"
                     ? "bg-slate-200/90 border-slate-300 text-slate-900 font-bold"
                     : "bg-slate-50/90 hover:bg-slate-100 border-slate-200/90 text-slate-800"
@@ -1064,28 +1064,22 @@ export default function PortalClient({
                 <span>Empregos</span>
               </button>
 
-              {/* 8. Compras & Vendas (Cápsula / Pill) */}
+              {/* 8. Compras & Vendas (Cápsula / Pill - sem a palavra Grátis para caber com folga) */}
               <Link
                 href="/comprasevendas"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-orange-50/80 hover:bg-orange-100/90 border border-orange-200/80 text-orange-950 shadow-2xs hover:shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-orange-50/80 hover:bg-orange-100/90 border border-orange-200/80 text-orange-950 shadow-2xs hover:shadow-xs shrink-0"
               >
                 <Tag className="w-3.5 h-3.5 text-orange-600 shrink-0" strokeWidth={2} />
                 <span>Compras & Vendas</span>
-                <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-orange-200/90 text-orange-950 border border-orange-300/60 leading-none">
-                  GRÁTIS
-                </span>
               </Link>
 
               {/* 9. Ofertas & Encartes (Cápsula / Pill) */}
               <Link
                 href="/ofertas"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200/80 text-emerald-950 shadow-2xs hover:shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200/80 text-emerald-950 shadow-2xs hover:shadow-xs shrink-0"
               >
                 <ShoppingBag className="w-3.5 h-3.5 text-emerald-600 shrink-0" strokeWidth={2} />
                 <span>Ofertas & Encartes</span>
-                <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-emerald-200/90 text-emerald-950 border border-emerald-300/60 leading-none">
-                  PREÇOS
-                </span>
               </Link>
             </div>
           </div>
