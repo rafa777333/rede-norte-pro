@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { MapPin, ChevronDown, Sparkles } from "lucide-react";
 import { cidadeSlug } from "@/lib/supabase";
 
 export const TODAS_AS_CIDADES = [
@@ -78,29 +79,27 @@ export default function CitiesScrollTicker({
 
   return (
     <>
-      {/* Barra Ultra Limpa: Apenas o Botão Centralizado / Alinhado */}
+      {/* Barra Escura Inferior Refinada: "Vale do Ivaí — 27 Cidades" */}
       <nav
-        className="w-full bg-[#0d1522] border-y border-slate-800/80 shadow-inner py-2 px-3 z-30"
+        className="w-full bg-[#0a0f18] border-b border-slate-800/80 py-1.5 px-4 z-30 shadow-xs"
         aria-label="Cidades do Vale do Ivaí"
       >
-        <div className="container mx-auto flex items-center justify-between gap-3">
-          {/* Botão Único: Vale do Ivaí - 27 Cidades */}
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          {/* Botão Único Refinado: Vale do Ivaí - 27 Cidades */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setModalAberto(true)}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-sm hover:shadow-md border border-red-500/40 transition-all cursor-pointer group"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-red-600 via-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-2xs hover:shadow-xs border border-red-500/30 transition-all cursor-pointer group"
               title="Clique para escolher uma das 27 cidades do Vale do Ivaí"
             >
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <span>
+              <MapPin className="w-3.5 h-3.5 text-white/90 shrink-0" strokeWidth={2} />
+              <span className="tracking-wide">
                 {isCidadeAtiva
-                  ? `📍 ${currentCity} · Vale do Ivaí (27 Cidades)`
+                  ? `${currentCity} · Vale do Ivaí (27 Cidades)`
                   : "Vale do Ivaí — 27 Cidades"}
               </span>
-              <span className="text-[10px] sm:text-xs transition-transform duration-200 group-hover:translate-y-0.5">
-                ▼
-              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-white/80 transition-transform duration-200 group-hover:translate-y-0.5 shrink-0" strokeWidth={2} />
             </button>
 
             {/* Atalho para Capa Geral quando uma cidade específica estiver aberta */}
@@ -108,7 +107,7 @@ export default function CitiesScrollTicker({
               <Link
                 href="/"
                 onClick={() => handleCitySelect("Geral")}
-                className="text-xs font-semibold text-slate-300 hover:text-white px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 border border-slate-700/60 transition-colors"
+                className="text-xs font-medium text-slate-300 hover:text-white px-2.5 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 border border-slate-700/60 transition-colors"
                 title="Voltar para a Capa Geral de todo o portal"
               >
                 ← Capa Geral
@@ -117,11 +116,14 @@ export default function CitiesScrollTicker({
           </div>
 
           {/* Selo Informativo à Direita */}
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 font-medium">
+          <div className="hidden sm:flex items-center gap-2.5 text-xs text-slate-400 font-medium">
             <span className="text-slate-600">•</span>
             <span>Jornalismo Regional em Tempo Real</span>
             <span className="text-slate-600">•</span>
-            <span className="text-amber-400/90 font-semibold">Norte do Paraná</span>
+            <span className="text-amber-400/90 font-semibold flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              Norte do Paraná
+            </span>
           </div>
         </div>
       </nav>
