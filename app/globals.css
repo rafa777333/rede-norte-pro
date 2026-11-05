@@ -1956,3 +1956,27 @@
   scrollbar-width: none;
 }
 
+/* Mini-Player Equalizador de Ondas Sonoras */
+@keyframes soundwave-1 {
+  0%, 100% { height: 3px; }
+  50% { height: 14px; }
+}
+@keyframes soundwave-2 {
+  0%, 100% { height: 14px; }
+  50% { height: 5px; }
+}
+@keyframes soundwave-3 {
+  0%, 100% { height: 6px; }
+  50% { height: 14px; }
+}
+.animate-soundwave-1 {
+  animation: soundwave-1 0.8s ease-in-out infinite;
+}
+.animate-soundwave-2 {
+  animation: soundwave-2 0.6s ease-in-out infinite 0.15s;
+}
+.animate-soundwave-3 {
+  animation: soundwave-3 0.9s ease-in-out infinite 0.3s;
+}
+
+

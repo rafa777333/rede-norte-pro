@@ -13,7 +13,7 @@ interface TopUtilityCockpitProps {
 export default function TopUtilityCockpit({
   radioTocando = false,
   onToggleRadio,
-  whatsappUrl = "https://chat.whatsapp.com/Irl8tuJypYR1kNqTZklqwz",
+  whatsappUrl = "https://wa.me/5543999809454?text=Ol%C3%A1%2C%20tenho%20uma%20sugest%C3%A3o%20de%20not%C3%ADcia%20para%20a%20Rede%20Apucarana",
   onOpenClima,
 }: TopUtilityCockpitProps) {
   const [agora, setAgora] = useState(new Date());
@@ -92,7 +92,7 @@ export default function TopUtilityCockpit({
 
   return (
     <div className="h-10 bg-slate-900 text-slate-200 text-xs border-b border-slate-800">
-      <div className="container mx-auto h-full px-4 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         {/* Esquerda: Plantão ao Vivo + Data + Tempo */}
         <div className="flex items-center gap-3 overflow-hidden">
           {/* Indicador duplo pulsante */}
@@ -131,34 +131,23 @@ export default function TopUtilityCockpit({
           </a>
         </div>
 
-        {/* Direita: Atalhos Rápidos */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {onToggleRadio && (
-            <button
-              type="button"
-              onClick={onToggleRadio}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border ${
-                radioTocando
-                  ? "bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-500/20"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${radioTocando ? "bg-white animate-pulse" : "bg-red-500"}`} />
-              <span className="hidden sm:inline">{radioTocando ? "Rádio Tocando" : "Ouvir Rádio"}</span>
-              <span className="sm:hidden">Rádio</span>
-            </button>
-          )}
+        {/* Direita: Atalhos Limpos */}
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
 
           <a
-            href={whatsappUrl}
+            href={
+              whatsappUrl && whatsappUrl.startsWith("http")
+                ? whatsappUrl
+                : "https://wa.me/5543999809454?text=Ol%C3%A1%2C%20tenho%20uma%20sugest%C3%A3o%20de%20not%C3%ADcia%20para%20a%20Rede%20Apucarana"
+            }
             target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
             title="Enviar sugestão de matéria ou vídeo pelo WhatsApp"
           >
             <span>📱</span>
-            <span className="hidden lg:inline">Enviar Sugestão / WhatsApp</span>
-            <span className="lg:hidden hidden sm:inline">WhatsApp</span>
+            <span className="hidden sm:inline">Enviar Sugestão / WhatsApp</span>
+            <span className="sm:hidden">WhatsApp</span>
           </a>
 
           <span className="text-slate-700 hidden sm:inline-block">|</span>
