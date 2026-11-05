@@ -4,6 +4,8 @@ import { getYoutubeId, getInstagramCode, getInstagramEmbedUrl, getTikTokId, getV
 import SocialPublishWidget from "@/components/SocialPublishWidget";
 import AdminOndeIrManager from "@/components/admin/AdminOndeIrManager";
 import AdminOfertasManager from "@/components/admin/AdminOfertasManager";
+import AdminClassificadosManager from "@/components/admin/AdminClassificadosManager";
+import { compressImageClient } from "@/lib/image-compression";
 import { decodeHtmlEntities } from "@/lib/text-utils";
 import { useEffect, useMemo, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
@@ -2130,16 +2132,7 @@ const salvarVideo = async () => {
         )}
 
         {tab === "classificados" && (
-          <AdminSection title="Cadastrar compra ou venda" description="Anúncios com foto e dados persistidos no Supabase. Envios públicos aparecem como pendentes até você salvar como publicado.">
-            <FormInput placeholder="Título do anúncio" value={cForm.titulo} onChange={(v) => setCForm({ ...cForm, titulo: v })} />
-            <div className="form-row"><Select value={cForm.cidade} onChange={(v) => setCForm({ ...cForm, cidade: v })} options={CIDADES} /><Select value={cForm.cat} onChange={(v) => setCForm({ ...cForm, cat: v })} options={CAT_CLASS} /></div>
-            <FormInput placeholder="Preço" value={cForm.preco} onChange={(v) => setCForm({ ...cForm, preco: v })} />
-            <FormInput placeholder="WhatsApp do anunciante" value={cForm.zap} onChange={(v) => setCForm({ ...cForm, zap: v })} />
-            <ImageField value={cForm.img} onChange={(v) => setCForm({ ...cForm, img: v })} />
-            <FormInput placeholder="Descrição completa" value={cForm.detalhes} onChange={(v) => setCForm({ ...cForm, detalhes: v })} multiline />
-            <SaveButton label={editId ? "Aprovar / atualizar anúncio" : "Salvar anúncio no banco"} onClick={() => { if (!cForm.titulo) return alert("Título obrigatório"); void salvar("classified_ads", { titulo: cForm.titulo, categoria: cForm.cat, cidade_slug: cidadeSlug(cForm.cidade), preco: cForm.preco, contato: cForm.zap, descricao: cForm.detalhes, status: "published" }, cForm.img, "classifieds", () => setCForm({ titulo: "", cidade: "Apucarana", cat: "Imóveis", preco: "", zap: "", img: "", detalhes: "" }), editId); }} />
-            {filterByCity(classif).map((x) => <AdminItem key={x.id} title={x.titulo} meta={`${x.cidade} · ${x.cat} · ${x.preco} · ${x.status === "pending" ? "AGUARDANDO APROVAÇÃO" : "Publicado"}`} image={x.img} onEdit={() => { setEditId(x.id); setCForm({ titulo: x.titulo, cidade: x.cidade, cat: x.cat, preco: x.preco, zap: x.zap, img: x.img || "", detalhes: x.detalhes || "" }); }} onDelete={() => void excluir("classified_ads", x.id)} />)}
-          </AdminSection>
+          <AdminClassificadosManager />
         )}
 
         {tab === "empregos" && (
@@ -2475,7 +2468,7 @@ const salvarVideo = async () => {
 function AdminSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section className="admin-section"><div className="admin-section-title"><span className="admin-kicker">GERENCIAMENTO</span><h2>{title}</h2><p>{description}</p></div><div className="admin-form">{children}</div></section>; }
 function FormInput({ placeholder, value, onChange, multiline = false }: { placeholder: string; value: string; onChange: (value: string) => void; multiline?: boolean }) { return multiline ? <textarea placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} /> : <input placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />; }
 function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: string[] }) { return <select value={value} onChange={(e) => onChange(e.target.value)}>{options.map((option) => <option key={option}>{option}</option>)}</select>; }
-function ImageField({ value, onChange, label = "Imagem do anúncio" }: { value: string; onChange: (value: string) => void; label?: string }) { return <div className="image-field"><label>{label}</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 2_500_000) return alert("Escolha uma imagem de até 2 MB"); const reader = new FileReader(); reader.onload = () => onChange(String(reader.result)); reader.readAsDataURL(file); }} /><span>ou cole a URL da imagem abaixo</span><input placeholder="https://..." value={value.startsWith("data:") ? "Imagem carregada" : value} onChange={(e) => onChange(e.target.value)} />{value && <img src={value} alt="Pré-visualização" />}</div>; }
+function ImageField({ value, onChange, label = "Imagem do anúncio" }: { value: string; onChange: (value: string) => void; label?: string }) { return <div className="image-field"><label>{label}</label><input type="file" accept="image/*" onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; try { const res = await compressImageClient(file, 1200, 0.8); onChange(res.dataUrl); } catch { const reader = new FileReader(); reader.onload = () => onChange(String(reader.result)); reader.readAsDataURL(file); } }} /><span>ou cole a URL da imagem abaixo</span><input placeholder="https://..." value={value.startsWith("data:") ? "Imagem carregada (WebP otimizado)" : value} onChange={(e) => onChange(e.target.value)} />{value && <img src={value} alt="Pré-visualização" />}</div>; }
 function VideoFileField({ value, file, onChange }: { value: string; file: File | null; onChange: (file: File | null) => void }) { return <div className="video-file-field"><label>Arquivo de vídeo (MP4 recomendado)</label><input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => onChange(e.target.files?.[0] || null)} /><small>{file ? `Selecionado: ${file.name} (${Math.round(file.size / 1024 / 1024)} MB)` : value ? "Usando vídeo já enviado ou URL direta" : "Nenhum arquivo local selecionado"}</small></div>; }
 function SaveButton({ label, onClick }: { label: string; onClick: () => void }) { return <button className="save-button" onClick={onClick}>{label}</button>; }
 function AdminItem({
