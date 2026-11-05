@@ -39,18 +39,36 @@ export interface FutebolClassificacao {
 interface FutebolWidgetProps {
   variant?: "carousel" | "full" | "compact";
   initialCampeonato?: string;
+  initialJogos?: FutebolJogo[];
+  initialClassificacao?: FutebolClassificacao[];
 }
 
 export default function FutebolWidget({
   variant = "carousel",
   initialCampeonato = "Todos",
+  initialJogos,
+  initialClassificacao,
 }: FutebolWidgetProps) {
-  const [jogos, setJogos] = useState<FutebolJogo[]>([]);
-  const [classificacao, setClassificacao] = useState<FutebolClassificacao[]>([]);
+  const [jogos, setJogos] = useState<FutebolJogo[]>(initialJogos || []);
+  const [classificacao, setClassificacao] = useState<FutebolClassificacao[]>(initialClassificacao || []);
   const [campeonato, setCampeonato] = useState(initialCampeonato);
   const [tabelaCamp, setTabelaCamp] = useState("Brasileirão Série A");
   const [abaVisualizacao, setAbaVisualizacao] = useState<"jogos" | "tabela">("jogos");
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState(!initialJogos || initialJogos.length === 0);
+  const [sincronizando, setSincronizando] = useState(false);
+
+  // Sincronização manual sob demanda via API
+  const sincronizarAgora = async () => {
+    try {
+      setSincronizando(true);
+      await fetch("/api/futebol/sync", { method: "POST" });
+      await carregarDados();
+    } catch (err) {
+      console.error("Erro ao sincronizar placares:", err);
+    } finally {
+      setSincronizando(false);
+    }
+  };
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -346,6 +364,19 @@ export default function FutebolWidget({
             <a href="/esportes" className="google-sports-view-all">
               Ver classificação e tabela completa →
             </a>
+          )}
+
+          {variant === "full" && (
+            <button
+              type="button"
+              onClick={sincronizarAgora}
+              disabled={sincronizando}
+              className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs disabled:opacity-60 cursor-pointer"
+              title="Sincronizar placares e classificação agora via ESPN"
+            >
+              <span className={sincronizando ? "animate-spin inline-block" : "inline-block"}>🔄</span>
+              <span>{sincronizando ? "Atualizando..." : "Atualizar agora"}</span>
+            </button>
           )}
         </div>
 

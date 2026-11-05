@@ -1082,7 +1082,7 @@ export default function PortalClient({
             <DiscoverNationalSection news={todas} />
 
             {/* SEÇÃO DE ESPORTES NA ROLAGEM COM A FITA DE TIMES / PLACARES */}
-            <SportsSection news={todas} cidadeAtual={cidade} />
+            <SportsSection news={todas} cidadeAtual={cidade} initialMatches={initialData?.futebolJogos} />
 
             {/* SEÇÃO VITRINE ONDE IR NO VALE - GASTRONOMIA, VÍDEO 9:16 & CUPONS */}
             <HomeOndeIrSection cidadeAtual={cidade} />

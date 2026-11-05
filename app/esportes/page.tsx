@@ -1,20 +1,43 @@
 import React from "react";
-import FutebolWidget from "../../components/FutebolWidget";
+import FutebolWidget, { FutebolJogo, FutebolClassificacao } from "../../components/FutebolWidget";
 import MobileBottomNav from "../../components/MobileBottomNav";
+import { getSupabase } from "@/lib/supabase";
+
+export const revalidate = 30;
 
 export const metadata = {
   title: "Jogos de Hoje, Placares ao Vivo e Classificação | Rede Apucarana Esportes",
-  description: "Acompanhe todos os jogos de futebol ao vivo, placares em tempo real e tabelas completas do Brasileirão Série A, Série B, Copa do Brasil e Libertadores.",
+  description:
+    "Acompanhe todos os jogos de futebol ao vivo, placares em tempo real e tabelas completas do Brasileirão Série A, Série B, Copa do Brasil e Libertadores.",
 };
 
-export default function EsportesPage() {
+export default async function EsportesPage() {
+  const supabase = getSupabase();
+  let initialJogos: FutebolJogo[] = [];
+  let initialClassificacao: FutebolClassificacao[] = [];
+
+  if (supabase) {
+    try {
+      const [resJogos, resClassificacao] = await Promise.all([
+        supabase.from("futebol_jogos").select("*").order("data_jogo", { ascending: true }),
+        supabase.from("futebol_classificacao").select("*").order("posicao", { ascending: true }),
+      ]);
+      if (resJogos.data) initialJogos = resJogos.data as FutebolJogo[];
+      if (resClassificacao.data) initialClassificacao = resClassificacao.data as FutebolClassificacao[];
+    } catch (e) {
+      console.warn("Erro ao buscar dados iniciais de futebol no servidor:", e);
+    }
+  }
+
   return (
     <main className="site-shell">
       {/* Topline com link de volta */}
       <div className="topline">
         <div className="container topline-inner">
           <span>⚽ CENTRAL DE ESPORTES REDE APUCARANA · AO VIVO</span>
-          <a href="/" style={{ color: "#fff", textDecoration: "none" }}>← Voltar para a Página Principal</a>
+          <a href="/" style={{ color: "#fff", textDecoration: "none" }}>
+            ← Voltar para a Página Principal
+          </a>
         </div>
       </div>
 
@@ -32,7 +55,19 @@ export default function EsportesPage() {
             </span>
           </a>
           <div className="header-actions">
-            <a href="/" className="back-button" style={{ textDecoration: "none", color: "#1e293b", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "6px 14px", fontWeight: "700", fontSize: "13px" }}>
+            <a
+              href="/"
+              className="back-button"
+              style={{
+                textDecoration: "none",
+                color: "#1e293b",
+                border: "1px solid #cbd5e1",
+                borderRadius: "6px",
+                padding: "6px 14px",
+                fontWeight: "700",
+                fontSize: "13px",
+              }}
+            >
               ← Início
             </a>
           </div>
@@ -52,8 +87,12 @@ export default function EsportesPage() {
           </p>
         </div>
 
-        {/* Widget Completo com Partidas e Tabela de Classificação */}
-        <FutebolWidget variant="full" />
+        {/* Widget Completo com Partidas e Tabela de Classificação alimentado com SSR */}
+        <FutebolWidget
+          variant="full"
+          initialJogos={initialJogos}
+          initialClassificacao={initialClassificacao}
+        />
       </section>
 
       {/* Footer simples */}
