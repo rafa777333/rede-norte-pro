@@ -456,27 +456,6 @@ function LargeSponsorCarousel({ sponsors }: { sponsors: Sponsor[] }) {
   );
 }
 
-const RADAR_ITEMS = [
-  {
-    icon: "🛒",
-    titulo: "Termômetro de Hoje:",
-    sub: "Confira os menores preços nos mercados",
-    href: "/ofertas",
-  },
-  {
-    icon: "🍔",
-    titulo: "Onde Ir Hoje:",
-    sub: "Veja cardápios, vídeos e cupons de desconto",
-    href: "/onde-ir",
-  },
-  {
-    icon: "💼",
-    titulo: "Mural de Oportunidades:",
-    sub: "Vagas de emprego e classificados grátis",
-    href: "/comprasevendas",
-  },
-];
-
 export default function PortalClient({
   initialCity = "Geral",
   initialTab = "noticias",
@@ -558,17 +537,7 @@ export default function PortalClient({
   const [jobEnviado, setJobEnviado] = useState(false);
   const [radioTocando, setRadioTocando] = useState(false);
   const [signoAberto, setSignoAberto] = useState<SignoPrevisao | null>(null);
-  const [radarIndex, setRadarIndex] = useState(0);
   const radioRef = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setRadarIndex((prev) => (prev + 1) % RADAR_ITEMS.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const itemRadar = RADAR_ITEMS[radarIndex];
 
   useEffect(() => {
     setCidade(initialCity);
@@ -1066,97 +1035,47 @@ export default function PortalClient({
         onOpenClima={() => trocarAba("clima")}
       />
       
-      {/* Faixa da Marca e Ações (Logo, Radar do Vale, Mini-Player Rádio, Busca) */}
-      <div className="header-brand-bar bg-white border-b border-slate-200/80 py-2.5 sm:py-3">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 sm:gap-4">
-          {/* 1. Marca / Logo */}
-          <Link href="/" className="brand flex items-center gap-3 shrink-0">
-            <img
-              src="/logo-rede-apucarana.png?v=2"
-              alt="Logo Rede Apucarana"
-              className="brand-mark w-10 h-10 sm:w-11 sm:h-11 object-cover rounded-xl shadow-xs"
-              style={{ padding: 0 }}
-            />
-            <div>
-              <span className="brand-name block font-black text-slate-900 tracking-tight text-lg sm:text-xl leading-none">
-                REDE APUCARANA
-              </span>
-              <span className="text-[10px] uppercase font-bold text-red-600 tracking-widest block mt-0.5">
-                De Comunicação
-              </span>
-            </div>
-          </Link>
-
-          {/* 2. Centro: Radar do Vale / Destaques Dinâmicos (Desktop lg:) */}
-          <div className="hidden lg:flex items-center justify-center flex-1 max-w-xl mx-2">
-            <Link
-              href={itemRadar.href}
-              className="group inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100/90 border border-slate-200/80 hover:border-slate-300 text-xs text-slate-700 transition-all shadow-2xs hover:shadow-xs"
-              title={`${itemRadar.titulo} ${itemRadar.sub}`}
-            >
-              <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200/80 shrink-0 text-[10px] tracking-wide uppercase">
-                <span>⚡</span>
-                <span>Radar do Vale</span>
-              </span>
-              <span className="font-semibold text-slate-800 group-hover:text-red-700 transition-colors truncate max-w-sm">
-                <span className="mr-1">{itemRadar.icon}</span>
-                <strong className="font-bold text-slate-900 group-hover:text-red-700">{itemRadar.titulo}</strong>{" "}
-                <span className="text-slate-600 group-hover:text-slate-800">{itemRadar.sub}</span>
-              </span>
-              <span className="text-slate-400 group-hover:text-red-600 font-bold group-hover:translate-x-0.5 transition-transform shrink-0">
-                →
-              </span>
+      {/* Faixa da Marca e Ações (Marca Imponente na Esquerda + Busca Suave e Player Rádio na Direita) */}
+      <div className="header-brand-bar bg-white border-b border-slate-200/80 py-3 sm:py-3.5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+          {/* 1. Marca / Logo Refinado com Assinatura Editorial (Padrão G1 / CNN / UOL) */}
+          <div className="flex items-center shrink-0">
+            <Link href="/" className="brand flex items-center gap-3 shrink-0 group">
+              <img
+                src="/logo-rede-apucarana.png?v=2"
+                alt="Logo Rede Apucarana"
+                className="brand-mark w-11 h-11 sm:w-12 sm:h-12 object-cover rounded-xl shadow-xs transition-transform group-hover:scale-[1.02]"
+                style={{ padding: 0 }}
+              />
+              <div className="flex flex-col justify-center">
+                <span className="brand-name block font-black text-slate-900 tracking-tight text-xl sm:text-2xl leading-none">
+                  REDE APUCARANA
+                </span>
+                <span className="text-[11px] font-bold tracking-[0.22em] text-red-600 uppercase block mt-1 leading-none">
+                  De Comunicação
+                </span>
+              </div>
             </Link>
+
+            {/* Divisor vertical sutil + Assinatura Editorial (Desktop lg:) */}
+            <div className="hidden lg:flex items-center">
+              <div className="h-8 w-px bg-slate-200 mx-4" aria-hidden="true" />
+              <div className="flex flex-col justify-center leading-tight">
+                <span className="text-xs font-semibold text-slate-700">
+                  Portal & Emissora Digital
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium mt-0.5">
+                  Apucarana e 27 Cidades do Vale
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* 3. Direita: Mini-Player Vivo + Caixa de Busca */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Mini-Player Rádio Ao Vivo com Equalizador */}
-            <button
-              type="button"
-              onClick={alternarRadio}
-              className={`inline-flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all shadow-2xs group cursor-pointer ${
-                radioTocando
-                  ? "bg-red-50/90 border-red-300 text-red-950 shadow-red-500/10"
-                  : "bg-slate-50/90 hover:bg-slate-100 border-slate-200 text-slate-800"
-              }`}
-              title={radioTocando ? "Pausar Rádio Rede Apucarana" : "Ouvir Rádio Rede Apucarana ao vivo"}
-              aria-label={radioTocando ? "Pausar rádio ao vivo" : "Tocar rádio ao vivo"}
-            >
-              <div
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
-                  radioTocando
-                    ? "bg-red-600 text-white shadow-xs"
-                    : "bg-slate-900 text-white group-hover:bg-red-600"
-                }`}
-              >
-                {radioTocando ? (
-                  <div className="flex items-end gap-0.5 h-3.5 w-3.5 justify-center">
-                    <span className="w-1 bg-white rounded-full animate-soundwave-1" />
-                    <span className="w-1 bg-white rounded-full animate-soundwave-2" />
-                    <span className="w-1 bg-white rounded-full animate-soundwave-3" />
-                  </div>
-                ) : (
-                  <svg className="w-3.5 h-3.5 fill-current ml-0.5" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-              </div>
-
-              <div className="text-left leading-tight hidden sm:block">
-                <span className="text-[11px] font-black tracking-wider uppercase text-red-600 flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${radioTocando ? "bg-red-600 animate-ping" : "bg-red-600"}`} />
-                  {radioTocando ? "NO AR AGORA" : "RÁDIO AO VIVO"}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium block">
-                  Sintonia Rede Apucarana
-                </span>
-              </div>
-            </button>
-
-            {/* Caixa de Busca com Ícone e Focus Elegante */}
-            <div className="relative flex items-center">
-              <div className="absolute left-3 pointer-events-none text-slate-400">
+          {/* 2. Direita: Busca Suave e Player da Rádio Integrado com Espaçamento Nobre */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Caixa de Busca com Fundo Cinza Suave (Sem Caixa Pesada) */}
+            <div className="relative flex items-center bg-slate-100/80 hover:bg-slate-100 focus-within:bg-white border border-transparent focus-within:border-slate-300 rounded-lg transition-all">
+              <div className="pl-3 sm:pl-3.5 pointer-events-none text-slate-400 flex items-center shrink-0">
                 <Search className="w-4 h-4" />
               </div>
               <input
@@ -1164,10 +1083,48 @@ export default function PortalClient({
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Buscar notícias, ofertas, vagas..."
-                aria-label="Buscar notícias, ofertas, vagas"
-                className="w-36 sm:w-52 md:w-64 lg:w-72 h-10 pl-9 pr-3 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-800 placeholder-slate-400 rounded-xl border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:border-red-600 transition-all shadow-2xs"
+                aria-label="Buscar no portal"
+                className="w-36 sm:w-56 md:w-64 lg:w-72 py-2 pl-2.5 pr-3 text-xs sm:text-sm bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none"
               />
             </div>
+
+            {/* Botão Rádio Ao Vivo Integrado, Compacto e Elegante */}
+            <button
+              type="button"
+              onClick={alternarRadio}
+              className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-2.5 shadow-sm hover:shadow transition-all shrink-0 cursor-pointer group"
+              title={radioTocando ? "Pausar Rádio Rede Apucarana" : "Ouvir Rádio Rede Apucarana ao vivo"}
+              aria-label={radioTocando ? "Pausar rádio ao vivo" : "Tocar rádio ao vivo"}
+            >
+              {/* Bolinha vermelha pulsante */}
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+
+              {/* Ícone Play/Pause Limpo */}
+              {radioTocando ? (
+                <svg className="w-3.5 h-3.5 fill-current text-white shrink-0" viewBox="0 0 24 24">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 fill-current text-white shrink-0 ml-0.5" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+
+              {/* Texto RÁDIO AO VIVO */}
+              <span className="text-xs font-bold tracking-wider uppercase text-white whitespace-nowrap hidden sm:inline">
+                {radioTocando ? "NO AR" : "RÁDIO AO VIVO"}
+              </span>
+
+              {/* Equalizador sutil de ondas sonoras */}
+              <div className="flex items-end gap-0.5 h-3.5 w-3 justify-center shrink-0">
+                <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-1" : "h-1.5 opacity-60"}`} />
+                <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-2" : "h-3 opacity-80"}`} />
+                <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-3" : "h-2 opacity-60"}`} />
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -1251,45 +1208,45 @@ export default function PortalClient({
                 aria-hidden="true"
               />
 
-              {/* 6. Onde Ir (Cápsula / Pill) */}
+              {/* 6. Onde Ir (Cápsula Suavizada) */}
               <Link
                 href="/onde-ir"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-amber-50/80 hover:bg-amber-100/90 border border-amber-200/80 text-amber-950 shadow-2xs hover:shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-amber-50/50 hover:bg-amber-50/90 border border-amber-200/50 text-amber-900 shrink-0"
               >
                 <Utensils className="w-3.5 h-3.5 text-amber-700 shrink-0" strokeWidth={2} />
                 <span>Onde Ir</span>
-                <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-amber-200/90 text-amber-900 border border-amber-300/60 leading-none">
+                <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-amber-100/80 text-amber-900 border border-amber-200/40 leading-none">
                   CUPONS
                 </span>
               </Link>
 
-              {/* 7. Empregos (Cápsula / Pill) */}
+              {/* 7. Empregos (Cápsula Suavizada) */}
               <button
                 type="button"
                 onClick={() => trocarAba("empregos")}
-                className={`inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shadow-2xs hover:shadow-xs shrink-0 ${
+                className={`inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
                   aba === "empregos"
-                    ? "bg-slate-200/90 border-slate-300 text-slate-900 font-bold"
-                    : "bg-slate-50/90 hover:bg-slate-100 border-slate-200/90 text-slate-800"
+                    ? "bg-slate-200/80 border-slate-300 text-slate-900 font-bold"
+                    : "bg-slate-50/50 hover:bg-slate-100/70 border-slate-200/60 text-slate-700"
                 }`}
               >
                 <Briefcase className="w-3.5 h-3.5 text-slate-600 shrink-0" strokeWidth={2} />
                 <span>Empregos</span>
               </button>
 
-              {/* 8. Compras & Vendas (Cápsula / Pill - sem a palavra Grátis para caber com folga) */}
+              {/* 8. Compras & Vendas (Cápsula Suavizada) */}
               <Link
                 href="/comprasevendas"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-orange-50/80 hover:bg-orange-100/90 border border-orange-200/80 text-orange-950 shadow-2xs hover:shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-orange-50/50 hover:bg-orange-50/90 border border-orange-200/50 text-orange-900 shrink-0"
               >
                 <Tag className="w-3.5 h-3.5 text-orange-600 shrink-0" strokeWidth={2} />
                 <span>Compras & Vendas</span>
               </Link>
 
-              {/* 9. Ofertas & Encartes (Cápsula / Pill) */}
+              {/* 9. Ofertas & Encartes (Cápsula Suavizada) */}
               <Link
                 href="/ofertas"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200/80 text-emerald-950 shadow-2xs hover:shadow-xs shrink-0"
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-emerald-50/50 hover:bg-emerald-50/90 border border-emerald-200/50 text-emerald-900 shrink-0"
               >
                 <ShoppingBag className="w-3.5 h-3.5 text-emerald-600 shrink-0" strokeWidth={2} />
                 <span>Ofertas & Encartes</span>
