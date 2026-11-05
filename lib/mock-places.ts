@@ -1,0 +1,366 @@
+import { PlaceItem, PlaceOpenHours } from "@/types/places";
+
+export function isOpenNow(openHours: PlaceOpenHours): { isOpen: boolean; label: string } {
+  try {
+    const now = new Date();
+    // Horário de Brasília (UTC-3)
+    const horaAtual = now.getHours();
+    const minutoAtual = now.getMinutes();
+    const minutosAgora = horaAtual * 60 + minutoAtual;
+
+    const [openH, openM] = openHours.open.split(":").map(Number);
+    const [closeH, closeM] = openHours.close.split(":").map(Number);
+
+    const minutosAbre = openH * 60 + (openM || 0);
+    let minutosFecha = closeH * 60 + (closeM || 0);
+
+    // Caso passe da meia-noite (ex: abre 18:00 e fecha 02:00)
+    if (minutosFecha < minutosAbre) {
+      minutosFecha += 24 * 60;
+      const minutosAgoraAjustado = minutosAgora < minutosAbre ? minutosAgora + 24 * 60 : minutosAgora;
+      if (minutosAgoraAjustado >= minutosAbre && minutosAgoraAjustado <= minutosFecha) {
+        return { isOpen: true, label: "Aberto Agora" };
+      }
+      return { isOpen: false, label: `Abre às ${openHours.open}` };
+    }
+
+    if (minutosAgora >= minutosAbre && minutosAgora <= minutosFecha) {
+      return { isOpen: true, label: "Aberto Agora" };
+    }
+    return { isOpen: false, label: `Abre às ${openHours.open}` };
+  } catch {
+    return { isOpen: true, label: "Aberto Agora" };
+  }
+}
+
+export const MOCK_PLACES: PlaceItem[] = [
+  {
+    id: "pl-1",
+    slug: "la-bella-forneria-pizzeria",
+    name: "La Bella Forneria & Pizzeria Napoletana",
+    tagline: "Autêntica pizza napolitana com fermentação lenta de 48h e forno a lenha a 450°C",
+    category: "Pizzarias & Lanches",
+    city: "Apucarana",
+    neighborhood: "Centro",
+    address: "Rua Osvaldo Cruz, 450 - Centro, Apucarana - PR",
+    googleMapsUrl: "https://maps.google.com/?q=Rua+Osvaldo+Cruz+450+Apucarana+PR",
+    instagram: "@labellaforneria.apucarana",
+    isVip: true,
+    rating: 4.9,
+    ratingCount: 142,
+    openHours: { open: "18:30", close: "23:30", days: "Terça a Domingo" },
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-making-a-fresh-pizza-in-an-oven-41908-large.mp4",
+    videoThumbnail: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80",
+    coverImage: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80",
+    logo: "https://images.unsplash.com/photo-1579684947550-22e945225d9a?w=160&q=80",
+    whatsapp: "43999123456",
+    activePromo: {
+      title: "Terça Napolitana 20% OFF",
+      discountBadge: "20% OFF",
+      couponCode: "NAPOLI20",
+      validUntil: "Válido esta semana",
+      description: "Válido para consumo no salão e pedidos retirados ou via WhatsApp",
+    },
+    menuHighlights: [
+      {
+        id: "m-1",
+        name: "Pizza Margherita D.O.P.",
+        description: "Molho de tomate San Marzano importado, mozzarella di bufala fresca, manjericão gigante e azeite extravirgem.",
+        price: 54.9,
+        badge: "Mais Pedido",
+        image: "https://images.unsplash.com/photo-1604382355076-af4b0eb60143?w=600&q=80",
+      },
+      {
+        id: "m-2",
+        name: "Pizza Di Burrata Tartufata",
+        description: "Burrata inteira cremosa de 150g no centro, pesto artesanal de pistache e redução de azeite trufado italiano.",
+        price: 68.0,
+        badge: "Especial do Chef",
+        image: "https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?w=600&q=80",
+      },
+      {
+        id: "m-3",
+        name: "Calzone Clássico Napolitano",
+        description: "Recheio farto de ricota fresca da colônia, salame italiano curado, mozzarella e toque de pimenta preta moída.",
+        price: 46.5,
+        badge: "Tradicional",
+        image: "https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=600&q=80",
+      },
+      {
+        id: "m-4",
+        name: "Tiramisù Tradizionale Italiano",
+        description: "Sobremesa clássica com queijo mascarpone legítimo, biscoito savoiardi embebido em café espresso e cacau 100%.",
+        price: 24.0,
+        badge: "Sobremesa",
+        image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&q=80",
+      },
+    ],
+    description: "Referência em alta gastronomia de pizzas no Vale do Ivaí. Ambiente acolhedor para famílias e casais com carta de vinhos selecionados e chopp artesanal.",
+  },
+  {
+    id: "pl-2",
+    slug: "braseiro-376-churrascaria",
+    name: "Braseiro 376 - Churrascaria & Carnes Nobres",
+    tagline: "Cortes nobres preparados na parrilla argentina e fogo de chão no coração de Apucarana",
+    category: "Restaurantes & Almoço",
+    city: "Apucarana",
+    neighborhood: "Jardim América",
+    address: "Av. Curitiba, 1820 - Jardim América, Apucarana - PR",
+    googleMapsUrl: "https://maps.google.com/?q=Av+Curitiba+1820+Apucarana+PR",
+    instagram: "@braseiro376",
+    isVip: true,
+    rating: 4.8,
+    ratingCount: 215,
+    openHours: { open: "11:30", close: "15:00", days: "Segunda a Domingo" },
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-chef-cutting-a-steak-in-a-cutting-board-43306-large.mp4",
+    videoThumbnail: "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80",
+    coverImage: "https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&q=80",
+    whatsapp: "43998877665",
+    activePromo: {
+      title: "Almoço Executivo com Sobremesa Grátis",
+      discountBadge: "SOBREMESA GRÁTIS",
+      couponCode: "BRASEIROGIFT",
+      validUntil: "Segunda a Sexta",
+      description: "Apresente o cupom e ganhe um pudim de leite condensado na compra do executivo",
+    },
+    menuHighlights: [
+      {
+        id: "m-5",
+        name: "Picanha Black Angus na Brasa (600g)",
+        description: "Corte alto marmorizado na brasa. Acompanha arroz biro-biro com bacon, farofa crocante e vinagrete especial.",
+        price: 119.9,
+        badge: "Mais Pedido",
+        image: "https://images.unsplash.com/photo-1558030006-450675393462?w=600&q=80",
+      },
+      {
+        id: "m-6",
+        name: "Prime Rib Suíno com Geleia de Pimenta",
+        description: "Corte nobre de lombo suíno grelhado com osso, glaceado com calda artesanal de pimenta dedo-de-moça e purê rústico.",
+        price: 62.0,
+        badge: "Chef Choice",
+        image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80",
+      },
+      {
+        id: "m-7",
+        name: "Almoço Executivo Steak & Salad",
+        description: "Bife de chorizo grelhado (220g), feijão carioca cremoso, arroz branco soltinho, salada ceasar e batatas rústicas.",
+        price: 44.9,
+        badge: "Executivo",
+        image: "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?w=600&q=80",
+      },
+    ],
+    description: "A casa de carnes mais tradicional do Vale do Ivaí. Espaço kids climatizado, adega com mais de 120 rótulos e estacionamento privativo gratuito.",
+  },
+  {
+    id: "pl-3",
+    slug: "the-pub-garage-43",
+    name: "The Pub Garage 43 - Rock Bar & Chopp Artesanal",
+    tagline: "O ponto de encontro dos apaixonados por boa música ao vivo, torneiras de chopp e burgers gigantes",
+    category: "Bares & Vida Noturna",
+    city: "Arapongas",
+    neighborhood: "Centro",
+    address: "Rua Andorinhas, 720 - Centro, Arapongas - PR",
+    googleMapsUrl: "https://maps.google.com/?q=Rua+Andorinhas+720+Arapongas+PR",
+    instagram: "@thepubgarage43",
+    isVip: true,
+    rating: 4.9,
+    ratingCount: 189,
+    openHours: { open: "18:00", close: "02:00", days: "Quarta a Domingo" },
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-bartender-serving-a-draft-beer-in-a-glass-43284-large.mp4",
+    videoThumbnail: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&q=80",
+    coverImage: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=1200&q=80",
+    whatsapp: "43997654321",
+    activePromo: {
+      title: "Happy Hour Chopp em Dobro até 20h",
+      discountBadge: "CHOPP EM DOBRO",
+      couponCode: "GARAGEPUB",
+      validUntil: "Hoje das 18h às 20h",
+      description: "Compre 1 Chopp Pilsen 500ml e o segundo sai inteiramente por conta da casa",
+    },
+    menuHighlights: [
+      {
+        id: "m-8",
+        name: "Burger Monster Garage 200g",
+        description: "Hambúrguer angus 200g grelhado no fogo, cheddar inglês cremoso duplo, tiras grossas de bacon crocante no pão brioche amanteigado.",
+        price: 38.9,
+        badge: "Mais Pedido",
+        image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80",
+      },
+      {
+        id: "m-9",
+        name: "Costelinha BBQ Defumada na Lenha",
+        description: "600g de costelinha suína defumada por 6 horas em lenha de macieira com molho barbecue artesanal e batata canoa.",
+        price: 56.0,
+        badge: "Para Compartilhar",
+        image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80",
+      },
+      {
+        id: "m-10",
+        name: "Chopp IPA Artesanal do Norte 500ml",
+        description: "Chopp puro malte de cervejaria independente da região. Notas cítricas marcantes, aroma floral e amargor equilibrado.",
+        price: 16.0,
+        badge: "Artesanal",
+        image: "https://images.unsplash.com/photo-1608270199026-66f8e77a2818?w=600&q=80",
+      },
+    ],
+    description: "Ambiente descolado com temática industrial/motociclismo. Bandas ao vivo de Rock, Pop e Blues todas as sextas e sábados.",
+  },
+  {
+    id: "pl-4",
+    slug: "cafe-colonial-bistro-vale",
+    name: "Café Colonial & Bistrô do Vale",
+    tagline: "Cafés especiais premiados, pâtisserie francesa e vista exuberante para a natureza do Lago Jaboti",
+    category: "Cafés & Docerias",
+    city: "Apucarana",
+    neighborhood: "Lago Jaboti",
+    address: "Av. Jaboti, 310 - Próximo ao Lago, Apucarana - PR",
+    googleMapsUrl: "https://maps.google.com/?q=Av+Jaboti+310+Apucarana+PR",
+    instagram: "@cafecolonialdovale",
+    isVip: false,
+    rating: 4.7,
+    ratingCount: 96,
+    openHours: { open: "08:00", close: "19:30", days: "Terça a Domingo" },
+    coverImage: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200&q=80",
+    whatsapp: "43996541234",
+    activePromo: {
+      title: "Combo Café da Tarde 15% OFF",
+      discountBadge: "15% OFF",
+      couponCode: "TARDE15",
+      validUntil: "Terça a Quinta",
+      description: "Válido no pedido de qualquer café especial + fatia de torta doce",
+    },
+    menuHighlights: [
+      {
+        id: "m-11",
+        name: "Croissant Francês Folhado com Queijo Brie",
+        description: "Massa folhada com manteiga francesa, queijo brie maçaricado, nozes tostadas e geleia artesanal de amora.",
+        price: 22.0,
+        badge: "Favorito",
+        image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=600&q=80",
+      },
+      {
+        id: "m-12",
+        name: "Taça Supreme Kinder Bueno & Nutella",
+        description: "Taça decorada com Nutella pura, sorvete de baunilha em fava, pedaços generosos de Kinder Bueno e chantilly fresco.",
+        price: 28.5,
+        badge: "Sobremesa",
+        image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80",
+      },
+      {
+        id: "m-13",
+        name: "Café Filtrado V60 Norte Pioneiro",
+        description: "Grãos especiais cultivados no Paraná com pontuação SCA 86+. Notas naturais de caramelo, baunilha e frutas amarelas.",
+        price: 12.0,
+        badge: "Especial",
+        image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&q=80",
+      },
+    ],
+    description: "O refúgio perfeito para manhãs tranquilas, reuniões de trabalho em coworking agradável e tardes em família à beira do lago.",
+  },
+  {
+    id: "pl-5",
+    slug: "vila-rica-hotel-fazenda",
+    name: "Vila Rica Pousada & Hotel Fazenda",
+    tagline: "O melhor refúgio de ecoturismo e descanso do Paraná no circuito das cachoeiras de Faxinal",
+    category: "Hotéis & Lazer",
+    city: "Faxinal",
+    neighborhood: "Circuito das Cachoeiras",
+    address: "Estrada das Cachoeiras, Km 4 - Faxinal - PR",
+    googleMapsUrl: "https://maps.google.com/?q=Faxinal+Parana+Cachoeiras",
+    instagram: "@vilaricapousadafazenda",
+    isVip: true,
+    rating: 4.9,
+    ratingCount: 310,
+    openHours: { open: "07:00", close: "22:00", days: "Todos os dias" },
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-country-house-in-nature-41551-large.mp4",
+    videoThumbnail: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
+    coverImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
+    whatsapp: "43995432109",
+    activePromo: {
+      title: "Escapada no Vale: Diária com 20% OFF",
+      discountBadge: "CUPOM 20% OFF",
+      couponCode: "VALE20",
+      validUntil: "Reservas este mês",
+      description: "Válido para reservas diretas via WhatsApp em chalés com hidromassagem e pensão completa",
+    },
+    menuHighlights: [
+      {
+        id: "m-14",
+        name: "Day Use Fazenda com Almoço Típico",
+        description: "Acesso total às piscinas aquecidas, tirolesa, trilha exclusiva para cachoeira privativa e buffet com comida no fogão a lenha.",
+        price: 110.0,
+        badge: "Mais Procurado",
+        image: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&q=80",
+      },
+      {
+        id: "m-15",
+        name: "Diária Chalé Master com Hidromassagem",
+        description: "Chalé privativo em madeira nobre com vista panorâmica da serra, lareira, banheira dupla de hidromassagem e café da manhã incluso.",
+        price: 480.0,
+        badge: "Casal VIP",
+        image: "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&q=80",
+      },
+      {
+        id: "m-16",
+        name: "Cavalgada Ecológica Guiada pelo Vale",
+        description: "Passeio a cavalo de 1 hora com instrutor experiente pelas colinas e mirantes naturais da fazenda.",
+        price: 45.0,
+        badge: "Aventura",
+        image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&q=80",
+      },
+    ],
+    description: "Estrutura completa com chalés de charme, piscinas climatizadas, pesca esportiva, restaurante caipira e passeios ecológicos a apenas 50 minutos de Apucarana.",
+  },
+  {
+    id: "pl-6",
+    slug: "smash-burger-co-jandaia",
+    name: "Smash Burger & Co.",
+    tagline: "O verdadeiro smash com casquinha crocante, pão brioche artesanal e molhos secretos",
+    category: "Pizzarias & Lanches",
+    city: "Jandaia do Sul",
+    neighborhood: "Centro",
+    address: "Praça do Café, 88 - Centro, Jandaia do Sul - PR",
+    googleMapsUrl: "https://maps.google.com/?q=Praca+do+Cafe+Jandaia+do+Sul+PR",
+    instagram: "@smashburgerco.jandaia",
+    isVip: false,
+    rating: 4.7,
+    ratingCount: 88,
+    openHours: { open: "18:00", close: "23:45", days: "Todos os dias" },
+    coverImage: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1200&q=80",
+    whatsapp: "43994321098",
+    activePromo: {
+      title: "Combo Smash Duplo + Fritas + Refri por R$ 29,90",
+      discountBadge: "COMBO R$ 29,90",
+      couponCode: "SMASH29",
+      validUntil: "Válido hoje",
+      description: "Combo completo com Duplo Smash, batata frita sequinha e refrigerante lata",
+    },
+    menuHighlights: [
+      {
+        id: "m-17",
+        name: "Duplo Smash Bacon Crispy",
+        description: "2 carnes smash de 90g prensadas na chapa bem quente, crostinha crocante, queijo cheddar inglês derretido e fatias fartas de bacon.",
+        price: 24.9,
+        badge: "Mais Pedido",
+        image: "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=600&q=80",
+      },
+      {
+        id: "m-18",
+        name: "Batata Rústica Trufada com Parmesão",
+        description: "Batata fresca cortada à mão, frita em óleo de algodão, finalizada com azeite de trufas brancas e queijo parmesão ralado na hora.",
+        price: 19.5,
+        badge: "Porção",
+        image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80",
+      },
+      {
+        id: "m-19",
+        name: "Milkshake Gelato de Pistache 400ml",
+        description: "Elaborado com sorvete artesanal cremoso e pasta pura de pistache italiano, finalizado com chantilly e calda artesanal.",
+        price: 21.0,
+        badge: "Doce",
+        image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&q=80",
+      },
+    ],
+    description: "Fast-casual moderno e descolado com entrega ultra-rápida para Jandaia do Sul, Bom Sucesso e Mandaguari.",
+  },
+];

@@ -2,154 +2,173 @@ import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSupabase } from "@/lib/supabase";
+import { MOCK_PLACES } from "@/lib/mock-places";
+import { PlaceItem, PlaceCategory } from "@/types/places";
+import OndeIrClient from "@/components/places/OndeIrClient";
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Onde Ir & Guia Comercial | Rede Apucarana",
-  description: "Descubra os melhores restaurantes, bares, hotéis, atrações turísticas e comércio de Apucarana e região do Vale do Ivaí.",
+  title: "Onde Ir no Vale do Ivaí | Guia Gastronômico, Lazer e Comércio | Rede Apucarana",
+  description:
+    "Descubra os melhores restaurantes, pizzarias napolitanas, bares, cafeterias e hotéis de Apucarana, Arapongas e Vale do Ivaí. Tours em vídeo 9:16, cardápio com pedido no WhatsApp e cupons de desconto.",
+  alternates: {
+    canonical: "https://www.redeapucarana.com.br/onde-ir",
+  },
+  openGraph: {
+    title: "Onde Ir no Vale do Ivaí | Guia Gastronômico e de Experiências",
+    description:
+      "Tours em vídeo 9:16, cardápios interativos com pedidos no WhatsApp e cupons exclusivos da Rede Apucarana.",
+    url: "https://www.redeapucarana.com.br/onde-ir",
+    siteName: "Rede Apucarana de Comunicação",
+    locale: "pt_BR",
+    type: "website",
+  },
 };
 
 export default async function OndeIrPage() {
   const supabase = getSupabase();
-  let locais: any[] = [];
+  let supabasePlaces: PlaceItem[] = [];
 
   if (supabase) {
-    const { data } = await supabase
-      .from("service_providers")
-      .select("*")
-      .limit(30);
-    locais = data || [];
+    try {
+      const { data } = await supabase
+        .from("service_providers")
+        .select("*")
+        .limit(30);
+
+      if (data && data.length > 0) {
+        supabasePlaces = data.map((item: any) => ({
+          id: `sp-${item.id}`,
+          slug: item.id?.toString() || "local",
+          name: item.nome || "Estabelecimento",
+          tagline: item.descricao || "Atendimento e serviços no Vale do Ivaí",
+          category: (item.categoria || "Restaurantes & Almoço") as PlaceCategory,
+          city: item.cidade || "Apucarana",
+          neighborhood: "Centro",
+          address: item.endereco || "Vale do Ivaí - PR",
+          isVip: false,
+          openHours: { open: "11:00", close: "23:00", days: "Terça a Domingo" },
+          coverImage: item.imagem || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80",
+          whatsapp: item.whatsapp || "43999999999",
+          menuHighlights: [
+            {
+              id: `m-sp-${item.id}`,
+              name: "Especialidade da Casa",
+              description: item.descricao || "Consulte o cardápio e opções disponíveis no WhatsApp.",
+              price: 39.9,
+              badge: "Destaque",
+            },
+          ],
+        }));
+      }
+    } catch {
+      // Graceful fallback to mock data
+    }
   }
 
+  // Combina MOCK_PLACES prioritários + itens cadastrados no Supabase
+  const allPlaces: PlaceItem[] = [...MOCK_PLACES, ...supabasePlaces];
+
+  // Schema Markup JSON-LD para SEO Local
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Guia Onde Ir no Vale do Ivaí - Rede Apucarana",
+    description: "Guia gastronômico, turístico e comercial de Apucarana e cidades do Vale do Ivaí.",
+    itemListElement: allPlaces.slice(0, 10).map((place, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "LocalBusiness",
+        name: place.name,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: place.address,
+          addressLocality: place.city,
+          addressRegion: "PR",
+          addressCountry: "BR",
+        },
+        telephone: place.whatsapp,
+        image: place.coverImage,
+      },
+    })),
+  };
+
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="h-16 bg-[#101114] text-white flex items-center justify-between px-4 sm:px-8 border-b border-slate-800">
-        <Link href="/" className="flex items-center gap-2.5">
-          <img
-            src="/logo-rede-apucarana.png?v=2"
-            alt="Logo Rede Apucarana"
-            className="w-9 h-9 object-cover rounded-md"
-          />
-          <span className="font-bold tracking-wider text-sm sm:text-base">
-            REDE APUCARANA
-          </span>
-        </Link>
-        <Link
-          href="/"
-          className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
-        >
-          ← Voltar ao Portal
-        </Link>
+    <main className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between">
+      {/* Schema JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      {/* HEADER LIMPO E ELEGANTE */}
+      <header className="sticky top-0 z-40 bg-[#0d131f]/95 backdrop-blur-md text-white border-b border-slate-800 px-4 sm:px-8 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <img
+              src="/logo-rede-apucarana.png?v=2"
+              alt="Logo Rede Apucarana"
+              className="w-9 h-9 object-cover rounded-md group-hover:scale-105 transition-transform"
+            />
+            <div className="flex flex-col">
+              <span className="font-black tracking-wider text-sm sm:text-base leading-tight">
+                REDE APUCARANA
+              </span>
+              <span className="text-[10px] text-orange-400 font-bold uppercase tracking-widest">
+                Guia Onde Ir
+              </span>
+            </div>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition-colors"
+          >
+            ← Início
+          </Link>
+
+          <Link
+            href="/anuncie"
+            className="hidden sm:inline-flex text-xs font-bold text-amber-300 hover:text-white px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+          >
+            Anuncie seu Restaurante
+          </Link>
+        </div>
       </header>
 
-      <section className="bg-gradient-to-b from-slate-900 to-orange-950 text-white py-14 px-4 text-center">
-        <div className="container mx-auto max-w-3xl">
-          <span className="text-xs font-bold uppercase tracking-widest text-orange-400 bg-orange-950/60 border border-orange-900/60 px-3 py-1 rounded-full">
-            Gastronomia, Comércio & Lazer
-          </span>
-          <h1 className="editorial-headline text-white mt-4 mb-3">
-            Onde Ir no Vale do Ivaí
-          </h1>
-          <p className="text-slate-300 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-            O guia definitivo de experiências, restaurantes, cafeterias, turismo regional e serviços recomendados em Apucarana e cidades vizinhas.
-          </p>
+      {/* VITRINE INTERATIVA CLIENT */}
+      <div className="flex-1">
+        <OndeIrClient initialPlaces={allPlaces} />
+      </div>
+
+      {/* RODAPÉ INSTITUCIONAL */}
+      <footer className="bg-slate-950 text-slate-400 py-10 px-4 border-t border-slate-800 text-xs">
+        <div className="container mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/logo-rede-apucarana.png?v=2"
+              alt="Logo Rede Apucarana"
+              className="w-7 h-7 object-cover rounded"
+            />
+            <span className="font-bold text-slate-200">
+              Rede Apucarana de Comunicação
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 text-slate-400">
+            <Link href="/" className="hover:text-white">Início</Link>
+            <Link href="/clima" className="hover:text-white">Clima</Link>
+            <Link href="/esportes" className="hover:text-white">Esportes</Link>
+            <Link href="/tv-online" className="hover:text-white">TV Online</Link>
+            <Link href="/anuncie" className="hover:text-amber-400 font-semibold">Anuncie Conosco</Link>
+          </div>
+
+          <p>© 2026 Rede Apucarana. Guia Gastronômico e Comercial do Vale do Ivaí.</p>
         </div>
-      </section>
-
-      <section className="container mx-auto max-w-5xl py-10 px-4">
-        <div className="flex items-center justify-between pb-3 mb-6 border-b border-slate-200">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 font-sans">
-              Locais & Experiências Recomendadas
-            </h2>
-            <p className="text-xs text-slate-500">
-              Guia curado pela redação e parceiros comerciais
-            </p>
-          </div>
-        </div>
-
-        {locais.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            {locais.map((loc) => (
-              <article
-                key={loc.id}
-                className="bg-white rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-              >
-                <div className="aspect-video w-full bg-slate-100 overflow-hidden relative">
-                  {loc.imagem ? (
-                    <img
-                      src={loc.imagem}
-                      alt={loc.nome}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400 text-3xl">
-                      🍽
-                    </div>
-                  )}
-                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-orange-600 text-white">
-                    {loc.categoria || "Gastronomia"}
-                  </span>
-                </div>
-
-                <div className="p-4 flex flex-col flex-1 justify-between">
-                  <div>
-                    <h3 className="font-display font-bold text-base text-slate-900 leading-snug">
-                      {loc.nome}
-                    </h3>
-                    {loc.endereco && (
-                      <p className="text-xs text-slate-500 mt-1 line-clamp-1">
-                        📍 {loc.endereco}
-                      </p>
-                    )}
-                    {loc.descricao && (
-                      <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed">
-                        {loc.descricao}
-                      </p>
-                    )}
-                  </div>
-
-                  {loc.whatsapp && (
-                    <div className="mt-4 pt-3 border-t border-slate-100">
-                      <a
-                        href={`https://wa.me/55${loc.whatsapp.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold text-center block transition-colors"
-                      >
-                        Chamar no WhatsApp →
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
-            <span className="text-4xl block">🍔</span>
-            <h3 className="text-lg font-bold text-slate-800">
-              O Guia Onde Ir está sendo mapeado pela nossa equipe
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Tem um restaurante, cafeteria, pousada ou atrativo no Vale do Ivaí? Cadastre sua empresa no guia da Rede Apucarana.
-            </p>
-            <div className="pt-2">
-              <Link
-                href="/contato"
-                className="inline-block px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-colors"
-              >
-                Cadastrar meu Estabelecimento →
-              </Link>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <footer className="bg-slate-950 text-slate-400 py-8 px-4 text-center text-xs border-t border-slate-800">
-        <p>© 2026 Rede Apucarana de Comunicação. Todos os direitos reservados.</p>
       </footer>
     </main>
   );
