@@ -50,8 +50,8 @@ export default function ValePublicUtilitiesHub({
         </span>
       </div>
 
-      {/* Grade de Cards 4 Colunas (Estilo Super-App) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      {/* Grade de Cards 5 Colunas (Estilo Super-App) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-4">
         {/* Card 1: Empregos */}
         <Link
           href="/empregos"
@@ -75,25 +75,25 @@ export default function ValePublicUtilitiesHub({
           </div>
         </Link>
 
-        {/* Card 2: Troca e Venda */}
+        {/* Card 2: Central de Ofertas & Encartes */}
         <Link
-          href="/classificados"
-          className="group p-3.5 rounded-xl bg-white hover:bg-amber-50/60 border border-slate-200 hover:border-amber-300 shadow-sm transition-all hover:scale-[1.02] flex flex-col justify-between min-h-[110px]"
+          href="/ofertas"
+          className="group p-3.5 rounded-xl bg-white hover:bg-emerald-50/60 border border-slate-200 hover:border-emerald-400 shadow-sm transition-all hover:scale-[1.02] flex flex-col justify-between min-h-[110px]"
         >
           <div className="flex items-start justify-between">
-            <span className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 text-lg flex items-center justify-center font-bold">
-              🛒
+            <span className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-800 text-lg flex items-center justify-center font-bold">
+              🏷️
             </span>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-              Classificados
+            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-300 animate-pulse">
+              Encartes Hoje
             </span>
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
-              Troca & Negócios
+            <h4 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+              Ofertas & Mercados
             </h4>
             <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-              Imóveis, autos e produtos
+              Supermercados, carnes e farmácias
             </p>
           </div>
         </Link>
@@ -117,6 +117,29 @@ export default function ValePublicUtilitiesHub({
             </h4>
             <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
               Restaurantes, comércio e eventos
+            </p>
+          </div>
+        </Link>
+
+        {/* Card 4: Troca e Venda */}
+        <Link
+          href="/classificados"
+          className="group p-3.5 rounded-xl bg-white hover:bg-amber-50/60 border border-slate-200 hover:border-amber-300 shadow-sm transition-all hover:scale-[1.02] flex flex-col justify-between min-h-[110px]"
+        >
+          <div className="flex items-start justify-between">
+            <span className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 text-lg flex items-center justify-center font-bold">
+              🛒
+            </span>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              Classificados
+            </span>
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
+              Troca & Negócios
+            </h4>
+            <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+              Imóveis, autos e produtos
             </p>
           </div>
         </Link>

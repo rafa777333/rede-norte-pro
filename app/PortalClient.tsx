@@ -962,7 +962,10 @@ export default function PortalClient({
             </a>
             <button className={aba === "empregos" ? "active" : ""} onClick={() => trocarAba("empregos")}>Empregos</button>
             <button className={aba === "compras" ? "active" : ""} onClick={() => trocarAba("compras")}>Compras e vendas</button>
-            <button className={aba === "promocoes" ? "active" : ""} onClick={() => trocarAba("promocoes")}>Promoções</button>
+            <a href="/ofertas" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "5px", color: "#059669", fontWeight: "800" }}>
+              <span>🛒</span> Ofertas & Encartes
+              <span style={{ fontSize: "9px", background: "#10b981", color: "#fff", padding: "1px 5px", borderRadius: "9999px", textTransform: "uppercase" }}>Preços</span>
+            </a>
           </div>
         </nav>
         <CitiesScrollTicker
@@ -1200,7 +1203,39 @@ export default function PortalClient({
 
       {aba === "compras" && <section className="container utility-page classifieds-page"><span className="eyebrow">CLASSIFICADOS REGIONAIS</span><h2>Compre, venda e anuncie em {cidade}.</h2><p className="classified-intro">Preencha os dados do seu anúncio. A equipe Rede Apucarana revisa o conteúdo antes de publicar no portal.</p><div className="classified-layout"><form className="classified-form" onSubmit={(event) => { event.preventDefault(); void enviarClassificado(); }}><h3>Enviar um anúncio</h3><input required placeholder="O que você está vendendo?" value={classifForm.titulo} onChange={(e) => setClassifForm({ ...classifForm, titulo: e.target.value })} /><div className="form-row"><select value={classifForm.cidade} onChange={(e) => setClassifForm({ ...classifForm, cidade: e.target.value })}>{cidades.filter((item) => item !== "Todas").map((item) => <option key={item}>{item}</option>)}</select><select value={classifForm.categoria} onChange={(e) => setClassifForm({ ...classifForm, categoria: e.target.value })}>{["Imóveis", "Veículos", "Eletrônicos", "Móveis", "Celulares", "Outros"].map((item) => <option key={item}>{item}</option>)}</select></div><div className="form-row"><input placeholder="Valor (ex.: R$ 1.500)" value={classifForm.preco} onChange={(e) => setClassifForm({ ...classifForm, preco: e.target.value })} /><input required placeholder="WhatsApp ou telefone" value={classifForm.contato} onChange={(e) => setClassifForm({ ...classifForm, contato: e.target.value })} /></div><textarea required placeholder="Descreva o produto, estado de conservação e detalhes" value={classifForm.descricao} onChange={(e) => setClassifForm({ ...classifForm, descricao: e.target.value })} /><label className="public-image-field"><span>Foto do anúncio (opcional, até 1,5 MB)</span><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 1_500_000) return alert("Escolha uma imagem de até 1,5 MB."); const reader = new FileReader(); reader.onload = () => setClassifForm({ ...classifForm, imagem: String(reader.result) }); reader.readAsDataURL(file); }} />{classifForm.imagem && <img src={classifForm.imagem} alt="Prévia do anúncio" />}</label><button className="classified-submit" type="submit" disabled={enviandoClassif}>{enviandoClassif ? "Enviando..." : "Enviar para análise"}</button>{classifEnviado && <p className="classified-success">Recebemos seu anúncio. Ele ficará visível depois da revisão da equipe.</p>}</form><div className="classified-list"><div className="section-heading"><span>Anúncios publicados em {cidade}</span><i /></div><div className="public-list-grid">{classifAdmin.filter((c: any) => (cidade === "Geral" || cidade === "Todas") || c.cidade.toLowerCase() === cidade.toLowerCase()).map((c: any) => <button className="public-list-card" key={c.id} onClick={() => setSel({ id: c.id, titulo: c.titulo, cidade: c.cidade, cat: c.cat, sub: c.preco, resumo: c.detalhes || "Veja os detalhes deste anúncio.", texto: c.detalhes || "Veja os detalhes deste anúncio.", img: c.img || noticiasFixas[2].img, hora: "", autor: "Anunciante", credit: "Imagem enviada pelo anunciante" })}><img src={c.img || noticiasFixas[2].img} alt={`Imagem do anúncio: ${c.titulo}`} /><span><b>{c.cat}</b><strong>{c.titulo}</strong><small>{c.cidade} · {c.preco}</small></span></button>)}{!classifAdmin.filter((c: any) => (cidade === "Geral" || cidade === "Todas") || c.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Ainda não há anúncios publicados para {cidade}.</div>}</div></div></div></section>}
 
-      {aba === "promocoes" && <section className="container utility-page"><span className="eyebrow">OFERTAS DA REGIÃO</span><h2>Promoções em {cidade}</h2><div className="public-list-grid">{promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).map((p: any) => <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || noticiasFixas[3].img, hora: "", autor: "Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}><img src={p.img || noticiasFixas[3].img} alt={`Imagem da promoção: ${p.titulo}`} /><span><b>{p.categoria}</b><strong>{p.titulo}</strong><small>{p.cidade} · {p.validade}</small></span></button>)}{!promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Ainda não há promoções cadastradas para {cidade}.</div>}</div></section>}
+      {aba === "promocoes" && (
+        <section className="container utility-page">
+          <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-900 text-white rounded-2xl p-6 text-center my-6 border border-emerald-500/30">
+            <span className="text-3xl">🛒</span>
+            <h2 className="text-2xl font-bold mt-2">Central de Ofertas & Encartes do Vale</h2>
+            <p className="text-slate-300 max-w-xl mx-auto mt-2 text-sm">
+              Consulte o termômetro de preços da cesta básica e folheie encartes em formato Stories de supermercados, açougues e farmácias com pedidos pelo WhatsApp.
+            </p>
+            <div className="mt-4">
+              <Link
+                href="/ofertas"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm shadow-md transition"
+              >
+                <span>Acessar Central de Ofertas Completa (/ofertas)</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
+          <span className="eyebrow">OFERTAS DA REGIÃO</span>
+          <h2>Promoções em {cidade}</h2>
+          <div className="public-list-grid">
+            {promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).map((p: any) => (
+              <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || noticiasFixas[3].img, hora: "", autor: "Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}>
+                <img src={p.img || noticiasFixas[3].img} alt={`Imagem da promoção: ${p.titulo}`} />
+                <span><b>{p.categoria}</b><strong>{p.titulo}</strong><small>{p.cidade} · {p.validade}</small></span>
+              </button>
+            ))}
+            {!promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).length && (
+              <div className="empty-state">Ainda não há promoções cadastradas para {cidade}.</div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* DOBRA 5: BANNER INSTITUCIONAL NO FINAL DA HOME */}
       <div className="container" style={{ margin: "2rem auto 1rem" }}>

@@ -7,6 +7,11 @@ const nextConfig = {
         destination: '/noticias/:slug*',
         permanent: true,
       },
+      {
+        source: '/promocoes',
+        destination: '/ofertas',
+        permanent: false,
+      },
     ];
   },
 };
