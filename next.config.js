@@ -12,6 +12,21 @@ const nextConfig = {
         destination: '/ofertas',
         permanent: false,
       },
+      {
+        source: '/compras-e-vendas',
+        destination: '/comprasevendas',
+        permanent: true,
+      },
+      {
+        source: '/compras',
+        destination: '/comprasevendas',
+        permanent: true,
+      },
+      {
+        source: '/classificados',
+        destination: '/comprasevendas',
+        permanent: true,
+      },
     ];
   },
 };

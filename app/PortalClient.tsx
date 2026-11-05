@@ -1285,7 +1285,7 @@ export default function PortalClient({
           <div>
             <strong>Serviços Regionais</strong>
             <a href="/empregos">Vagas de Emprego</a>
-            <a href="/classificados">Classificados do Vale</a>
+            <a href="/comprasevendas">Compras e Vendas do Vale</a>
             <a href="/onde-ir">Guia Comercial</a>
             <a href="/horoscopo">Horóscopo do Dia</a>
           </div>

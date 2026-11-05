@@ -114,7 +114,7 @@ export default function CommercialAdSlot({
             </div>
           </div>
           <Link
-            href="/classificados"
+            href="/comprasevendas"
             className="shrink-0 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all text-center"
           >
             Publicar Grátis →

@@ -123,7 +123,7 @@ export default function ValePublicUtilitiesHub({
 
         {/* Card 4: Troca e Venda */}
         <Link
-          href="/classificados"
+          href="/comprasevendas"
           className="group p-3.5 rounded-xl bg-white hover:bg-amber-50/60 border border-slate-200 hover:border-amber-300 shadow-sm transition-all hover:scale-[1.02] flex flex-col justify-between min-h-[110px]"
         >
           <div className="flex items-start justify-between">

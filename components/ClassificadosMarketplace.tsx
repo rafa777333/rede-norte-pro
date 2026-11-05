@@ -246,8 +246,8 @@ export default function ClassificadosMarketplace({
   const handleShareAd = (ad: ClassifiedAdItem) => {
     const url =
       typeof window !== "undefined"
-        ? `${window.location.origin}/classificados?id=${ad.id}`
-        : `https://www.redeapucarana.com.br/classificados?id=${ad.id}`;
+        ? `${window.location.origin}/comprasevendas?id=${ad.id}`
+        : `https://www.redeapucarana.com.br/comprasevendas?id=${ad.id}`;
 
     const texto = `🛒 *Classificados Rede Apucarana*\n\nOlha esse anúncio em *${ad.cidade}*:\n"*${ad.titulo}*"\n💰 *Preço:* ${ad.preco}\n${ad.aceita_troca ? "🤝 *Aceita Troca / Rolo!*\n" : ""}${ad.urgente ? "⚡ *Oportunidade / Negociável!*\n" : ""}\nConfira fotos e contate o vendedor:\n${url}`;
 
