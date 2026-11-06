@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { getSupabase } from "../lib/supabase";
+import LiveTvPlayer from "./LiveTvPlayer";
 
 export interface VideoPortalItem {
   id: string;
@@ -110,6 +111,7 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
   const [dbVideos, setDbVideos] = useState<VideoPortalItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeVideo, setActiveVideo] = useState<VideoPortalItem | null>(null);
+  const [isLiveTvOpen, setIsLiveTvOpen] = useState(false);
 
   useEffect(() => {
     let cancel = false;
@@ -143,9 +145,12 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
   // Fechar modal no ESC
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setActiveVideo(null);
+      if (e.key === "Escape") {
+        setActiveVideo(null);
+        setIsLiveTvOpen(false);
+      }
     };
-    if (activeVideo) {
+    if (activeVideo || isLiveTvOpen) {
       window.addEventListener("keydown", handleKey);
       document.body.style.overflow = "hidden";
     }
@@ -153,7 +158,7 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
       window.removeEventListener("keydown", handleKey);
       document.body.style.overflow = "";
     };
-  }, [activeVideo]);
+  }, [activeVideo, isLiveTvOpen]);
 
   // Lista a exibir: Supabase dbVideos > props.videos > DEFAULT_VIDEOS
   const displayList: VideoPortalItem[] =
@@ -232,16 +237,25 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsLiveTvOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold shadow-lg shadow-red-600/30 transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+              title="Assistir TV Rede Apucarana Ao Vivo"
+            >
+              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              <span>Assistir TV Ao Vivo ▶</span>
+            </button>
+
             <a
               href="/tv-online"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition-colors"
             >
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              Assistir TV Online →
+              <span>Grade Completa →</span>
             </a>
 
-            <div className="hidden sm:flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-1 ml-1">
               <button
                 type="button"
                 onClick={() => scroll("left")}
@@ -268,6 +282,61 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
           className="relative z-10 flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-none snap-x snap-mandatory"
           style={{ scrollbarWidth: "none" }}
         >
+          {/* CARD DESTAQUE: TV REDE APUCARANA AO VIVO */}
+          <button
+            type="button"
+            onClick={() => setIsLiveTvOpen(true)}
+            className="group relative w-56 sm:w-64 shrink-0 aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-b from-red-950/80 via-slate-950 to-black border-2 border-red-600/80 shadow-2xl snap-start text-left focus:outline-none cursor-pointer transform hover:-translate-y-1.5 transition-all duration-300 p-0"
+            title="Sintonizar TV Rede Apucarana Ao Vivo em HD"
+          >
+            {/* Imagem de Fundo de Estúdio / Broadcast */}
+            <img
+              src="https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=600&auto=format&fit=crop&q=80"
+              alt="TV Rede Apucarana Ao Vivo"
+              className="w-full h-full object-cover object-center opacity-55 group-hover:scale-105 group-hover:opacity-75 transition-all duration-500 ease-out"
+              loading="lazy"
+            />
+
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-slate-950/60 to-red-950/40" />
+
+            {/* Header do Card */}
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-md animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                AO VIVO
+              </span>
+              <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-500/40 backdrop-blur-md">
+                HD 1080p
+              </span>
+            </div>
+
+            {/* Botão de Play Central */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-4 text-center">
+              <div className="w-14 h-14 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl transform group-hover:scale-110 transition-all duration-300 ring-4 ring-red-500/30">
+                <svg className="w-7 h-7 fill-current translate-x-0.5" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <span className="text-xs font-black text-white mt-3 uppercase tracking-wider drop-shadow-md">
+                Assistir Transmissão
+              </span>
+            </div>
+
+            {/* Base do Card */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-black via-black/80 to-transparent">
+              <h3 className="font-heading font-black text-white text-base leading-snug drop-shadow-md">
+                TV Rede Apucarana
+              </h3>
+              <p className="text-[11px] text-slate-300 mt-1 line-clamp-2">
+                Sinal oficial 24h: notícias, RedeCast e cobertura das 27 cidades.
+              </p>
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/10 text-[10px] text-red-400 font-bold">
+                <span>🔴 No Ar 24h</span>
+                <span>·</span>
+                <span>Toque para assistir</span>
+              </div>
+            </div>
+          </button>
           {displayList.map((v) => {
             const thumb = getVideoThumbnail(v);
             const badge = getPlatformBadge(v.plataforma);
@@ -489,6 +558,81 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
               >
                 Fechar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL AO VIVO DA TV APUCARANA */}
+      {isLiveTvOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setIsLiveTvOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho do Modal */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-950">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                </span>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-white">
+                    TV Rede Apucarana • Ao Vivo HD
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Conectando todo o Vale do Ivaí em alta definição 1080p
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href="/tv-online"
+                  className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 transition-colors"
+                >
+                  <span>Grade Completa</span>
+                  <span>↗</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsLiveTvOpen(false)}
+                  className="w-9 h-9 shrink-0 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold text-lg cursor-pointer transition-colors"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Player de TV HLS com Aspect-Video e Object-Cover */}
+            <div className="p-3 sm:p-5 bg-black">
+              <LiveTvPlayer
+                streamUrl="https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8"
+                showTheaterButton={false}
+              />
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="p-3 sm:p-4 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Transmissão Oficial Estável 1080p</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/tv-online"
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-colors"
+                >
+                  Assistir na Página da Emissora →
+                </a>
+              </div>
             </div>
           </div>
         </div>

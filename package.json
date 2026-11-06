@@ -13,6 +13,7 @@
   "dependencies": {
     "@next/third-parties": "^14.2.5",
     "@supabase/supabase-js": "^2.118.0",
+    "hls.js": "^1.7.4",
     "lucide-react": "^1.69.0",
     "next": "14.2.5",
     "react": "18.3.1",
