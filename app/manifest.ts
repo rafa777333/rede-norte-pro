@@ -1,0 +1,35 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Rede Apucarana de Comunicação",
+    short_name: "Rede Apucarana",
+    description:
+      "Notícias de Apucarana, Vale do Ivaí, Rádio Ao Vivo, Vídeos e Super-App de Serviços.",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#0a192f",
+    theme_color: "#0a192f",
+    orientation: "portrait",
+    icons: [
+      {
+        src: "/logo-rede-apucarana-oficial.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/logo-rede-apucarana.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/logo_ra_badge_official.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+    ],
+  };
+}

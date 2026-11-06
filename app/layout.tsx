@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Newsreader, Inter } from "next/font/google";
 import { GoogleTagManager, GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
@@ -16,10 +16,28 @@ const inter = Inter({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0a192f",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
   title: "Rede Apucarana de Comunicação | Jornalismo, Rádio, TV e Esportes",
   description: "Notícias de Apucarana, Arapongas e Vale do Ivaí com informação local, esportes ao vivo, rádio, vídeos e utilidade pública.",
   metadataBase: new URL("https://www.redeapucarana.com.br"),
+  manifest: "/manifest.webmanifest",
+  applicationName: "Rede Apucarana",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Rede Apucarana",
+  },
+  icons: {
+    icon: "/logo-rede-apucarana.png",
+    apple: "/logo-rede-apucarana.png",
+  },
   robots: {
     index: true,
     follow: true,

@@ -21,6 +21,9 @@ import FutebolWidget from "../components/FutebolWidget";
 import Badge from "../components/Badge";
 import TopUtilityCockpit from "../components/TopUtilityCockpit";
 import MobileBottomNav from "../components/MobileBottomNav";
+import MobileSuperAppGrid from "../components/MobileSuperAppGrid";
+import InstallAppBanner from "../components/InstallAppBanner";
+import MobileNewsFeed from "../components/MobileNewsFeed";
 import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
 import DarkMediaStrip, { type VideoPortalItem } from "../components/DarkMediaStrip";
 import VideosHubPage from "../components/VideosHubPage";
@@ -939,7 +942,12 @@ export default function PortalClient({
           <div className="article-footer-note"><strong>Encontrou um erro?</strong><span> Fale com a redação para solicitar uma correção ou enviar informação.</span></div>
           <section className="related"><div className="section-heading"><span>Leia também</span><i /></div><div className="related-grid">{todas.filter((n) => n.id !== sel.id).slice(0, 3).map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div></section>
         </article>
-        <MobileBottomNav currentTab={aba} onSelectTab={trocarAba} />
+        <MobileBottomNav
+        currentTab={aba}
+        onSelectTab={trocarAba}
+        onToggleRadio={alternarRadio}
+        radioTocando={radioTocando}
+      />
     </main>
     );
   }
@@ -1027,16 +1035,69 @@ export default function PortalClient({
   };
 
   return (
-    <main className="site-shell">
-      <TopUtilityCockpit
-        radioTocando={radioTocando}
-        onToggleRadio={alternarRadio}
-        whatsappUrl={grupoWhatsApp}
-        onOpenClima={() => trocarAba("clima")}
-      />
-      
-      {/* Faixa da Marca e Ações (Marca Imponente 100% Maior na Esquerda + Busca Suave e Player Rádio na Direita) */}
-      <div className="header-brand-bar bg-white border-b border-slate-200/80 py-2.5 sm:py-3.5">
+    <main className="site-shell pb-20 md:pb-0">
+      {/* =========================================================================
+          CABEÇALHO MOBILE COMPACTO ESTILO APP NATIVO (md:hidden)
+          Azul-marinho profundo #0a192f com linha vermelha na base,
+          logo à esquerda e à direita temperatura + botão ▶ AO VIVO.
+         ========================================================================= */}
+      <header className="md:hidden sticky top-0 z-40 bg-[#0a192f] border-b-2 border-red-600 shadow-md">
+        <div className="px-3.5 py-2.5 flex items-center justify-between gap-3">
+          {/* Logo à Esquerda */}
+          <Link href="/" className="inline-flex items-center shrink-0">
+            <img
+              src="/logo-rede-apucarana-oficial.png"
+              alt="Rede Apucarana de Comunicação"
+              className="h-9 sm:h-10 w-auto object-contain"
+            />
+          </Link>
+
+          {/* Direita: Temperatura (Apucarana 24°C ⛅) + Botão Compacto ▶ AO VIVO */}
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => trocarAba("clima")}
+              className="text-[11px] font-bold text-slate-200 hover:text-white flex items-center gap-1 justify-end transition-colors cursor-pointer"
+              title="Previsão do tempo de Apucarana"
+            >
+              <span>Apucarana 24°C</span>
+              <span className="text-sm">⛅</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={alternarRadio}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer ${
+                radioTocando
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse"
+                  : "bg-red-600 hover:bg-red-700 text-white"
+              }`}
+              title={radioTocando ? "Pausar rádio" : "Ouvir rádio ao vivo"}
+            >
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+              </span>
+              <span>{radioTocando ? "TOCANDO" : "▶ AO VIVO"}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* =========================================================================
+          CABEÇALHO DESKTOP COMPLETO (hidden md:block)
+          Preserva a barra utilitária, a marca de 144px, busca, rádio e menu sticky
+         ========================================================================= */}
+      <div className="hidden md:block">
+        <TopUtilityCockpit
+          radioTocando={radioTocando}
+          onToggleRadio={alternarRadio}
+          whatsappUrl={grupoWhatsApp}
+          onOpenClima={() => trocarAba("clima")}
+        />
+        
+        {/* Faixa da Marca e Ações (Marca Imponente 100% Maior na Esquerda + Busca Suave e Player Rádio na Direita) */}
+        <div className="header-brand-bar bg-white border-b border-slate-200/80 py-2.5 sm:py-3.5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6">
           {/* 1. Marca / Logo Oficial Imponente (Arte Completa Integrada - 100% Maior) */}
           <div className="flex items-center justify-center md:justify-start shrink-0">
@@ -1237,75 +1298,98 @@ export default function PortalClient({
           </div>
         </nav>
       </header>
+      </div>
       <audio ref={radioRef} src={RADIO_STREAM_URL} preload="none" />
 
+      {/* Banner Inteligente de Instalação PWA Mobile */}
+      <InstallAppBanner />
+
+      {/* Painel de Comando Rápido no Topo Mobile (Super-App Grid 3x2) */}
+      {aba === "noticias" && (
+        <MobileSuperAppGrid
+          onToggleRadio={alternarRadio}
+          radioTocando={radioTocando}
+        />
+      )}
+
       {aba === "noticias" && <>
-        {/* Barra Unificada de Seletor de Cidades & Editorias (Linha Única, Compacta e Sem Excesso de Altura) */}
-        <div className="border-b border-slate-200/80 bg-white/70 backdrop-blur-xs mb-3">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
-            <CitiesScrollTicker
-              currentCity={cidade}
-              onSelectCity={(selectedCity) => {
-                setCidade(selectedCity);
-              }}
-            />
+        {/* 1. Feed de Últimas Notícias Otimizado no Mobile (Com cantos arredondados e leitura limpa) */}
+        <MobileNewsFeed
+          news={filtradas.length > 0 ? filtradas : todas}
+          cidade={cidade}
+          onSelectCity={(selectedCity) => setCidade(selectedCity)}
+          categoria={categoria}
+          onSelectCategory={(selectedCat) => setCategoria(selectedCat)}
+          categorias={categorias}
+        />
 
-            <div className="h-4 w-px bg-slate-300/80 shrink-0" aria-hidden="true" />
+        {/* 2. Topo Editorial Desktop (Preservado e Otimizado para Telas Médias e Grandes) */}
+        <div className="hidden md:block">
+          {/* Barra Unificada de Seletor de Cidades & Editorias (Linha Única, Compacta e Sem Excesso de Altura) */}
+          <div className="border-b border-slate-200/80 bg-white/70 backdrop-blur-xs mb-3">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
+              <CitiesScrollTicker
+                currentCity={cidade}
+                onSelectCity={(selectedCity) => {
+                  setCidade(selectedCity);
+                }}
+              />
 
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-              {categorias.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                    categoria === c
-                      ? "bg-slate-900 text-white font-bold shadow-2xs"
-                      : "bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/90"
-                  }`}
-                  onClick={() => setCategoria(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+              <div className="h-4 w-px bg-slate-300/80 shrink-0" aria-hidden="true" />
 
-        {/* Banner Indicador de Cidade Municipal */}
-        {cidade !== "Geral" && (
-          <div className="container mx-auto my-3 px-4 py-3 bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border border-red-800/40 rounded-xl flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-              <div>
-                <span className="text-[11px] font-bold text-red-400 uppercase tracking-wider block">
-                  Edição Municipal do Vale do Ivaí
-                </span>
-                <h1 className="text-base sm:text-xl font-bold text-white font-sans">
-                  Notícias e Acontecimentos de {cidade}
-                </h1>
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                {categorias.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                      categoria === c
+                        ? "bg-slate-900 text-white font-bold shadow-2xs"
+                        : "bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/90"
+                    }`}
+                    onClick={() => setCategoria(c)}
+                  >
+                    {c}
+                  </button>
+                ))}
               </div>
             </div>
-            <Link
-              href="/"
-              onClick={() => setCidade("Geral")}
-              className="text-xs bg-white/10 hover:bg-white/20 text-white font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all flex items-center gap-1.5"
-            >
-              <span>←</span>
-              <span className="hidden sm:inline">Ver Capa Geral</span>
-              <span className="sm:hidden">Geral</span>
-            </Link>
           </div>
-        )}
 
-        {/* =========================================================================
-            DOBRA 1: TOPO EDITORIAL (MANCHETES E COBERTURA PRINCIPAL BENTO GRID)
-           ========================================================================= */}
-        {categoria === "Todas" && (
-          <EditorialBentoGrid
-            news={filtradas.length > 0 ? filtradas : todas}
-            currentCity={cidade}
-          />
-        )}
+          {/* Banner Indicador de Cidade Municipal */}
+          {cidade !== "Geral" && (
+            <div className="container mx-auto my-3 px-4 py-3 bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border border-red-800/40 rounded-xl flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                <div>
+                  <span className="text-[11px] font-bold text-red-400 uppercase tracking-wider block">
+                    Edição Municipal do Vale do Ivaí
+                  </span>
+                  <h1 className="text-base sm:text-xl font-bold text-white font-sans">
+                    Notícias e Acontecimentos de {cidade}
+                  </h1>
+                </div>
+              </div>
+              <Link
+                href="/"
+                onClick={() => setCidade("Geral")}
+                className="text-xs bg-white/10 hover:bg-white/20 text-white font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all flex items-center gap-1.5"
+              >
+                <span>←</span>
+                <span className="hidden sm:inline">Ver Capa Geral</span>
+                <span className="sm:hidden">Geral</span>
+              </Link>
+            </div>
+          )}
+
+          {/* DOBRA 1: TOPO EDITORIAL (MANCHETES E COBERTURA PRINCIPAL BENTO GRID) */}
+          {categoria === "Todas" && (
+            <EditorialBentoGrid
+              news={filtradas.length > 0 ? filtradas : todas}
+              currentCity={cidade}
+            />
+          )}
+        </div>
 
         {/* =========================================================================
             DOBRA 2: VÍDEOS CURTOS (CORTES & REELS 9:16 DA REDE APUCARANA)
@@ -1616,7 +1700,12 @@ export default function PortalClient({
         onClose={() => setSignoAberto(null)}
         onSelectSigno={(s) => setSignoAberto(s)}
       />
-      <MobileBottomNav currentTab={aba} onSelectTab={trocarAba} />
+      <MobileBottomNav
+        currentTab={aba}
+        onSelectTab={trocarAba}
+        onToggleRadio={alternarRadio}
+        radioTocando={radioTocando}
+      />
     </main>
   );
 }
