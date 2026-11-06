@@ -1038,8 +1038,8 @@ export default function PortalClient({
       {/* Faixa da Marca e Ações (Marca Imponente na Esquerda + Busca Suave e Player Rádio na Direita) */}
       <div className="header-brand-bar bg-white border-b border-slate-200/80 py-3 sm:py-3.5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          {/* 1. Marca / Logo Refinado com Assinatura Editorial (Padrão G1 / CNN / UOL) */}
-          <div className="flex items-center shrink-0">
+          {/* 1. Marca / Logo Imponente e Limpo com Assinatura Subjacente */}
+          <div className="flex flex-col justify-center shrink-0">
             <Link href="/" className="brand flex items-center gap-3 shrink-0 group">
               <img
                 src="/logo-rede-apucarana.png?v=2"
@@ -1056,19 +1056,9 @@ export default function PortalClient({
                 </span>
               </div>
             </Link>
-
-            {/* Divisor vertical sutil + Assinatura Editorial (Desktop lg:) */}
-            <div className="hidden lg:flex items-center">
-              <div className="h-8 w-px bg-slate-200 mx-4" aria-hidden="true" />
-              <div className="flex flex-col justify-center leading-tight">
-                <span className="text-xs font-semibold text-slate-700">
-                  Portal & Emissora Digital
-                </span>
-                <span className="text-[11px] text-slate-400 font-medium mt-0.5">
-                  Apucarana e 27 Cidades do Vale
-                </span>
-              </div>
-            </div>
+            <span className="hidden sm:block text-[9.5px] font-semibold tracking-[0.18em] text-slate-400 uppercase mt-1.5 pl-0.5">
+              TUDO EM UM SÓ LUGAR • CONECTANDO TODO O VALE DO IVAÍ
+            </span>
           </div>
 
           {/* 2. Direita: Busca Suave e Player da Rádio Integrado com Espaçamento Nobre */}
@@ -1254,26 +1244,39 @@ export default function PortalClient({
             </div>
           </div>
         </nav>
-        <CitiesScrollTicker
-          currentCity={cidade}
-          onSelectCity={(selectedCity) => {
-            setCidade(selectedCity);
-          }}
-        />
       </header>
       <audio ref={radioRef} src={RADIO_STREAM_URL} preload="none" />
 
       {aba === "noticias" && <>
-        <div className="container category-scroll">
-          {categorias.map((c) => (
-            <button
-              key={c}
-              className={categoria === c ? "active" : ""}
-              onClick={() => setCategoria(c)}
-            >
-              {c}
-            </button>
-          ))}
+        {/* Barra Unificada de Seletor de Cidades & Editorias (Linha Única, Compacta e Sem Excesso de Altura) */}
+        <div className="border-b border-slate-200/80 bg-white/70 backdrop-blur-xs mb-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
+            <CitiesScrollTicker
+              currentCity={cidade}
+              onSelectCity={(selectedCity) => {
+                setCidade(selectedCity);
+              }}
+            />
+
+            <div className="h-4 w-px bg-slate-300/80 shrink-0" aria-hidden="true" />
+
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+              {categorias.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                    categoria === c
+                      ? "bg-slate-900 text-white font-bold shadow-2xs"
+                      : "bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/90"
+                  }`}
+                  onClick={() => setCategoria(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Banner Indicador de Cidade Municipal */}
