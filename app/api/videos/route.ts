@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
           query = query.eq("is_featured", true);
         }
 
-        const { data, error } = await query;
+        const { data, error } = await query.limit(40);
         if (!error && Array.isArray(data) && data.length > 0) {
           dbVideos = data.map(normalizePortalVideo);
         }

@@ -55,7 +55,7 @@ export async function GET(request: Request) {
         query = query.eq("status", statusParam);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.limit(40);
       if (!error && data) {
         realAds = data.map(normalizeClassifiedAd);
       }

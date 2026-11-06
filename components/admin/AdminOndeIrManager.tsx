@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { PlaceItem, PlaceCategory, MenuItem, ActivePromo } from "@/types/places";
 import { MOCK_PLACES } from "@/lib/mock-places";
 import { getSupabase } from "@/lib/supabase";
@@ -72,6 +72,7 @@ const emptyPlace: Partial<PlaceItem> = {
 };
 
 export default function AdminOndeIrManager() {
+  const hasFetchedRef = useRef(false);
   const [places, setPlaces] = useState<PlaceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -112,6 +113,8 @@ export default function AdminOndeIrManager() {
   };
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     carregarLocais();
   }, []);
 
@@ -986,6 +989,7 @@ export default function AdminOndeIrManager() {
                             src={editPlace.videoUrl}
                             className="w-full h-full object-cover"
                             controls
+                            preload="none"
                             muted
                             playsInline
                           />

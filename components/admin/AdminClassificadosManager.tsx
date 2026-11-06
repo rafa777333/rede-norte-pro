@@ -10,6 +10,7 @@ import {
 import { compressImageClient } from "@/lib/image-compression";
 
 export default function AdminClassificadosManager() {
+  const hasFetchedRef = useRef(false);
   const [ads, setAds] = useState<ClassifiedAdItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<"todos" | "pending" | "published">("todos");
@@ -56,6 +57,8 @@ export default function AdminClassificadosManager() {
   };
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void carregarAnuncios();
   }, []);
 

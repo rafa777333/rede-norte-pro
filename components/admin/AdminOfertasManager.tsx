@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   RetailerItem,
   RetailerCategory,
@@ -75,6 +75,7 @@ const emptyRetailer: Partial<RetailerItem> = {
 };
 
 export default function AdminOfertasManager() {
+  const hasFetchedRef = useRef(false);
   const [thermometer, setThermometer] = useState<ThermometerItem[]>([]);
   const [retailers, setRetailers] = useState<RetailerItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,6 +118,8 @@ export default function AdminOfertasManager() {
   };
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     carregarDados();
   }, []);
 

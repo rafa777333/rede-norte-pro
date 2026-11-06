@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       query = query.eq("category", category);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.limit(40);
 
     if (error || !data || data.length === 0) {
       return NextResponse.json({

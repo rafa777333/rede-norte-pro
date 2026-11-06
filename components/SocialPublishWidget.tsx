@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useTransition, useCallback } from "react";
+import React, { useEffect, useState, useTransition, useCallback, useRef } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { decodeHtmlEntities } from "@/lib/text-utils";
 import {
@@ -78,6 +78,8 @@ export default function SocialPublishWidget({
   const [actionError, setActionError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  const hasFetchedRef = useRef(false);
+
   // 1. Função reutilizável para carregar o registro mais recente desta matéria no Supabase
   const carregarPublicacaoRecente = useCallback(async () => {
     const supabase = getSupabase();
@@ -114,50 +116,12 @@ export default function SocialPublishWidget({
     }
   }, [newsId, onPublished]);
 
-  // Carga inicial e inscrição Supabase Realtime
+  // Carga inicial estritamente única com useRef lock, sem realtime subscription para evitar sobrecarga
   useEffect(() => {
-    let isMounted = true;
-    const supabase = getSupabase();
-    if (!supabase || !newsId) {
-      setLoadingInitial(false);
-      return;
-    }
-
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     void carregarPublicacaoRecente();
-
-    // Inscrição Supabase Realtime para escutar UPDATE / INSERT em social_publications desta notícia
-    const channelName = `social-pub-${newsId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "social_publications",
-          filter: `news_id=eq.${newsId}`,
-        },
-        (payload) => {
-          if (!isMounted) return;
-          const updated = payload.new as SocialPublication;
-          if (updated && updated.id) {
-            startTransition(() => {
-              setPublication(updated);
-              if (updated.status === "published") {
-                setActionError(null);
-                if (onPublished) onPublished(updated);
-              }
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      isMounted = false;
-      void supabase.removeChannel(channel);
-    };
-  }, [newsId, onPublished, carregarPublicacaoRecente]);
+  }, [carregarPublicacaoRecente]);
 
   // Alterna a seleção de uma rede
   const toggleNetwork = (net: SocialPublicationNetwork) => {
@@ -175,17 +139,6 @@ export default function SocialPublishWidget({
     publication?.status === "publishing";
 
   const isButtonDisabled = submitting || isProcessing || selectedNetworks.length === 0;
-
-  // Polling automático ativo: quando houver processamento em andamento, verifica o status a cada 2.5s
-  useEffect(() => {
-    if (!isProcessing || !newsId) return;
-
-    const intervalId = setInterval(() => {
-      void carregarPublicacaoRecente();
-    }, 2500);
-
-    return () => clearInterval(intervalId);
-  }, [isProcessing, newsId, carregarPublicacaoRecente]);
 
   // Disparo para a API Route /api/social/publish
   const handlePublish = async () => {

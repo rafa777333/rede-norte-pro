@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Tv,
   Mic,
@@ -25,6 +25,7 @@ import {
 } from "@/lib/tv-videos-data";
 
 export default function AdminTvVideosManager() {
+  const hasFetchedRef = useRef(false);
   const [videos, setVideos] = useState<PortalVideoItem[]>(MOCK_PORTAL_VIDEOS);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -80,6 +81,8 @@ export default function AdminTvVideosManager() {
   };
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     carregarVideos();
   }, []);
 

@@ -8,7 +8,7 @@ import AdminClassificadosManager from "@/components/admin/AdminClassificadosMana
 import AdminTvVideosManager from "@/components/admin/AdminTvVideosManager";
 import { compressImageClient } from "@/lib/image-compression";
 import { decodeHtmlEntities } from "@/lib/text-utils";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
 
 type Tab = "capa" | "noticias" | "videos" | "ondeir" | "ofertas" | "classificados" | "empregos" | "promocoes" | "publicidade" | "contato";
@@ -187,7 +187,6 @@ export default function Admin() {
   const [editVideoPortalId, setEditVideoPortalId] = useState<string | null>(null);
   const [filtroVideoPlat, setFiltroVideoPlat] = useState("todas");
   const [buscaVideo, setBuscaVideo] = useState("");
-  const [previewModalVideo, setPreviewModalVideo] = useState<VideoPortalAdmin | null>(null);
   const [salvandoVideoPortal, setSalvandoVideoPortal] = useState(false);
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -248,16 +247,16 @@ export default function Admin() {
 
       if (supabase) {
         const results = await Promise.all([
-          supabase.from("cities").select("slug,nome"),
-          supabase.from("news").select("id,titulo,categoria,resumo,conteudo,imagem,cidade_slug,status,facebook_status,facebook_post_id,facebook_published_at,facebook_attempted_at,facebook_error,instagram_status,instagram_container_id,instagram_media_id,instagram_published_at,instagram_attempted_at,instagram_error").order("created_at", { ascending: false }),
-          supabase.from("service_providers").select("id,nome,categoria,endereco,whatsapp,imagem,descricao,cidade_slug").order("created_at", { ascending: false }),
-          supabase.from("classified_ads").select("id,titulo,categoria,preco,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }),
-          supabase.from("jobs").select("id,vaga,empresa,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }),
-          supabase.from("promotions").select("id,titulo,categoria,validade,contato,imagem,detalhes,cidade_slug").order("created_at", { ascending: false }),
-          supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,status").order("created_at", { ascending: false }),
-          supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").order("ordem"),
-          supabase.from("site_settings").select("key,value"),
-          supabase.from("videos_portal").select("*").order("created_at", { ascending: false }),
+          supabase.from("cities").select("slug,nome").limit(50),
+          supabase.from("news").select("id,titulo,categoria,resumo,imagem,cidade_slug,status,facebook_status,facebook_post_id,facebook_published_at,facebook_attempted_at,facebook_error,instagram_status,instagram_container_id,instagram_media_id,instagram_published_at,instagram_attempted_at,instagram_error").order("created_at", { ascending: false }).limit(30),
+          supabase.from("service_providers").select("id,nome,categoria,endereco,whatsapp,imagem,descricao,cidade_slug").order("created_at", { ascending: false }).limit(30),
+          supabase.from("classified_ads").select("id,titulo,categoria,preco,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }).limit(30),
+          supabase.from("jobs").select("id,vaga,empresa,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }).limit(30),
+          supabase.from("promotions").select("id,titulo,categoria,validade,contato,imagem,detalhes,cidade_slug").order("created_at", { ascending: false }).limit(30),
+          supabase.from("videos").select("id,titulo,descricao,video_url,thumbnail_url,instagram_url,cidade_slug,categoria,materia_url,tipo,status").order("created_at", { ascending: false }).limit(30),
+          supabase.from("site_sponsors").select("id,titulo,imagem,link_url,ordem").order("ordem").limit(20),
+          supabase.from("site_settings").select("key,value").limit(100),
+          supabase.from("videos_portal").select("*").order("created_at", { ascending: false }).limit(30),
         ]);
         cities = results[0].data || [];
         news = results[1].data || [];
@@ -354,7 +353,11 @@ export default function Admin() {
     }
   };
 
+  const hasLoadedAdmin = useRef(false);
+
   useEffect(() => {
+    if (hasLoadedAdmin.current) return;
+    hasLoadedAdmin.current = true;
     const supabase = getSupabase();
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => { if (data.session) { setOk(true); void carregarTudo(); } });
@@ -1094,8 +1097,8 @@ const salvarVideo = async () => {
                       <video
                         src={topBannerVideoUrl}
                         poster={topBannerPosterUrl || "/banner-rede-apucarana.png?v=2"}
-                        autoPlay
-                        loop
+                        controls
+                        preload="none"
                         muted
                         playsInline
                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -1550,15 +1553,29 @@ const salvarVideo = async () => {
                       </details>
                     </div>
                   }
-                  onEdit={() => {
+                  onEdit={async () => {
                     setEditId(n.id);
+                    let textoConteudo = n.texto || "";
+                    if (!textoConteudo) {
+                      const supa = getSupabase();
+                      if (supa) {
+                        try {
+                          const { data } = await supa.from("news").select("conteudo").eq("id", n.id).maybeSingle();
+                          if (data?.conteudo) {
+                            textoConteudo = data.conteudo;
+                          }
+                        } catch (e) {
+                          console.warn("Erro ao buscar conteudo da noticia:", e);
+                        }
+                      }
+                    }
                     setNForm({
                       titulo: n.titulo,
                       cidade: n.cidade,
                       cat: n.cat,
                       resumo: n.resumo,
                       img: n.img || "",
-                      texto: n.texto || "",
+                      texto: textoConteudo,
                       exibirNoGeral: noGeral,
                       publicarFacebook: false,
                       publicarInstagram: false,
@@ -1925,9 +1942,10 @@ const salvarVideo = async () => {
 
                       {/* Ações */}
                       <div style={{ display: "flex", gap: "6px", alignItems: "center", flexShrink: 0 }}>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewModalVideo(v)}
+                        <a
+                          href={v.url_video}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           style={{
                             padding: "6px 12px",
                             borderRadius: "6px",
@@ -1936,11 +1954,14 @@ const salvarVideo = async () => {
                             color: "#334155",
                             fontSize: "11px",
                             fontWeight: "700",
-                            cursor: "pointer",
+                            textDecoration: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
                           }}
                         >
-                          ▶ Testar Player
-                        </button>
+                          Abrir Link ↗
+                        </a>
 
                         <button
                           type="button"
@@ -1997,132 +2018,7 @@ const salvarVideo = async () => {
               )}
             </div>
 
-            {/* MODAL DE TESTE DE PLAYER DENTRO DO ADMIN */}
-            {previewModalVideo && (
-              <div
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 9999,
-                  background: "rgba(0, 0, 0, 0.85)",
-                  backdropFilter: "blur(4px)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "16px",
-                }}
-                onClick={() => setPreviewModalVideo(null)}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "420px",
-                    background: "#0f172a",
-                    border: "1px solid #334155",
-                    borderRadius: "20px",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div style={{ padding: "14px 18px", background: "#020617", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-                    <div style={{ minWidth: 0 }}>
-                      <span style={{ fontSize: "10px", fontWeight: "900", color: "#ef4444", textTransform: "uppercase" }}>
-                        TESTE DE PLAYER: {previewModalVideo.plataforma}
-                      </span>
-                      <h4 style={{ fontSize: "13px", color: "#fff", margin: "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {previewModalVideo.titulo}
-                      </h4>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewModalVideo(null)}
-                      style={{ background: "#1e293b", border: 0, color: "#fff", width: "28px", height: "28px", borderRadius: "50%", cursor: "pointer", fontWeight: "800" }}
-                    >
-                      ✕
-                    </button>
-                  </div>
 
-                  <div style={{ width: "100%", aspectRatio: "9/16", maxHeight: "65vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {previewModalVideo.plataforma === "youtube" && (() => {
-                      const ytId = getYoutubeId(previewModalVideo.url_video);
-                      return ytId ? (
-                        <iframe
-                          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`}
-                          style={{ width: "100%", height: "100%", border: 0 }}
-                          title={previewModalVideo.titulo}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>
-                          Link inválido do YouTube.
-                        </div>
-                      );
-                    })()}
-
-                    {previewModalVideo.plataforma === "instagram" && (() => {
-                      const embedUrl = getInstagramEmbedUrl(previewModalVideo.url_video);
-                      return embedUrl ? (
-                        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
-                          <iframe
-                            src={embedUrl}
-                            style={{ width: "100%", flex: 1, border: 0, background: "#fff" }}
-                            title={previewModalVideo.titulo}
-                            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                            allowFullScreen
-                          />
-                          <div style={{ background: "#020617", padding: "6px 12px", borderTop: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "#94a3b8" }}>
-                            <span>Bloqueio de áudio/direitos?</span>
-                            <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ color: "#f472b6", fontWeight: "bold", textDecoration: "underline" }}>
-                              Abrir no Instagram ➔
-                            </a>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>
-                          Link do Instagram: <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ color: "#ec4899" }}>Abrir original</a>
-                        </div>
-                      );
-                    })()}
-
-                    {previewModalVideo.plataforma === "tiktok" && (() => {
-                      const tiktokId = getTikTokId(previewModalVideo.url_video);
-                      return tiktokId ? (
-                        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
-                          <iframe
-                            src={`https://www.tiktok.com/player/v1/${tiktokId}?autoplay=1`}
-                            style={{ width: "100%", flex: 1, border: 0, background: "#000" }}
-                            title={previewModalVideo.titulo}
-                            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
-                          <div style={{ background: "#020617", padding: "6px 12px", borderTop: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "#94a3b8" }}>
-                            <span>Player TikTok</span>
-                            <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ color: "#22d3ee", fontWeight: "bold", textDecoration: "underline" }}>
-                              Abrir no App ➔
-                            </a>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ padding: "20px", textAlign: "center", color: "#fff" }}>
-                          <p style={{ fontSize: "13px", color: "#06b6d4", marginBottom: "12px" }}>Vídeo do TikTok</p>
-                          <a href={previewModalVideo.url_video} target="_blank" rel="noreferrer" style={{ background: "#06b6d4", color: "#000", padding: "8px 16px", borderRadius: "20px", fontWeight: "800", textDecoration: "none", fontSize: "12px" }}>
-                            Abrir no TikTok ➔
-                          </a>
-                        </div>
-                      );
-                    })()}
-
-                    {previewModalVideo.plataforma === "nativo" && (
-                      <video src={previewModalVideo.url_video} controls autoPlay style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </AdminSection>
         </div>
       )}

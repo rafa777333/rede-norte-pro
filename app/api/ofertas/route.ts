@@ -42,7 +42,10 @@ export async function GET(request: Request) {
       retQuery = retQuery.eq("is_active", true);
     }
 
-    const [thermRes, retRes] = await Promise.all([thermQuery, retQuery]);
+    const [thermRes, retRes] = await Promise.all([
+      thermQuery.limit(30),
+      retQuery.limit(40),
+    ]);
 
     const thermometer =
       thermRes.data && thermRes.data.length > 0
