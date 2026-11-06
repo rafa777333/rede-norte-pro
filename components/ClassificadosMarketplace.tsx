@@ -49,7 +49,7 @@ export default function ClassificadosMarketplace({
   const [formAceitaTroca, setFormAceitaTroca] = useState(false);
   const [formUrgente, setFormUrgente] = useState(false);
 
-  // Fotos comprimidas (até 3)
+  // Fotos comprimidas (até 10 fotos)
   const [fotosComprimidas, setFotosComprimidas] = useState<
     { dataUrl: string; sizeKb: number }[]
   >([]);
@@ -59,6 +59,7 @@ export default function ClassificadosMarketplace({
   const [erroMsg, setErroMsg] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const touchStartXRef = useRef<number | null>(null);
 
   // Sincroniza se a cidade fixa mudar via props
   useEffect(() => {
@@ -124,16 +125,16 @@ export default function ClassificadosMarketplace({
     });
   }, [ads, cidadeAtiva, categoriaAtiva, somenteTroca, somenteUrgente, busca]);
 
-  // Compressão client-side das fotos selecionadas
+  // Compressão client-side das fotos selecionadas (até 10 fotos, máx 1200px, qualidade 0.75)
   const handleSelecionarFotos = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const restantes = 3 - fotosComprimidas.length;
+    const restantes = 10 - fotosComprimidas.length;
     if (restantes <= 0) {
-      alert("Você já adicionou o limite máximo de 3 fotos para este anúncio.");
+      alert("Você já adicionou o limite máximo de 10 fotos para este anúncio.");
       return;
     }
 
@@ -145,7 +146,7 @@ export default function ClassificadosMarketplace({
       const novasFotos: { dataUrl: string; sizeKb: number }[] = [];
 
       for (const file of arquivosParaProcessar) {
-        const res = await compressImageClient(file, 1200, 0.8);
+        const res = await compressImageClient(file, 1200, 0.75);
         novasFotos.push({
           dataUrl: res.dataUrl,
           sizeKb: res.sizeKb,
@@ -164,6 +165,37 @@ export default function ClassificadosMarketplace({
 
   const removerFoto = (index: number) => {
     setFotosComprimidas((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Suporte a gesto de swipe (deslizar) na galeria touch mobile
+  const handleTouchStartGallery = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEndGallery = (e: React.TouchEvent) => {
+    if (
+      touchStartXRef.current === null ||
+      !anuncioModal ||
+      anuncioModal.fotos.length <= 1
+    ) {
+      return;
+    }
+    const endX = e.changedTouches[0].clientX;
+    const diff = touchStartXRef.current - endX;
+    const threshold = 40; // sensibilidade do swipe
+
+    if (diff > threshold) {
+      // Deslizar para esquerda -> Próxima foto
+      setFotoModalIndex((prev) =>
+        prev === anuncioModal.fotos.length - 1 ? 0 : prev + 1
+      );
+    } else if (diff < -threshold) {
+      // Deslizar para direita -> Foto anterior
+      setFotoModalIndex((prev) =>
+        prev === 0 ? anuncioModal.fotos.length - 1 : prev - 1
+      );
+    }
+    touchStartXRef.current = null;
   };
 
   // Envio do Anúncio para a API
@@ -588,35 +620,51 @@ export default function ClassificadosMarketplace({
                 ✕
               </button>
 
-              {/* Galeria de Fotos com Navegação */}
-              <div className="relative aspect-[16/10] bg-slate-950 overflow-hidden rounded-t-3xl">
+              {/* Galeria de Fotos com Navegação e Gesto Touch Swipe */}
+              <div
+                className="relative aspect-[16/10] bg-slate-950 overflow-hidden rounded-t-3xl select-none touch-pan-y"
+                onTouchStart={handleTouchStartGallery}
+                onTouchEnd={handleTouchEndGallery}
+              >
                 <img
                   src={anuncioModal.fotos[fotoModalIndex] || anuncioModal.imagem}
                   alt={anuncioModal.titulo}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain pointer-events-none"
+                  draggable={false}
                 />
+
+                {/* Dica sutil de gesto no celular */}
+                {anuncioModal.fotos.length > 1 && (
+                  <span className="sm:hidden absolute top-3 left-3 bg-slate-900/75 text-white/95 text-[10px] font-medium px-2.5 py-1 rounded-full backdrop-blur-xs flex items-center gap-1 shadow-sm">
+                    <span>👈</span> Deslize para ver fotos <span>👉</span>
+                  </span>
+                )}
 
                 {anuncioModal.fotos.length > 1 && (
                   <>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setFotoModalIndex((prev) =>
                           prev === 0 ? anuncioModal.fotos.length - 1 : prev - 1
-                        )
-                      }
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center font-bold text-base transition-colors"
+                        );
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white flex items-center justify-center font-bold text-lg transition-transform hover:scale-105 shadow-md cursor-pointer"
+                      title="Foto anterior"
                     >
                       ‹
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setFotoModalIndex((prev) =>
                           prev === anuncioModal.fotos.length - 1 ? 0 : prev + 1
-                        )
-                      }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center font-bold text-base transition-colors"
+                        );
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white flex items-center justify-center font-bold text-lg transition-transform hover:scale-105 shadow-md cursor-pointer"
+                      title="Próxima foto"
                     >
                       ›
                     </button>
@@ -624,30 +672,36 @@ export default function ClassificadosMarketplace({
                 )}
 
                 {/* Contador de fotos */}
-                <span className="absolute bottom-3 left-3 bg-slate-900/80 text-white text-xs font-bold px-2.5 py-1 rounded-lg backdrop-blur-xs">
+                <span className="absolute bottom-3 left-3 bg-slate-900/85 text-white text-xs font-bold px-3 py-1 rounded-lg backdrop-blur-xs shadow-sm">
                   Foto {fotoModalIndex + 1} de {anuncioModal.fotos.length}
                 </span>
               </div>
 
-              {/* Miniaturas das Fotos */}
+              {/* Miniaturas das Fotos com Scroll Horizontal */}
               {anuncioModal.fotos.length > 1 && (
-                <div className="flex gap-2 p-3 bg-slate-100 border-b border-slate-200 overflow-x-auto">
+                <div className="flex gap-2 p-3 bg-slate-100 border-b border-slate-200 overflow-x-auto scrollbar-thin">
                   {anuncioModal.fotos.map((f, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setFotoModalIndex(i)}
-                      className={`w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                      className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
                         fotoModalIndex === i
-                          ? "border-amber-600 scale-95 shadow-md"
-                          : "border-transparent opacity-70 hover:opacity-100"
+                          ? "border-amber-600 scale-95 shadow-md ring-2 ring-amber-500/40 opacity-100"
+                          : "border-transparent opacity-65 hover:opacity-100"
                       }`}
+                      title={`Foto ${i + 1}`}
                     >
                       <img
                         src={f}
-                        alt="Miniatura"
+                        alt={`Miniatura ${i + 1}`}
                         className="w-full h-full object-cover"
                       />
+                      {i === 0 && (
+                        <span className="absolute bottom-0 inset-x-0 bg-amber-500 text-slate-950 font-black text-[8px] uppercase tracking-wider text-center py-0.5">
+                          Capa
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -928,36 +982,55 @@ export default function ClassificadosMarketplace({
                       </label>
                     </div>
 
-                    {/* FIM DO LIMITE DE 1,5 MB: SELETOR DE ATÉ 3 FOTOS COM COMPRESSÃO AUTOMÁTICA */}
+                    {/* UPLOAD MÚLTIPLO DE ATÉ 10 FOTOS COM COMPRESSÃO AUTOMÁTICA CLIENT-SIDE */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-bold text-slate-700">
-                          Fotos do Anúncio ({fotosComprimidas.length}/3)
+                        <label className="text-xs font-bold text-slate-800">
+                          Fotos do Anúncio ({fotosComprimidas.length}/10 selecionadas)
                         </label>
-                        <span className="text-[11px] text-emerald-700 font-bold">
-                          Compressão automática ativada ⚡
+                        <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80">
+                          Compressão automática ativa ⚡
                         </span>
                       </div>
 
-                      {/* Grade de Preview das fotos adicionadas */}
-                      <div className="grid grid-cols-3 gap-3 mb-3">
+                      {/* Grade de Preview das fotos adicionadas (até 10 fotos) */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-2.5">
                         {fotosComprimidas.map((f, idx) => (
                           <div
                             key={idx}
-                            className="relative aspect-square rounded-xl overflow-hidden border border-slate-300 bg-slate-100 group"
+                            className={`relative aspect-square rounded-xl overflow-hidden border bg-slate-100 group shadow-xs ${
+                              idx === 0
+                                ? "border-amber-500 ring-2 ring-amber-400/40"
+                                : "border-slate-300"
+                            }`}
                           >
                             <img
                               src={f.dataUrl}
                               alt={`Foto ${idx + 1}`}
                               className="w-full h-full object-cover"
                             />
-                            <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
+
+                            {/* Badge da Foto de Capa ou Número */}
+                            {idx === 0 ? (
+                              <span className="absolute top-1.5 left-1.5 bg-amber-500 text-slate-950 font-black text-[9px] uppercase px-1.5 py-0.5 rounded-md shadow-sm tracking-wider flex items-center gap-0.5">
+                                ⭐ Capa
+                              </span>
+                            ) : (
+                              <span className="absolute top-1.5 left-1.5 bg-slate-900/80 text-white font-bold text-[9px] px-1.5 py-0.5 rounded-md backdrop-blur-xs">
+                                Foto {idx + 1}
+                              </span>
+                            )}
+
+                            {/* Tamanho Otimizado */}
+                            <span className="absolute bottom-1.5 left-1.5 bg-slate-900/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
                               {f.sizeKb} KB
                             </span>
+
+                            {/* Botão de Remover */}
                             <button
                               type="button"
                               onClick={() => removerFoto(idx)}
-                              className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-xs shadow-md hover:bg-red-700"
+                              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center font-black text-xs shadow-md transition-transform hover:scale-110 cursor-pointer"
                               title="Remover foto"
                             >
                               ✕
@@ -965,19 +1038,26 @@ export default function ClassificadosMarketplace({
                           </div>
                         ))}
 
-                        {/* Botão de Adicionar mais fotos se < 3 */}
-                        {fotosComprimidas.length < 3 && (
+                        {/* Botão de Adicionar mais fotos enquanto < 10 */}
+                        {fotosComprimidas.length < 10 && (
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={comprimindo}
-                            className="aspect-square rounded-xl border-2 border-dashed border-slate-300 hover:border-amber-500 bg-slate-50 hover:bg-amber-50/40 text-slate-500 hover:text-amber-700 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer p-2 text-center"
+                            className="aspect-square rounded-xl border-2 border-dashed border-amber-300 hover:border-amber-500 bg-amber-50/50 hover:bg-amber-100/50 text-amber-800 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer p-2 text-center group"
                           >
-                            <span className="text-xl">
+                            <span className="text-xl group-hover:scale-110 transition-transform">
                               {comprimindo ? "⏳" : "📷"}
                             </span>
                             <span className="text-[11px] font-bold leading-tight">
-                              {comprimindo ? "Otimizando..." : "+ Foto"}
+                              {comprimindo
+                                ? "Otimizando..."
+                                : fotosComprimidas.length === 0
+                                ? "+ Adicionar Fotos"
+                                : `+ Foto (${fotosComprimidas.length}/10)`}
+                            </span>
+                            <span className="text-[9px] text-amber-700/80 font-medium">
+                              {10 - fotosComprimidas.length} restantes
                             </span>
                           </button>
                         )}
@@ -991,8 +1071,8 @@ export default function ClassificadosMarketplace({
                         onChange={handleSelecionarFotos}
                         className="hidden"
                       />
-                      <p className="text-[11px] text-slate-400">
-                        Aceita qualquer foto do celular (mesmo 10 MB ou 15 MB). O sistema comprime transparentemente para WebP leve sem travar.
+                      <p className="text-[11px] text-slate-500 leading-snug">
+                        💡 Opcional: selecione até 10 fotos. A primeira será a <strong>Foto de Capa</strong>. Fotos pesadas de câmeras de celular são redimensionadas no seu aparelho antes de enviar.
                       </p>
                     </div>
 

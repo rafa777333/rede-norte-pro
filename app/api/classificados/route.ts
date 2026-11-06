@@ -145,6 +145,7 @@ export async function POST(request: Request) {
       aceita_troca,
       urgente,
       fotos = [],
+      images = [],
       status = "pending",
     } = body;
 
@@ -170,8 +171,14 @@ export async function POST(request: Request) {
     const supa = getSupabaseAdmin();
     const uploadedUrls: string[] = [];
 
-    // Processa até 3 fotos
-    const rawFotos = Array.isArray(fotos) ? fotos.slice(0, 3) : [];
+    // Processa até 10 fotos (comprime no cliente e armazena no bucket)
+    const rawInput =
+      Array.isArray(fotos) && fotos.length > 0
+        ? fotos
+        : Array.isArray(images)
+        ? images
+        : [];
+    const rawFotos = rawInput.slice(0, 10);
 
     for (let i = 0; i < rawFotos.length; i++) {
       const foto = rawFotos[i];

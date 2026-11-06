@@ -98,7 +98,14 @@ export function parseAdDetails(descricaoText?: string | null) {
 }
 
 export function normalizeClassifiedAd(raw: any): ClassifiedAdItem {
-  const fotos = parseAdImages(raw.imagem);
+  const rawImageInput = Array.isArray(raw.fotos)
+    ? raw.fotos
+    : Array.isArray(raw.images)
+    ? raw.images
+    : raw.imagem;
+  const fotos = Array.isArray(rawImageInput)
+    ? rawImageInput.filter((x: any) => typeof x === "string" && x.trim().length > 0)
+    : parseAdImages(rawImageInput);
   const { aceita_troca, urgente, cleanDescricao } = parseAdDetails(raw.descricao);
 
   const citySlugToName: Record<string, string> = {
