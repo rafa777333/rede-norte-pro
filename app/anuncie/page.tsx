@@ -13,9 +13,9 @@ export default function AnunciePage() {
       <header className="h-16 bg-[#101114] text-white flex items-center justify-between px-4 sm:px-8 border-b border-slate-800">
         <Link href="/" className="flex items-center gap-2.5">
           <img
-            src="/logo-rede-apucarana.png?v=2"
+            src="/logo-rede-apucarana.png"
             alt="Logo Rede Apucarana"
-            className="w-9 h-9 object-cover rounded-md"
+            className="w-9 h-9 object-contain rounded-md"
           />
           <span className="font-bold tracking-wider text-sm sm:text-base">
             REDE APUCARANA

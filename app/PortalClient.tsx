@@ -926,7 +926,7 @@ export default function PortalClient({
         <header className="article-header">
           <button className="back-button" onClick={() => setSel(null)}>← Voltar às notícias</button>
           <a className="brand brand--small" href="/" onClick={(e) => { e.preventDefault(); setSel(null); }}>
-            <img src="/logo-rede-apucarana.png?v=2" alt="Logo RA" className="brand-mark" style={{ objectFit: "cover", width: "34px", height: "34px" }} />
+            <img src="/logo-rede-apucarana.png" alt="Logo RA" className="brand-mark" style={{ objectFit: "contain", width: "34px", height: "34px" }} />
             <span>REDE APUCARANA</span>
           </a>
           <span className="article-header-status"><i /> Jornalismo regional</span>
@@ -936,7 +936,7 @@ export default function PortalClient({
           <div className="article-category"><Badge category={sel.cat}>{sel.cat}</Badge><span>{sel.cidade}</span></div>
           <h1>{sel.titulo}</h1>
           <p className="article-dek">{sel.sub}</p>
-          <div className="article-byline"><img src="/logo-rede-apucarana.png?v=2" alt="Logo" className="avatar" style={{ objectFit: "cover", width: "34px", height: "34px", borderRadius: "50%" }} /><span><strong>{sel.autor || "Redação Rede Apucarana"}</strong><small>Publicado hoje às {sel.hora || "09:10"} · leitura de 2 min</small></span></div>
+          <div className="article-byline"><img src="/logo-rede-apucarana.png" alt="Logo" className="avatar" style={{ objectFit: "contain", width: "34px", height: "34px", borderRadius: "50%" }} /><span><strong>{sel.autor || "Redação Rede Apucarana"}</strong><small>Publicado hoje às {sel.hora || "09:10"} · leitura de 2 min</small></span></div>
           <figure className="article-figure"><img src={sel.img} alt={`Imagem ilustrativa da notícia: ${sel.titulo}`} /><figcaption>{sel.credit || "Imagem ilustrativa"}</figcaption></figure>
           <div className="article-body">{sel.texto.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>
           <div className="article-footer-note"><strong>Encontrou um erro?</strong><span> Fale com a redação para solicitar uma correção ou enviar informação.</span></div>
@@ -1046,7 +1046,7 @@ export default function PortalClient({
           {/* Logo à Esquerda */}
           <Link href="/" className="inline-flex items-center shrink-0">
             <img
-              src="/logo-rede-apucarana-oficial.png"
+              src="/logo-rede-apucarana-grande.png"
               alt="Rede Apucarana de Comunicação"
               className="h-9 sm:h-10 w-auto object-contain"
             />
@@ -1107,7 +1107,7 @@ export default function PortalClient({
               title="Rede Apucarana de Comunicação - Início"
             >
               <img
-                src="/logo-rede-apucarana-oficial.png"
+                src="/logo-rede-apucarana-grande.png"
                 alt="Rede Apucarana de Comunicação - Tudo em um só lugar"
                 className="h-28 sm:h-32 lg:h-[144px] w-auto max-w-full object-contain"
               />
@@ -1659,10 +1659,10 @@ export default function PortalClient({
           <div>
             <a className="brand brand--footer" href="/">
               <img
-                src="/logo-rede-apucarana.png?v=2"
+                src="/logo-rede-apucarana.png"
                 alt="Logo Rede Apucarana"
                 className="brand-mark"
-                style={{ objectFit: "cover", width: "40px", height: "40px", padding: 0 }}
+                style={{ objectFit: "contain", width: "40px", height: "40px", padding: 0 }}
               />
               <span>REDE APUCARANA</span>
             </a>

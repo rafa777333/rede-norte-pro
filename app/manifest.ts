@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "portrait",
     icons: [
       {
-        src: "/logo-rede-apucarana-oficial.png",
+        src: "/logo-rede-apucarana.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
@@ -25,7 +25,7 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/logo_ra_badge_official.png",
+        src: "/logo-rede-apucarana.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",

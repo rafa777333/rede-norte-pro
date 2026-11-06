@@ -296,11 +296,11 @@ export default function TvOnlineClient() {
       <header className="bg-slate-900/60 border-b border-slate-800/90 py-4 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Link href="/" className="shrink-0 group">
+            <Link href="/" className="shrink-0 group flex items-center gap-3">
               <img
-                src="/logo-rede-apucarana-oficial.png"
+                src="/logo-rede-apucarana.png"
                 alt="Logo TV Rede Apucarana"
-                className="h-12 sm:h-14 w-auto object-contain transition-transform group-hover:scale-105"
+                className="w-11 h-11 sm:w-12 sm:h-12 object-contain transition-transform group-hover:scale-105"
               />
             </Link>
 
@@ -925,7 +925,7 @@ export default function TvOnlineClient() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div className="flex items-center gap-3">
             <img
-              src="/logo-rede-apucarana-oficial.png"
+              src="/logo-rede-apucarana.png"
               alt="Rede Apucarana de Comunicação"
               className="h-8 w-auto object-contain opacity-75"
             />

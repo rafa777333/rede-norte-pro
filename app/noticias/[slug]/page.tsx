@@ -264,10 +264,10 @@ export default async function NewsPage({
       <header className="article-header">
         <a className="brand brand--small" href="/">
           <img
-            src="/logo-rede-apucarana.png?v=2"
+            src="/logo-rede-apucarana.png"
             alt="Logo Rede Apucarana"
             className="brand-mark"
-            style={{ objectFit: "cover", width: "36px", height: "36px", padding: 0 }}
+            style={{ objectFit: "contain", width: "36px", height: "36px", padding: 0 }}
           />
           <span>REDE APUCARANA</span>
         </a>
@@ -290,10 +290,10 @@ export default async function NewsPage({
         <p className="article-dek">{cleanSummary}</p>
         <div className="article-byline">
           <img
-            src="/logo-rede-apucarana.png?v=2"
+            src="/logo-rede-apucarana.png"
             alt="Rede Apucarana"
             className="avatar"
-            style={{ objectFit: "cover", width: "36px", height: "36px", borderRadius: "50%" }}
+            style={{ objectFit: "contain", width: "36px", height: "36px", borderRadius: "50%" }}
           />
           <span>
             <strong>{news.autor || "Redação Rede Apucarana"}</strong>

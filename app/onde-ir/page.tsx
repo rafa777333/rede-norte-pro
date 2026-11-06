@@ -66,9 +66,9 @@ export default async function OndeIrPage() {
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2.5 group">
             <img
-              src="/logo-rede-apucarana.png?v=2"
+              src="/logo-rede-apucarana.png"
               alt="Logo Rede Apucarana"
-              className="w-9 h-9 object-cover rounded-md group-hover:scale-105 transition-transform"
+              className="w-9 h-9 object-contain rounded-md group-hover:scale-105 transition-transform"
             />
             <div className="flex flex-col">
               <span className="font-black tracking-wider text-sm sm:text-base leading-tight">
@@ -108,9 +108,9 @@ export default async function OndeIrPage() {
         <div className="container mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <img
-              src="/logo-rede-apucarana.png?v=2"
+              src="/logo-rede-apucarana.png"
               alt="Logo Rede Apucarana"
-              className="w-7 h-7 object-cover rounded"
+              className="w-7 h-7 object-contain rounded"
             />
             <span className="font-bold text-slate-200">
               Rede Apucarana de Comunicação

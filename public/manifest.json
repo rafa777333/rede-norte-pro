@@ -9,7 +9,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/logo-rede-apucarana-oficial.png",
+      "src": "/logo-rede-apucarana.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
@@ -21,7 +21,7 @@
       "purpose": "any"
     },
     {
-      "src": "/logo_ra_badge_official.png",
+      "src": "/logo-rede-apucarana.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"

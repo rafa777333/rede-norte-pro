@@ -421,7 +421,7 @@ export default function LiveTvPlayer({
         {/* Lado Direito: Marca d'água oficial */}
         <div className="flex items-center gap-2">
           <img
-            src="/logo-rede-apucarana-oficial.png"
+            src="/logo-rede-apucarana.png"
             alt="Rede Apucarana de Comunicação"
             className="h-7 sm:h-9 w-auto object-contain opacity-85 hover:opacity-100 transition-opacity drop-shadow-md"
           />

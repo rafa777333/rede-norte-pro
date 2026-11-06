@@ -45,10 +45,10 @@ export default async function EsportesPage() {
         <div className="container header-main">
           <a className="brand" href="/">
             <img
-              src="/logo-rede-apucarana.png?v=2"
+              src="/logo-rede-apucarana.png"
               alt="Logo Rede Apucarana"
               className="brand-mark"
-              style={{ objectFit: "cover", width: "44px", height: "44px", padding: 0 }}
+              style={{ objectFit: "contain", width: "44px", height: "44px", padding: 0 }}
             />
             <span className="brand-name">
               REDE APUCARANA <em>DE COMUNICAÇÃO</em>

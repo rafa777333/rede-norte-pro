@@ -112,10 +112,18 @@ export default async function EmpregosPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <img
-              src="/logo-rede-apucarana-oficial.png"
+              src="/logo-rede-apucarana.png"
               alt="Logo Rede Apucarana"
-              className="h-10 w-auto object-contain"
+              className="w-10 h-10 object-contain rounded-lg shadow-xs"
             />
+            <div>
+              <span className="block font-black tracking-tight text-base sm:text-lg text-slate-900 leading-none">
+                REDE APUCARANA
+              </span>
+              <span className="text-[10px] uppercase font-bold text-blue-600 tracking-wider">
+                Vagas & Autônomos · Vale do Ivaí
+              </span>
+            </div>
           </Link>
 
           <div className="flex items-center gap-2.5">
