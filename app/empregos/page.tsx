@@ -2,168 +2,169 @@ import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSupabase } from "@/lib/supabase";
+import { MOCK_AUTONOMOS, AutonomoItem } from "@/lib/autonomos-data";
+import EmpregosHubClient from "@/components/EmpregosHubClient";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
-export const revalidate = 60;
+export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: "Empregos & Vagas no Vale do Ivaí | Rede Apucarana",
-  description: "Encontre oportunidades de trabalho, processos seletivos e vagas de emprego em Apucarana, Arapongas, Ivaiporã e região.",
+  title: "Vagas de Emprego & Autônomos no Vale do Ivaí | Rede Apucarana",
+  description:
+    "Encontre vagas de emprego em Apucarana e região e contrate prestadores de serviço autônomos (pedreiros, eletricistas, diaristas, pintores, fretes) no Vale do Ivaí.",
+  openGraph: {
+    title: "Vagas de Emprego & Autônomos no Vale do Ivaí | Rede Apucarana",
+    description:
+      "Balcão oficial de empregos e serviços autônomos de Apucarana, Arapongas e 27 cidades do Vale do Ivaí. Contato direto no WhatsApp.",
+    url: "https://www.redeapucarana.com.br/empregos",
+    siteName: "Rede Apucarana",
+    locale: "pt_BR",
+    type: "website",
+  },
+  alternates: {
+    canonical: "https://www.redeapucarana.com.br/empregos",
+  },
 };
 
 export default async function EmpregosPage() {
   const supabase = getSupabase();
   let vagas: any[] = [];
+  let autonomosReais: AutonomoItem[] = [];
 
   if (supabase) {
-    const { data } = await supabase
-      .from("jobs")
-      .select("*")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(30);
-    vagas = data || [];
+    try {
+      // 1. Vagas Reais
+      const { data: jobsData } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      vagas = jobsData || [];
+
+      // 2. Prestadores Reais
+      const { data: servData } = await supabase
+        .from("service_providers")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (servData && servData.length > 0) {
+        autonomosReais = servData.map((s: any) => {
+          let prof = s.categoria || "Profissional Autônomo";
+          let desc = s.descricao || "";
+          if (desc.startsWith("[") && desc.includes("]")) {
+            const match = desc.match(/^\[(.*?)\]\s*(.*)$/);
+            if (match) {
+              prof = match[1];
+              desc = match[2];
+            }
+          }
+
+          return {
+            id: s.id,
+            nome: s.nome,
+            profissao: prof,
+            categoria: s.categoria || "Construção & Reforma",
+            cidade: s.cidade_slug
+              ? s.cidade_slug.charAt(0).toUpperCase() + s.cidade_slug.slice(1).replace(/-/g, " ")
+              : "Apucarana",
+            cidade_slug: s.cidade_slug || "apucarana",
+            descricao: desc,
+            whatsapp: s.whatsapp || "",
+            verificado: s.verificado ?? true,
+            nota: s.nota || 5,
+            created_at: s.created_at || new Date().toISOString(),
+          };
+        });
+      }
+    } catch (e) {
+      console.warn("[EmpregosPage SSR] Erro ao carregar dados do Supabase:", e);
+    }
   }
 
+  // Combina autônomos reais do banco + mocks
+  const realIds = new Set(autonomosReais.map((a) => a.id));
+  const mocksFiltered = MOCK_AUTONOMOS.filter((m) => !realIds.has(m.id));
+  const initialAutonomos = [...autonomosReais, ...mocksFiltered];
+
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="h-16 bg-[#101114] text-white flex items-center justify-between px-4 sm:px-8 border-b border-slate-800">
-        <Link href="/" className="flex items-center gap-2.5">
-          <img
-            src="/logo-rede-apucarana.png?v=2"
-            alt="Logo Rede Apucarana"
-            className="w-9 h-9 object-cover rounded-md"
-          />
-          <span className="font-bold tracking-wider text-sm sm:text-base">
-            REDE APUCARANA
+    <main className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between pb-20 md:pb-0">
+      {/* Topline com atalhos */}
+      <div className="bg-[#0b1120] text-white border-b border-slate-800/80 text-xs py-2 px-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <span className="font-bold flex items-center gap-1.5 text-blue-400">
+            <span>💼</span>
+            <span>VAGAS DE EMPREGO & AUTÔNOMOS DO VALE DO IVAÍ · REDE APUCARANA</span>
           </span>
-        </Link>
-        <Link
-          href="/"
-          className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
-        >
-          ← Voltar ao Portal
-        </Link>
+          <Link
+            href="/"
+            className="text-slate-300 hover:text-white font-semibold transition-colors flex items-center gap-1"
+          >
+            <span>←</span>
+            <span>Voltar ao Portal Principal</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Header com Logo e navegação */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3">
+            <img
+              src="/logo-rede-apucarana-oficial.png"
+              alt="Logo Rede Apucarana"
+              className="h-10 w-auto object-contain"
+            />
+          </Link>
+
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/comprasevendas"
+              className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              🛒 Compras & Vendas
+            </Link>
+            <Link
+              href="/ofertas"
+              className="hidden sm:inline-flex text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              🏷️ Ofertas
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <section className="bg-gradient-to-b from-slate-900 to-emerald-950 text-white py-14 px-4 text-center">
+      {/* Hero Editorial */}
+      <section className="bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 text-white py-10 px-4 text-center">
         <div className="container mx-auto max-w-3xl">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-900/60 px-3 py-1 rounded-full">
-            Balcão de Empregos Regional
+          <span className="text-xs font-black uppercase tracking-widest text-blue-400 bg-blue-950/80 border border-blue-800/80 px-3.5 py-1 rounded-full">
+            Balcão de Empregos & Serviços Regionais
           </span>
-          <h1 className="editorial-headline text-white mt-4 mb-3">
-            Oportunidades & Vagas de Trabalho
+          <h1 className="editorial-headline text-white mt-4 mb-2 text-2xl sm:text-3xl md:text-4xl font-black">
+            Vagas de Trabalho & Profissionais Autônomos
           </h1>
-          <p className="text-slate-300 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-            Vagas abertas na indústria, comércio, serviços e agências do trabalhador de Apucarana e cidades do Vale do Ivaí.
+          <p className="text-slate-300 text-xs sm:text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+            Contrate profissionais locais de confiança ou candidate-se a vagas abertas em comércios e indústrias de todo o Vale do Ivaí.
           </p>
         </div>
       </section>
 
-      <section className="container mx-auto max-w-5xl py-10 px-4">
-        <div className="flex items-center justify-between pb-3 mb-6 border-b border-slate-200">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 font-sans">
-              Vagas Recentes Publicadas
-            </h2>
-            <p className="text-xs text-slate-500">
-              Candidaturas diretas com as empresas anunciantes
-            </p>
-          </div>
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-            {vagas.length} vagas ativas
-          </span>
-        </div>
+      {/* Componente Client com Abas Duplas, Filtros e Modais de Auto-Publicação */}
+      <div className="flex-1">
+        <EmpregosHubClient
+          initialVagas={vagas}
+          initialAutonomos={initialAutonomos}
+        />
+      </div>
 
-        {vagas.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {vagas.map((v) => {
-              const zapNumber = (v.contato || "").replace(/\D/g, "");
-
-              return (
-                <article
-                  key={v.id}
-                  className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {v.cidade_slug || "Apucarana"}
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">
-                        {v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "Recente"}
-                      </span>
-                    </div>
-
-                    <h3 className="font-display font-bold text-lg text-slate-900 leading-snug">
-                      {v.vaga || v.cargo || "Oportunidade de Trabalho"}
-                    </h3>
-                    <p className="text-xs font-semibold text-slate-600 mt-1">
-                      Empresa: {v.empresa || "Confidencial"}
-                    </p>
-
-                    {v.descricao && (
-                      <p className="text-xs text-slate-500 mt-2.5 line-clamp-3 leading-relaxed font-sans">
-                        {v.descricao}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs text-slate-500 font-medium">
-                      Contato: {v.contato}
-                    </span>
-                    {zapNumber ? (
-                      <a
-                        href={`https://wa.me/55${zapNumber}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1.5"
-                      >
-                        <span>WhatsApp</span>
-                        <span>→</span>
-                      </a>
-                    ) : (
-                      <span className="text-xs font-bold text-slate-700">Ver Contato</span>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
-            <span className="text-4xl block">💼</span>
-            <h3 className="text-lg font-bold text-slate-800">
-              Novas vagas estão sendo atualizadas pela redação
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Empresas da região podem cadastrar oportunidades diretamente para publicação no portal.
-            </p>
-          </div>
-        )}
-
-        {/* Banner Anuncie sua Vaga */}
-        <div className="mt-12 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 font-sans">
-              É empresário ou recrutador no Vale do Ivaí?
-            </h3>
-            <p className="text-xs text-slate-600 mt-1 max-w-lg">
-              Divulgue gratuitamente suas vagas abertas na Rede Apucarana e alcance candidatos qualificados em 27 cidades.
-            </p>
-          </div>
-          <Link
-            href="/contato"
-            className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shrink-0 transition-colors"
-          >
-            Enviar Vaga para Publicação →
-          </Link>
-        </div>
-      </section>
-
-      <footer className="bg-slate-950 text-slate-400 py-8 px-4 text-center text-xs border-t border-slate-800">
-        <p>© 2026 Rede Apucarana de Comunicação. Todos os direitos reservados.</p>
+      {/* Rodapé Informativo */}
+      <footer className="bg-slate-950 text-slate-400 py-8 px-4 text-center text-xs border-t border-slate-800 mt-12">
+        <p>© 2026 Rede Apucarana de Comunicação. Conectando trabalhadores e empresas no Vale do Ivaí.</p>
       </footer>
+
+      {/* Barra de Navegação Inferior Fixa no Celular */}
+      <MobileBottomNav currentTab="servicos" />
     </main>
   );
 }

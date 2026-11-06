@@ -8,7 +8,7 @@ import {
   Radio,
   HeartPulse,
   MapPin,
-  MessageCircle,
+  ShoppingBag,
 } from "lucide-react";
 
 interface MobileSuperAppGridProps {
@@ -20,16 +20,13 @@ export default function MobileSuperAppGrid({
   onToggleRadio,
   radioTocando = false,
 }: MobileSuperAppGridProps) {
-  const WHATSAPP_BRONCA_URL =
-    "https://wa.me/5543999809454?text=Ol%C3%A1%2C%20quero%20mandar%20uma%20sugest%C3%A3o%20ou%20bronca%20para%20a%20Rede%20Apucarana";
-
   return (
     <section
       aria-label="Painel de Ações Rápidas"
       className="block md:hidden px-3.5 py-3 sm:px-4 sm:py-3.5 bg-gradient-to-b from-[#0a192f] via-slate-900 to-slate-900"
     >
       <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-        {/* 1. Vagas de Emprego */}
+        {/* 1. Vagas & Autônomos */}
         <Link
           href="/empregos"
           className="flex flex-col items-center justify-center p-3 rounded-2xl shadow-md bg-gradient-to-br from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 active:scale-95 transition-all group"
@@ -38,7 +35,7 @@ export default function MobileSuperAppGrid({
             <Briefcase className="w-5 h-5 text-white" strokeWidth={2.4} />
           </div>
           <span className="font-bold text-xs text-white text-center leading-tight">
-            Vagas de Emprego
+            Vagas & Autônomos
           </span>
         </Link>
 
@@ -117,20 +114,21 @@ export default function MobileSuperAppGrid({
           </span>
         </Link>
 
-        {/* 6. Mandar Bronca (WhatsApp) */}
-        <a
-          href={WHATSAPP_BRONCA_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex flex-col items-center justify-center p-3 rounded-2xl shadow-md bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 active:scale-95 transition-all group"
+        {/* 6. Compras & Vendas (com badge Grátis) */}
+        <Link
+          href="/comprasevendas"
+          className="relative flex flex-col items-center justify-center p-3 rounded-2xl shadow-md bg-gradient-to-br from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 active:scale-95 transition-all group"
         >
+          <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.2 bg-amber-400 text-slate-950 font-black text-[9px] rounded-full uppercase tracking-wider shadow-xs">
+            Grátis
+          </span>
           <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-            <MessageCircle className="w-5 h-5 text-white" strokeWidth={2.4} />
+            <ShoppingBag className="w-5 h-5 text-white" strokeWidth={2.4} />
           </div>
           <span className="font-bold text-xs text-white text-center leading-tight">
-            Mandar Bronca
+            Compras & Vendas
           </span>
-        </a>
+        </Link>
       </div>
     </section>
   );
