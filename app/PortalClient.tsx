@@ -1216,34 +1216,17 @@ export default function PortalClient({
                 <span>Jogos & Placares</span>
               </Link>
 
-              {/* 4. TV Online */}
+              {/* 4. TV & Vídeos (Hub Integrado) */}
               <Link
                 href="/tv-online"
-                className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-red-700 hover:bg-red-50/70 shrink-0"
+                className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg text-slate-800 hover:text-red-700 hover:bg-red-50/70 shrink-0"
               >
                 <span className="relative flex h-2 w-2 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                 </span>
-                <span>TV Online</span>
+                <span>TV & Vídeos</span>
               </Link>
-
-              {/* 5. Vídeos */}
-              <a
-                href="/videos"
-                onClick={(e) => {
-                  e.preventDefault();
-                  trocarAba("videos");
-                }}
-                className={`inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
-                  aba === "videos"
-                    ? "text-red-700 bg-red-50 font-bold"
-                    : "text-slate-700 hover:text-red-700 hover:bg-red-50/70"
-                }`}
-              >
-                <PlayCircle className="w-4 h-4 text-slate-500 shrink-0" strokeWidth={2} />
-                <span>Vídeos</span>
-              </a>
 
               {/* Separador Editorial vs. Hub de Serviços */}
               <div

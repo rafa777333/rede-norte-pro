@@ -117,9 +117,27 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
     let cancel = false;
     const fetchPortalVideos = async () => {
       try {
+        setLoading(true);
+        // Primeiro tenta buscar da API do hub (que aplica a regra show_on_home)
+        const res = await fetch("/api/videos?home=true", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancel && json.success && Array.isArray(json.videos) && json.videos.length > 0) {
+          const mapped: VideoPortalItem[] = json.videos.map((v: any) => ({
+            id: String(v.id),
+            titulo: v.title || v.titulo || "Vídeo",
+            url_video: v.video_url || v.youtube_url || "",
+            plataforma: v.video_type === "mp4" ? "nativo" : (v.video_type || "youtube"),
+            thumbnail_url: v.thumbnail_url || "",
+            status: "publicado",
+            created_at: v.created_at || new Date().toISOString(),
+          }));
+          setDbVideos(mapped);
+          return;
+        }
+
+        // Fallback para Supabase direto
         const supabase = getSupabase();
         if (!supabase) return;
-        setLoading(true);
         const { data, error } = await supabase
           .from("videos_portal")
           .select("*")
@@ -130,7 +148,7 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
           setDbVideos(data as VideoPortalItem[]);
         }
       } catch (err) {
-        console.warn("DarkMediaStrip: erro ao carregar videos_portal do Supabase", err);
+        console.warn("DarkMediaStrip: erro ao carregar vídeos do portal", err);
       } finally {
         if (!cancel) setLoading(false);
       }
@@ -379,17 +397,30 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
                 </div>
 
                 {/* Informações na Base do Card */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+                <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-black via-black/90 to-transparent">
                   <h3 className="font-heading font-bold text-white text-sm sm:text-base leading-snug line-clamp-3 group-hover:text-red-300 transition-colors">
                     {v.titulo}
                   </h3>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 font-medium mt-2">
-                    <span>▶ Assistir corte</span>
-                    <span>·</span>
-                    <span className="text-slate-500">
-                      {v.created_at ? new Date(v.created_at).toLocaleDateString("pt-BR") : "Recente"}
+                  <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/10 text-[11px] text-slate-400 font-medium">
+                    <span className="flex items-center gap-1">
+                      <span>▶ Assistir corte</span>
                     </span>
-                  </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const shareUrl = `https://www.redeapucarana.com.br/tv-online?v=${encodeURIComponent(v.id)}`;
+                        const text = encodeURIComponent(`🎬 Assista agora na *Rede Apucarana*: *${v.titulo}* 👉 ${shareUrl}`);
+                        window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+                      }}
+                      className="p-1 rounded bg-emerald-600/90 hover:bg-emerald-500 text-white shadow transition-transform hover:scale-110 active:scale-95"
+                      title="Compartilhar no WhatsApp"
+                    >
+                      <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.072-2.18-.544-1.898-.788-3.118-2.73-3.212-2.857-.095-.128-.772-1.026-.772-1.956s.487-1.386.66-1.574c.174-.189.38-.236.507-.236.126 0 .253.001.364.007.118.006.277-.045.433.329.162.388.555 1.353.604 1.452.049.1.082.216.016.347-.066.13-.099.213-.198.327-.099.115-.208.257-.297.345-.1.098-.204.205-.088.404.116.199.516.852 1.108 1.38.764.681 1.408.892 1.609.992.201.1.32.083.438-.052.119-.136.508-.592.644-.795.136-.204.272-.17.458-.101.187.068 1.183.558 1.387.66.204.102.34.152.39.238.051.085.051.493-.093.898z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </button>
             );
@@ -542,22 +573,39 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
             </div>
 
             {/* Rodapé do Modal */}
-            <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-3">
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <a
-                href={activeVideo.url_video}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                href={`/tv-online?v=${activeVideo.id}`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black transition-all shadow-md active:scale-95"
               >
-                <span>↗</span> Abrir no aplicativo/site oficial
+                <span>▶</span> Assistir no Hub da TV
               </a>
-              <button
-                type="button"
-                onClick={() => setActiveVideo(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors cursor-pointer"
-              >
-                Fechar
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shareUrl = `https://www.redeapucarana.com.br/tv-online?v=${encodeURIComponent(activeVideo.id)}`;
+                    const text = encodeURIComponent(`🎬 Assista agora na *Rede Apucarana*: *${activeVideo.titulo}* 👉 ${shareUrl}`);
+                    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+                  }}
+                  className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                  title="Compartilhar no WhatsApp"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.072-2.18-.544-1.898-.788-3.118-2.73-3.212-2.857-.095-.128-.772-1.026-.772-1.956s.487-1.386.66-1.574c.174-.189.38-.236.507-.236.126 0 .253.001.364.007.118.006.277-.045.433.329.162.388.555 1.353.604 1.452.049.1.082.216.016.347-.066.13-.099.213-.198.327-.099.115-.208.257-.297.345-.1.098-.204.205-.088.404.116.199.516.852 1.108 1.38.764.681 1.408.892 1.609.992.201.1.32.083.438-.052.119-.136.508-.592.644-.795.136-.204.272-.17.458-.101.187.068 1.183.558 1.387.66.204.102.34.152.39.238.051.085.051.493-.093.898z" />
+                  </svg>
+                  <span>Zap</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveVideo(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>

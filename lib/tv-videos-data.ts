@@ -17,6 +17,10 @@ export interface PortalVideoItem {
   title: string;
   youtube_url: string;
   youtube_id: string;
+  video_url?: string;
+  video_type?: "youtube" | "mp4" | "instagram" | "tiktok";
+  video_format?: "16:9" | "9:16";
+  show_on_home?: boolean;
   channel_source: ChannelSource;
   category: VideoCategory;
   duration?: string;
@@ -63,8 +67,13 @@ export function getYouTubeThumbnail(
   youtubeId?: string | null,
   customThumb?: string | null
 ): string {
-  if (customThumb && customThumb.trim().length > 0) {
-    return customThumb.trim();
+  const cThumb = (customThumb || "").trim();
+  const isPostUrl =
+    cThumb.includes("instagram.com/") ||
+    cThumb.includes("facebook.com/") ||
+    cThumb.includes("tiktok.com/");
+  if (cThumb && !isPostUrl) {
+    return cThumb;
   }
   if (youtubeId && youtubeId.length === 11) {
     return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
@@ -73,43 +82,82 @@ export function getYouTubeThumbnail(
 }
 
 export function normalizePortalVideo(raw: any): PortalVideoItem {
-  const youtubeUrl = raw.youtube_url || raw.url_video || raw.videoUrl || "";
-  const ytId =
-    raw.youtube_id || extractYouTubeId(youtubeUrl) || "dQw4w9WgXcQ";
+  const videoUrl = (raw.youtube_url || raw.url_video || raw.videoUrl || "").trim();
+  const ytId = raw.youtube_id || extractYouTubeId(videoUrl) || "";
+
+  // Detecção de tipo de vídeo
+  let video_type: "youtube" | "mp4" | "instagram" | "tiktok" = "youtube";
+  const rawPlat = (raw.plataforma || raw.tipo || "").toLowerCase();
+  if (
+    rawPlat === "nativo" ||
+    rawPlat === "mp4" ||
+    videoUrl.toLowerCase().endsWith(".mp4") ||
+    videoUrl.includes("/storage/v1/object/public/")
+  ) {
+    video_type = "mp4";
+  } else if (rawPlat === "instagram" || videoUrl.includes("instagram.com")) {
+    video_type = "instagram";
+  } else if (rawPlat === "tiktok" || videoUrl.includes("tiktok.com")) {
+    video_type = "tiktok";
+  }
+
+  // Detecção de formato (16:9 vs 9:16)
+  let video_format: "16:9" | "9:16" = "16:9";
+  if (
+    raw.video_format === "9:16" ||
+    raw.formato === "9:16" ||
+    videoUrl.includes("/shorts/") ||
+    videoUrl.includes("/reel/") ||
+    video_type === "tiktok"
+  ) {
+    video_format = "9:16";
+  }
 
   const rawChannel = raw.channel_source || raw.canal || "";
+  const titleText = (raw.title || raw.titulo || "").toLowerCase();
   const channel_source: ChannelSource =
     rawChannel.toLowerCase().includes("rede") ||
     rawChannel.toLowerCase().includes("cast") ||
-    (raw.title || "").toLowerCase().includes("redecast") ||
-    (raw.titulo || "").toLowerCase().includes("redecast")
+    titleText.includes("redecast") ||
+    titleText.includes("opiorprograma") ||
+    titleText.includes("terra de cowboy") ||
+    titleText.includes("conexão sertaneja") ||
+    titleText.includes("autismo em pauta")
       ? "RedeCast"
       : "TV Apucarana";
 
   let category: VideoCategory = "Reportagens TV";
   const rawCat = (raw.category || raw.categoria || "").toLowerCase();
-  if (rawCat.includes("episodio") || rawCat.includes("redecast") || channel_source === "RedeCast") {
-    category = "RedeCast Episódios";
-  } else if (rawCat.includes("corte") || rawCat.includes("short")) {
+  if (video_format === "9:16" || rawCat.includes("corte") || rawCat.includes("short")) {
     category = "Cortes & Shorts";
+  } else if (rawCat.includes("episodio") || rawCat.includes("redecast") || channel_source === "RedeCast") {
+    category = "RedeCast Episódios";
   } else if (rawCat.includes("música") || rawCat.includes("musica") || rawCat.includes("especial")) {
     category = "Especial & Música";
   } else {
     category = "Reportagens TV";
   }
 
+  const show_on_home = Boolean(
+    raw.show_on_home ?? raw.exibir_home ?? raw.is_featured ?? false
+  );
+
   return {
-    id: String(raw.id || ytId),
+    id: String(raw.id || ytId || `vid-${Date.now()}`),
     title: raw.title || raw.titulo || "Vídeo Rede Apucarana",
-    youtube_url: youtubeUrl || `https://www.youtube.com/watch?v=${ytId}`,
+    youtube_url: videoUrl,
     youtube_id: ytId,
+    video_url: videoUrl,
+    video_type,
+    video_format,
+    show_on_home,
     channel_source,
     category,
-    duration: raw.duration || raw.duracao || "12:30",
-    is_featured: Boolean(raw.is_featured ?? raw.destaque),
+    duration: raw.duration || raw.duracao || (video_format === "9:16" ? "0:59" : "1h 15m"),
+    is_featured: Boolean(raw.is_featured ?? raw.destaque ?? false),
     status: raw.status || "publicado",
     thumbnail_url: getYouTubeThumbnail(ytId, raw.thumbnail_url || raw.thumbnailUrl),
-    views_count: raw.views_count || "3.4k",
+    views_count: raw.views_count || "4.8k",
     created_at: raw.created_at || new Date().toISOString(),
   };
 }

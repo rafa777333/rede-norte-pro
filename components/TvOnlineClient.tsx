@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Tv,
   Radio,
@@ -22,7 +23,8 @@ import {
   Layers,
   Flame,
   Mic,
-  Video,
+  Video as VideoIcon,
+  Smartphone,
 } from "lucide-react";
 import LiveTvPlayer from "./LiveTvPlayer";
 import {
@@ -104,7 +106,10 @@ const GRADE_PROGRAMACAO: ProgramBlock[] = [
   },
 ];
 
-export default function TvOnlineClient() {
+function TvOnlineHubContent() {
+  const searchParams = useSearchParams();
+  const videoParam = searchParams.get("v");
+
   const [playerMode, setPlayerMode] = useState<"live" | "vod">("live");
   const [currentVodVideo, setCurrentVodVideo] = useState<PortalVideoItem | null>(null);
   const [isTheater, setIsTheater] = useState(false);
@@ -117,6 +122,7 @@ export default function TvOnlineClient() {
   const [programaNoAr, setProgramaNoAr] = useState<ProgramBlock>(GRADE_PROGRAMACAO[1]);
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const hasAppliedParam = useRef<string | null>(null);
 
   // Carrega vídeos da API
   useEffect(() => {
@@ -124,7 +130,7 @@ export default function TvOnlineClient() {
     const fetchVideos = async () => {
       try {
         setLoadingVideos(true);
-        const res = await fetch("/api/videos");
+        const res = await fetch("/api/videos", { cache: "no-store" });
         const json = await res.json();
         if (!cancel && json.success && Array.isArray(json.videos) && json.videos.length > 0) {
           setVideos(json.videos);
@@ -141,6 +147,27 @@ export default function TvOnlineClient() {
       cancel = true;
     };
   }, []);
+
+  // Deep linking: se houver ?v={id} na URL, sintoniza direto o vídeo compartilhado
+  useEffect(() => {
+    if (!videoParam || hasAppliedParam.current === videoParam) return;
+
+    const targetVideo = videos.find(
+      (v) => String(v.id) === String(videoParam) || (v.youtube_id && v.youtube_id === videoParam)
+    );
+
+    if (targetVideo) {
+      hasAppliedParam.current = videoParam;
+      setCurrentVodVideo(targetVideo);
+      setPlayerMode("vod");
+
+      setTimeout(() => {
+        if (playerContainerRef.current) {
+          playerContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 350);
+    }
+  }, [videoParam, videos]);
 
   // Monitora horário e programa no ar
   useEffect(() => {
@@ -169,12 +196,18 @@ export default function TvOnlineClient() {
     return () => clearInterval(interval);
   }, []);
 
-  // Tocar vídeo On-Demand no player principal
+  // Tocar vídeo On-Demand no player principal e atualizar a barra de endereço
   const handleSelectVod = (video: PortalVideoItem) => {
     setCurrentVodVideo(video);
     setPlayerMode("vod");
 
-    // Scroll suave para o player
+    // Atualiza a URL sem recarregar para facilitar cópia direta
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("v", video.id);
+      window.history.replaceState({}, "", url.toString());
+    }
+
     if (playerContainerRef.current) {
       playerContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -184,6 +217,12 @@ export default function TvOnlineClient() {
   const handleReturnToLive = () => {
     setPlayerMode("live");
     setCurrentVodVideo(null);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("v");
+      window.history.replaceState({}, "", url.toString());
+    }
   };
 
   // Filtragem dos vídeos da barra lateral (Aba 1: RedeCast, Aba 2: TV Apucarana)
@@ -195,7 +234,12 @@ export default function TvOnlineClient() {
     return videos.filter((v) => v.channel_source === "TV Apucarana");
   }, [videos]);
 
-  // Prateleiras do catálogo
+  // Fileira dedicada para Cortes & Reels 9:16
+  const videosCortes916 = useMemo(() => {
+    return videos.filter((v) => v.video_format === "9:16" || v.category === "Cortes & Shorts");
+  }, [videos]);
+
+  // Prateleiras do catálogo horizontal
   const videosFiltrados = useMemo(() => {
     if (filtroCanalCatalogo === "todos") return videos;
     return videos.filter((v) => v.channel_source === filtroCanalCatalogo);
@@ -203,35 +247,41 @@ export default function TvOnlineClient() {
 
   const prateleiraRedeCast = useMemo(() => {
     return videosFiltrados.filter(
-      (v) => v.category === "RedeCast Episódios" || v.channel_source === "RedeCast"
+      (v) => (v.category === "RedeCast Episódios" || v.channel_source === "RedeCast") && v.video_format !== "9:16"
     );
   }, [videosFiltrados]);
 
   const prateleiraTvApucarana = useMemo(() => {
     return videosFiltrados.filter(
-      (v) => v.category === "Reportagens TV" && v.channel_source === "TV Apucarana"
+      (v) => (v.category === "Reportagens TV" && v.channel_source === "TV Apucarana") && v.video_format !== "9:16"
     );
   }, [videosFiltrados]);
 
-  const prateleiraCortes = useMemo(() => {
-    return videosFiltrados.filter((v) => v.category === "Cortes & Shorts");
-  }, [videosFiltrados]);
-
   const prateleiraEspeciais = useMemo(() => {
-    return videosFiltrados.filter((v) => v.category === "Especial & Música");
+    return videosFiltrados.filter(
+      (v) => v.category === "Especial & Música" && v.video_format !== "9:16"
+    );
   }, [videosFiltrados]);
 
-  // Compartilhamento
-  const handleShareWhatsApp = () => {
-    const text =
-      playerMode === "vod" && currentVodVideo
-        ? encodeURIComponent(
-            `▶️ Assista ao vídeo "${currentVodVideo.title}" no Hub de Streaming da Rede Apucarana: https://www.redeapucarana.com.br/tv-online`
-          )
-        : encodeURIComponent(
-            "📺 Estou assistindo à TV Rede Apucarana ao vivo em HD 1080p! Acompanhe a transmissão e programas aqui: https://www.redeapucarana.com.br/tv-online"
-          );
+  // Compartilhamento direto no WhatsApp de um vídeo específico
+  const handleDirectShareWhatsApp = (video: PortalVideoItem) => {
+    const shareUrl = `https://www.redeapucarana.com.br/tv-online?v=${encodeURIComponent(video.id)}`;
+    const text = encodeURIComponent(
+      `🎬 Assista agora na *Rede Apucarana*: *${video.title}* 👉 ${shareUrl}`
+    );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
+  // Compartilhamento do que está tocando no player principal
+  const handleShareCurrentPlayerWhatsApp = () => {
+    if (playerMode === "vod" && currentVodVideo) {
+      handleDirectShareWhatsApp(currentVodVideo);
+    } else {
+      const text = encodeURIComponent(
+        "📺 Assista à *TV Rede Apucarana Ao Vivo*: 👉 https://www.redeapucarana.com.br/tv-online"
+      );
+      window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+    }
   };
 
   const handleParticiparWhatsApp = () => {
@@ -240,6 +290,8 @@ export default function TvOnlineClient() {
     );
     window.open(`https://wa.me/5543999809454?text=${text}`, "_blank");
   };
+
+  const isCurrentVideoVertical = currentVodVideo?.video_format === "9:16";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-red-600 selection:text-white">
@@ -317,7 +369,7 @@ export default function TvOnlineClient() {
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Emissora digital ao vivo e catálogo sob demanda com os dois canais oficiais no YouTube
+                TV Digital ao vivo e catálogo completo com os 2 canais oficiais: TV Apucarana & RedeCast
               </p>
             </div>
           </div>
@@ -326,7 +378,7 @@ export default function TvOnlineClient() {
           <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={handleShareWhatsApp}
+              onClick={handleShareCurrentPlayerWhatsApp}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-all cursor-pointer shadow-sm active:scale-95"
             >
               <Share2 className="w-4 h-4 text-emerald-400" />
@@ -346,9 +398,9 @@ export default function TvOnlineClient() {
       </header>
 
       {/* ========================================================================= */}
-      {/* 3. PALCO PRINCIPAL (PALCO HÍBRIDO AO VIVO <-> ON-DEMAND MULTI-CANAL)      */}
+      {/* 3. PALCO PRINCIPAL (HÍBRIDO AO VIVO <-> VOD MULTI-CANAL 16:9 & 9:16)      */}
       {/* ========================================================================= */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-12">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
         <div
           ref={playerContainerRef}
           className={`grid gap-8 transition-all duration-300 ${
@@ -357,8 +409,8 @@ export default function TvOnlineClient() {
         >
           {/* COLUNA ESQUERDA: PLAYER HÍBRIDO (8 COLUNAS) */}
           <div className={`space-y-4 transition-all ${isTheater ? "w-full" : "lg:col-span-8"}`}>
-            {/* CONTAINER 16:9 DO PLAYER */}
-            <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+            {/* CONTAINER ADAPTATIVO DO PLAYER */}
+            <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex items-center justify-center">
               {playerMode === "live" ? (
                 // 1. ESTADO AO VIVO: Player HLS com M3U8
                 <LiveTvPlayer
@@ -366,10 +418,73 @@ export default function TvOnlineClient() {
                   isTheater={isTheater}
                   streamUrl="https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8"
                 />
+              ) : isCurrentVideoVertical ? (
+                // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur + Player Centralizado
+                <div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden">
+                  {/* Fundo Ambient com Blur */}
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+                    <img
+                      src={currentVodVideo?.thumbnail_url}
+                      alt=""
+                      className="w-full h-full object-cover filter blur-3xl opacity-40 scale-125"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
+                  </div>
+
+                  {/* Barra Superior com Botão de Voltar para o Ao Vivo */}
+                  <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
+                    <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
+                      <span className="px-3 py-1 rounded-full bg-pink-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span>Corte 9:16</span>
+                      </span>
+                      <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
+                        {currentVodVideo?.title}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleReturnToLive}
+                      className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                      </span>
+                      <span>SINTONIZAR AO VIVO</span>
+                    </button>
+                  </div>
+
+                  {/* Moldura Centralizada 9:16 */}
+                  <div className="relative h-full max-h-[96%] aspect-[9/16] rounded-xl overflow-hidden shadow-2xl border border-slate-700/80 z-10 bg-black flex items-center justify-center my-auto">
+                    {currentVodVideo?.video_type === "mp4" ? (
+                      <video
+                        src={currentVodVideo.video_url}
+                        controls
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-contain"
+                      />
+                    ) : currentVodVideo?.youtube_id ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1`}
+                        title={currentVodVideo.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs text-center p-4">
+                        Pré-visualização do vídeo não disponível.
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (
-                // 2. ESTADO SOB DEMANDA (VOD): Player YouTube com Header Multi-Canal
+                // 3. ESTADO SOB DEMANDA HORIZONTAL (16:9): Player Widescreen YouTube / MP4
                 <div className="relative w-full h-full flex flex-col bg-slate-950">
-                  {/* BARRA SUPERIOR DO PALCO VOD */}
+                  {/* Barra Superior do Palco VOD */}
                   <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/70 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
                     <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
                       {currentVodVideo?.channel_source === "RedeCast" ? (
@@ -389,7 +504,6 @@ export default function TvOnlineClient() {
                       </span>
                     </div>
 
-                    {/* BOTÃO IMEDIATO: VOLTAR PARA A TV AO VIVO */}
                     <button
                       type="button"
                       onClick={handleReturnToLive}
@@ -404,8 +518,16 @@ export default function TvOnlineClient() {
                     </button>
                   </div>
 
-                  {/* IFRAME DO YOUTUBE COM AUTOPLAY */}
-                  {currentVodVideo?.youtube_id && (
+                  {/* Player Widescreen: MP4 Nativo ou YouTube */}
+                  {currentVodVideo?.video_type === "mp4" ? (
+                    <video
+                      src={currentVodVideo.video_url}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-contain bg-black"
+                    />
+                  ) : currentVodVideo?.youtube_id ? (
                     <iframe
                       src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1`}
                       title={currentVodVideo.title}
@@ -413,7 +535,7 @@ export default function TvOnlineClient() {
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
                     />
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
@@ -446,17 +568,22 @@ export default function TvOnlineClient() {
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
                         {currentVodVideo?.category}
                       </span>
+                      {currentVodVideo?.video_format === "9:16" && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                          📱 Vertical 9:16
+                        </span>
+                      )}
                       <span className="text-slate-600">·</span>
                       <span className="text-xs text-slate-400 font-mono">
-                        ⏱ {currentVodVideo?.duration}
+                        ⏱ {currentVodVideo?.duration || "Completo"}
                       </span>
                       <span className="text-slate-600">·</span>
                       <span className="text-xs text-slate-400">
-                        {currentVodVideo?.views_count} visualizações
+                        {currentVodVideo?.views_count || "Destaque"} visualizações
                       </span>
                     </div>
 
@@ -467,7 +594,7 @@ export default function TvOnlineClient() {
                 )}
               </div>
 
-              {/* Botões de Ação */}
+              {/* Botões de Ação na barra do Player */}
               <div className="flex items-center gap-2.5 shrink-0">
                 {playerMode === "vod" && (
                   <button
@@ -481,19 +608,21 @@ export default function TvOnlineClient() {
 
                 <button
                   type="button"
-                  onClick={handleParticiparWhatsApp}
-                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer"
+                  onClick={handleShareCurrentPlayerWhatsApp}
+                  className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md hover:shadow-emerald-600/30 active:scale-95"
+                  title="Compartilhar link oficial deste vídeo no WhatsApp"
                 >
-                  <MessageCircle className="w-4 h-4 fill-current" />
-                  <span>Mandar Mensagem</span>
+                  <Share2 className="w-4 h-4 fill-current" />
+                  <span>Compartilhar</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleShareWhatsApp}
+                  onClick={handleParticiparWhatsApp}
                   className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
                 >
-                  <Share2 className="w-4 h-4 text-emerald-400" />
+                  <MessageCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="hidden sm:inline">Mensagem</span>
                 </button>
               </div>
             </div>
@@ -556,38 +685,52 @@ export default function TvOnlineClient() {
                     const isSelected = playerMode === "vod" && currentVodVideo?.id === video.id;
 
                     return (
-                      <button
+                      <div
                         key={video.id}
-                        type="button"
-                        onClick={() => handleSelectVod(video)}
-                        className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer group ${
+                        className={`w-full p-2.5 rounded-xl border transition-all flex items-start gap-3 group relative ${
                           isSelected
                             ? "bg-purple-950/50 border-purple-600 shadow-md ring-1 ring-purple-500/40"
                             : "bg-slate-950/40 border-slate-800/80 hover:border-purple-600/60 hover:bg-slate-950"
                         }`}
                       >
-                        <div className="relative w-20 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-slate-800">
+                        <div
+                          onClick={() => handleSelectVod(video)}
+                          className="relative w-20 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-slate-800 cursor-pointer"
+                        >
                           <img
                             src={video.thumbnail_url}
                             alt={video.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                           <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-white font-mono text-[9px] font-bold px-1 rounded">
-                            {video.duration}
+                            {video.duration || "16:9"}
                           </span>
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-heading font-bold text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-snug">
+                          <h4
+                            onClick={() => handleSelectVod(video)}
+                            className="font-heading font-bold text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-snug cursor-pointer"
+                          >
                             {video.title}
                           </h4>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5">
                             <span className="text-purple-400 font-bold">🎙️ RedeCast</span>
-                            <span>·</span>
-                            <span>{video.views_count} views</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDirectShareWhatsApp(video);
+                              }}
+                              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5"
+                              title="Compartilhar no WhatsApp"
+                            >
+                              <Share2 className="w-3 h-3" />
+                              <span>Zap</span>
+                            </button>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -605,38 +748,52 @@ export default function TvOnlineClient() {
                     const isSelected = playerMode === "vod" && currentVodVideo?.id === video.id;
 
                     return (
-                      <button
+                      <div
                         key={video.id}
-                        type="button"
-                        onClick={() => handleSelectVod(video)}
-                        className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer group ${
+                        className={`w-full p-2.5 rounded-xl border transition-all flex items-start gap-3 group relative ${
                           isSelected
                             ? "bg-red-950/50 border-red-600 shadow-md ring-1 ring-red-500/40"
                             : "bg-slate-950/40 border-slate-800/80 hover:border-red-600/60 hover:bg-slate-950"
                         }`}
                       >
-                        <div className="relative w-20 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-slate-800">
+                        <div
+                          onClick={() => handleSelectVod(video)}
+                          className="relative w-20 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-slate-800 cursor-pointer"
+                        >
                           <img
                             src={video.thumbnail_url}
                             alt={video.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                           <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-white font-mono text-[9px] font-bold px-1 rounded">
-                            {video.duration}
+                            {video.duration || "16:9"}
                           </span>
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-heading font-bold text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-snug">
+                          <h4
+                            onClick={() => handleSelectVod(video)}
+                            className="font-heading font-bold text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-snug cursor-pointer"
+                          >
                             {video.title}
                           </h4>
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5">
                             <span className="text-red-400 font-bold">📺 TV Apucarana</span>
-                            <span>·</span>
-                            <span>{video.views_count} views</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDirectShareWhatsApp(video);
+                              }}
+                              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5"
+                              title="Compartilhar no WhatsApp"
+                            >
+                              <Share2 className="w-3 h-3" />
+                              <span>Zap</span>
+                            </button>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -725,7 +882,52 @@ export default function TvOnlineClient() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. PRATELEIRAS ESTILO NETFLIX COM FILTRO MULTI-CANAL                     */}
+        {/* 3.1 CARROSSEL EXCLUSIVO DE CORTES & REELS 9:16                            */}
+        {/* ========================================================================= */}
+        {videosCortes916.length > 0 && (
+          <section className="space-y-4 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-purple-950/20 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-black shadow-md text-sm">
+                  📱
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-heading font-black text-lg sm:text-xl text-white tracking-tight">
+                      Cortes & Reels 9:16
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 text-[10px] font-black uppercase border border-pink-500/30">
+                      Vertical
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Momentos marcantes, declarações e flagrantes em formato dinâmico para celular
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs text-slate-500 font-medium">
+                {videosCortes916.length} cortes disponíveis
+              </span>
+            </div>
+
+            {/* Fileira Horizontal de Cards 9:16 */}
+            <div className="flex gap-3.5 overflow-x-auto pb-2 pt-1 scrollbar-none snap-x">
+              {videosCortes916.map((video) => (
+                <VerticalShelfCard
+                  key={video.id}
+                  video={video}
+                  onSelect={() => handleSelectVod(video)}
+                  isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                  onShareWhatsApp={() => handleDirectShareWhatsApp(video)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 4. PRATELEIRAS HORIZONTAIS 16:9 ESTILO NETFLIX COM FILTRO MULTI-CANAL     */}
         {/* ========================================================================= */}
         <section className="space-y-8 pt-4">
           {/* BARRA SUPERIOR DO CATÁLOGO: SELETOR DE CANAL */}
@@ -737,7 +939,7 @@ export default function TvOnlineClient() {
                 </span>
               </div>
               <h2 className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
-                Explore os Vídeos dos Nossos Canais Oficiais
+                Explore os Vídeos e Podcasts Widescreen
               </h2>
             </div>
 
@@ -753,7 +955,7 @@ export default function TvOnlineClient() {
                 }`}
               >
                 <Flame className="w-3.5 h-3.5 text-amber-400" />
-                <span>Todos os Vídeos</span>
+                <span>Todos</span>
               </button>
 
               <button
@@ -766,7 +968,7 @@ export default function TvOnlineClient() {
                 }`}
               >
                 <Tv className="w-3.5 h-3.5" />
-                <span>Canal TV Apucarana</span>
+                <span>TV Apucarana</span>
               </button>
 
               <button
@@ -779,12 +981,12 @@ export default function TvOnlineClient() {
                 }`}
               >
                 <Mic className="w-3.5 h-3.5" />
-                <span>Canal RedeCast</span>
+                <span>RedeCast</span>
               </button>
             </div>
           </div>
 
-          {/* PRATELEIRA 1: REDECAST — EPISÓDIOS COMPLETOS & ENTREVISTAS */}
+          {/* PRATELEIRA 1: REDECAST — EPISÓDIOS COMPLETOS & ENTREVISTAS (16:9) */}
           {prateleiraRedeCast.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -811,13 +1013,14 @@ export default function TvOnlineClient() {
                     video={video}
                     onSelect={() => handleSelectVod(video)}
                     isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                    onShareWhatsApp={() => handleDirectShareWhatsApp(video)}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {/* PRATELEIRA 2: TV APUCARANA — REPORTAGENS & JORNALISMO REGIONAL */}
+          {/* PRATELEIRA 2: TV APUCARANA — REPORTAGENS & JORNALISMO REGIONAL (16:9) */}
           {prateleiraTvApucarana.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -844,46 +1047,14 @@ export default function TvOnlineClient() {
                     video={video}
                     onSelect={() => handleSelectVod(video)}
                     isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                    onShareWhatsApp={() => handleDirectShareWhatsApp(video)}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {/* PRATELEIRA 3: CORTES RÁPIDOS & DESTAQUES */}
-          {prateleiraCortes.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold">
-                    ⚡
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-black text-lg sm:text-xl text-white">
-                      Cortes Rápidos & Destaques (RedeCast + TV Apucarana)
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Os melhores momentos, declarações polêmicas e flagrantes em vídeos curtos
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Carrossel Horizontal */}
-              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-none snap-x">
-                {prateleiraCortes.map((video) => (
-                  <VideoShelfCard
-                    key={video.id}
-                    video={video}
-                    onSelect={() => handleSelectVod(video)}
-                    isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* PRATELEIRA 4: ESPECIAL CULTURA, MÚSICA & ENTRETENIMENTO */}
+          {/* PRATELEIRA 3: ESPECIAL CULTURA, MÚSICA & ENTRETENIMENTO (16:9) */}
           {prateleiraEspeciais.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -910,6 +1081,7 @@ export default function TvOnlineClient() {
                     video={video}
                     onSelect={() => handleSelectVod(video)}
                     isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                    onShareWhatsApp={() => handleDirectShareWhatsApp(video)}
                   />
                 ))}
               </div>
@@ -955,22 +1127,112 @@ export default function TvOnlineClient() {
 }
 
 /**
- * Card individual das prateleiras estilo Netflix
+ * Card individual vertical 9:16 (Cortes e Shorts)
+ */
+function VerticalShelfCard({
+  video,
+  onSelect,
+  isCurrent,
+  onShareWhatsApp,
+}: {
+  video: PortalVideoItem;
+  onSelect: () => void;
+  isCurrent?: boolean;
+  onShareWhatsApp: () => void;
+}) {
+  const isRedeCast = video.channel_source === "RedeCast";
+
+  return (
+    <div
+      onClick={onSelect}
+      className={`group relative w-40 sm:w-48 shrink-0 aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 border text-left cursor-pointer transition-all duration-300 transform hover:-translate-y-1.5 focus:outline-none snap-start p-0 flex flex-col shadow-lg ${
+        isCurrent
+          ? "border-pink-500 ring-2 ring-pink-400/50 shadow-pink-500/20"
+          : "border-slate-800 hover:border-slate-700"
+      }`}
+    >
+      {/* Imagem de Fundo 9:16 */}
+      <img
+        src={video.thumbnail_url}
+        alt={video.title}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+        loading="lazy"
+      />
+
+      {/* Gradiente escuro */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-slate-950/50 to-transparent opacity-90 group-hover:opacity-95 transition-opacity" />
+
+      {/* Selos do Topo */}
+      <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1 z-10">
+        {isRedeCast ? (
+          <span className="px-2 py-0.5 rounded-md bg-purple-600/90 text-white font-extrabold text-[9px] uppercase tracking-wider backdrop-blur-xs shadow-sm flex items-center gap-1">
+            <Mic className="w-2.5 h-2.5" /> RedeCast
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded-md bg-red-600/90 text-white font-extrabold text-[9px] uppercase tracking-wider backdrop-blur-xs shadow-sm flex items-center gap-1">
+            <Tv className="w-2.5 h-2.5" /> TV Apucarana
+          </span>
+        )}
+
+        <span className="bg-black/80 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
+          {video.duration || "Corte"}
+        </span>
+      </div>
+
+      {/* Ícone de Play no centro ao passar o mouse */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="w-12 h-12 rounded-full bg-pink-600 text-white flex items-center justify-center shadow-xl transform scale-75 group-hover:scale-100 transition-transform">
+          <Play className="w-5 h-5 fill-current translate-x-0.5" />
+        </div>
+      </div>
+
+      {/* Detalhes na Base do Card 9:16 */}
+      <div className="absolute bottom-0 inset-x-0 p-3 z-10 bg-gradient-to-t from-black via-black/90 to-transparent">
+        <h4 className="font-heading font-bold text-xs text-white line-clamp-2 leading-snug group-hover:text-pink-300 transition-colors">
+          {video.title}
+        </h4>
+
+        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/10 text-[10px]">
+          <span className="text-pink-400 font-bold flex items-center gap-1">
+            <span>Assistir</span>
+            <span>▶</span>
+          </span>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShareWhatsApp();
+            }}
+            className="p-1 rounded-md bg-emerald-600/90 hover:bg-emerald-500 text-white shadow transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+            title="Compartilhar corte no WhatsApp"
+          >
+            <Share2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Card individual das prateleiras estilo Netflix (16:9 Widescreen)
  */
 function VideoShelfCard({
   video,
   onSelect,
   isCurrent,
+  onShareWhatsApp,
 }: {
   video: PortalVideoItem;
   onSelect: () => void;
   isCurrent?: boolean;
+  onShareWhatsApp: () => void;
 }) {
   const isRedeCast = video.channel_source === "RedeCast";
 
   return (
-    <button
-      type="button"
+    <div
       onClick={onSelect}
       className={`group relative w-64 sm:w-72 shrink-0 rounded-2xl overflow-hidden bg-slate-900 border text-left cursor-pointer transition-all duration-300 transform hover:-translate-y-1.5 focus:outline-none snap-start p-0 flex flex-col shadow-lg ${
         isCurrent
@@ -1005,7 +1267,7 @@ function VideoShelfCard({
 
         {/* Duração no canto inferior direito */}
         <span className="absolute bottom-2 right-2 bg-black/85 text-white font-mono text-[10px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
-          {video.duration}
+          {video.duration || "16:9"}
         </span>
 
         {/* Ícone de Play no Hover */}
@@ -1028,12 +1290,46 @@ function VideoShelfCard({
           <span className="text-[10px] font-semibold text-slate-400">
             {video.category}
           </span>
-          <span className="text-emerald-400 font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-            <span>Assistir</span>
-            <span>▶</span>
-          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShareWhatsApp();
+              }}
+              className="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-emerald-600/30 text-emerald-400 text-[10px] font-bold border border-slate-700 hover:border-emerald-500/40 flex items-center gap-1 transition-colors cursor-pointer"
+              title="Compartilhar no WhatsApp"
+            >
+              <Share2 className="w-3 h-3" />
+              <span>Zap</span>
+            </button>
+
+            <span className="text-emerald-400 font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+              <span>Assistir</span>
+              <span>▶</span>
+            </span>
+          </div>
         </div>
       </div>
-    </button>
+    </div>
+  );
+}
+
+/**
+ * Componente Principal com Suspense Boundary para useSearchParams
+ */
+export default function TvOnlineClient() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white space-y-4">
+          <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-bold text-slate-400">Carregando Hub de Streaming • TV Apucarana & RedeCast...</p>
+        </div>
+      }
+    >
+      <TvOnlineHubContent />
+    </Suspense>
   );
 }
