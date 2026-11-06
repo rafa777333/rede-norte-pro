@@ -1036,29 +1036,21 @@ export default function PortalClient({
       />
       
       {/* Faixa da Marca e Ações (Marca Imponente na Esquerda + Busca Suave e Player Rádio na Direita) */}
-      <div className="header-brand-bar bg-white border-b border-slate-200/80 py-3 sm:py-3.5">
+      <div className="header-brand-bar bg-white border-b border-slate-200/80 py-2 sm:py-2.5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          {/* 1. Marca / Logo Imponente e Limpo com Assinatura Subjacente */}
-          <div className="flex flex-col justify-center shrink-0">
-            <Link href="/" className="brand flex items-center gap-3 shrink-0 group">
+          {/* 1. Marca / Logo Oficial Imponente (Arte Completa Integrada) */}
+          <div className="flex items-center shrink-0">
+            <Link
+              href="/"
+              className="inline-flex items-center shrink-0 transition-opacity hover:opacity-95"
+              title="Rede Apucarana de Comunicação - Início"
+            >
               <img
-                src="/logo-rede-apucarana.png?v=2"
-                alt="Logo Rede Apucarana"
-                className="brand-mark w-11 h-11 sm:w-12 sm:h-12 object-cover rounded-xl shadow-xs transition-transform group-hover:scale-[1.02]"
-                style={{ padding: 0 }}
+                src="/logo-rede-apucarana-oficial.png"
+                alt="Rede Apucarana de Comunicação - Tudo em um só lugar"
+                className="h-14 sm:h-16 lg:h-[72px] w-auto object-contain"
               />
-              <div className="flex flex-col justify-center">
-                <span className="brand-name block font-black text-slate-900 tracking-tight text-xl sm:text-2xl leading-none">
-                  REDE APUCARANA
-                </span>
-                <span className="text-[11px] font-bold tracking-[0.22em] text-red-600 uppercase block mt-1 leading-none">
-                  De Comunicação
-                </span>
-              </div>
             </Link>
-            <span className="hidden sm:block text-[9.5px] font-semibold tracking-[0.18em] text-slate-400 uppercase mt-1.5 pl-0.5">
-              TUDO EM UM SÓ LUGAR • CONECTANDO TODO O VALE DO IVAÍ
-            </span>
           </div>
 
           {/* 2. Direita: Busca Suave e Player da Rádio Integrado com Espaçamento Nobre */}
