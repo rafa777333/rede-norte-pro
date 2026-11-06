@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
   Tv,
@@ -12,13 +12,26 @@ import {
   TrendingUp,
   Play,
   ChevronRight,
+  ChevronLeft,
   ShieldCheck,
   Building2,
   Film,
   ExternalLink,
   Volume2,
+  ArrowLeft,
+  Layers,
+  Flame,
+  Mic,
+  Video,
 } from "lucide-react";
 import LiveTvPlayer from "./LiveTvPlayer";
+import {
+  PortalVideoItem,
+  ChannelSource,
+  VideoCategory,
+  MOCK_PORTAL_VIDEOS,
+  getYouTubeThumbnail,
+} from "@/lib/tv-videos-data";
 
 interface ProgramBlock {
   inicio: string;
@@ -91,32 +104,45 @@ const GRADE_PROGRAMACAO: ProgramBlock[] = [
   },
 ];
 
-const CORTES_DESTAQUES = [
-  {
-    id: "corte-1",
-    titulo: "Debate sobre obras da duplicação da BR-376 em Apucarana",
-    duracao: "3:45",
-    visualizacoes: "4.2k",
-  },
-  {
-    id: "corte-2",
-    titulo: "Entrevista RedeCast: O avanço do polo têxtil e geração de empregos",
-    duracao: "5:12",
-    visualizacoes: "6.8k",
-  },
-  {
-    id: "corte-3",
-    titulo: "Operação da Polícia Militar desarticula quadrilha na região",
-    duracao: "2:30",
-    visualizacoes: "8.1k",
-  },
-];
-
 export default function TvOnlineClient() {
+  const [playerMode, setPlayerMode] = useState<"live" | "vod">("live");
+  const [currentVodVideo, setCurrentVodVideo] = useState<PortalVideoItem | null>(null);
   const [isTheater, setIsTheater] = useState(false);
+  const [activeTabSidebar, setActiveTabSidebar] = useState<"redecast" | "tvapucarana" | "grade">("redecast");
+  const [filtroCanalCatalogo, setFiltroCanalCatalogo] = useState<"todos" | "TV Apucarana" | "RedeCast">("todos");
+
+  const [videos, setVideos] = useState<PortalVideoItem[]>(MOCK_PORTAL_VIDEOS);
+  const [loadingVideos, setLoadingVideos] = useState(false);
   const [horaAtual, setHoraAtual] = useState("");
   const [programaNoAr, setProgramaNoAr] = useState<ProgramBlock>(GRADE_PROGRAMACAO[1]);
 
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+
+  // Carrega vídeos da API
+  useEffect(() => {
+    let cancel = false;
+    const fetchVideos = async () => {
+      try {
+        setLoadingVideos(true);
+        const res = await fetch("/api/videos");
+        const json = await res.json();
+        if (!cancel && json.success && Array.isArray(json.videos) && json.videos.length > 0) {
+          setVideos(json.videos);
+        }
+      } catch (err) {
+        console.warn("Falha ao buscar vídeos do hub:", err);
+      } finally {
+        if (!cancel) setLoadingVideos(false);
+      }
+    };
+
+    fetchVideos();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  // Monitora horário e programa no ar
   useEffect(() => {
     const atualizarHorario = () => {
       const now = new Date();
@@ -125,12 +151,10 @@ export default function TvOnlineClient() {
       const horaStr = `${horas}:${minutos}`;
       setHoraAtual(horaStr);
 
-      // Descobre o programa ativo no momento
       const blocoAtual = GRADE_PROGRAMACAO.find((item) => {
         if (item.inicio <= item.fim) {
           return horaStr >= item.inicio && horaStr < item.fim;
         } else {
-          // Madrugada (ex: 22:00 às 06:00)
           return horaStr >= item.inicio || horaStr < item.fim;
         }
       });
@@ -145,16 +169,74 @@ export default function TvOnlineClient() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(
-      "📺 Estou assistindo à TV Rede Apucarana ao vivo em HD 1080p! Acompanhe a transmissão e notícias do Vale do Ivaí aqui: https://www.redeapucarana.com.br/tv-online"
+  // Tocar vídeo On-Demand no player principal
+  const handleSelectVod = (video: PortalVideoItem) => {
+    setCurrentVodVideo(video);
+    setPlayerMode("vod");
+
+    // Scroll suave para o player
+    if (playerContainerRef.current) {
+      playerContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Voltar para a TV ao vivo
+  const handleReturnToLive = () => {
+    setPlayerMode("live");
+    setCurrentVodVideo(null);
+  };
+
+  // Filtragem dos vídeos da barra lateral (Aba 1: RedeCast, Aba 2: TV Apucarana)
+  const sidebarRedeCast = useMemo(() => {
+    return videos.filter((v) => v.channel_source === "RedeCast");
+  }, [videos]);
+
+  const sidebarTvApucarana = useMemo(() => {
+    return videos.filter((v) => v.channel_source === "TV Apucarana");
+  }, [videos]);
+
+  // Prateleiras do catálogo
+  const videosFiltrados = useMemo(() => {
+    if (filtroCanalCatalogo === "todos") return videos;
+    return videos.filter((v) => v.channel_source === filtroCanalCatalogo);
+  }, [videos, filtroCanalCatalogo]);
+
+  const prateleiraRedeCast = useMemo(() => {
+    return videosFiltrados.filter(
+      (v) => v.category === "RedeCast Episódios" || v.channel_source === "RedeCast"
     );
+  }, [videosFiltrados]);
+
+  const prateleiraTvApucarana = useMemo(() => {
+    return videosFiltrados.filter(
+      (v) => v.category === "Reportagens TV" && v.channel_source === "TV Apucarana"
+    );
+  }, [videosFiltrados]);
+
+  const prateleiraCortes = useMemo(() => {
+    return videosFiltrados.filter((v) => v.category === "Cortes & Shorts");
+  }, [videosFiltrados]);
+
+  const prateleiraEspeciais = useMemo(() => {
+    return videosFiltrados.filter((v) => v.category === "Especial & Música");
+  }, [videosFiltrados]);
+
+  // Compartilhamento
+  const handleShareWhatsApp = () => {
+    const text =
+      playerMode === "vod" && currentVodVideo
+        ? encodeURIComponent(
+            `▶️ Assista ao vídeo "${currentVodVideo.title}" no Hub de Streaming da Rede Apucarana: https://www.redeapucarana.com.br/tv-online`
+          )
+        : encodeURIComponent(
+            "📺 Estou assistindo à TV Rede Apucarana ao vivo em HD 1080p! Acompanhe a transmissão e programas aqui: https://www.redeapucarana.com.br/tv-online"
+          );
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
 
   const handleParticiparWhatsApp = () => {
     const text = encodeURIComponent(
-      "Olá TV Rede Apucarana! Estou assistindo à transmissão ao vivo e gostaria de mandar uma mensagem / sugestão para a redação."
+      "Olá TV Rede Apucarana & RedeCast! Estou acompanhando a programação e gostaria de participar / mandar uma sugestão."
     );
     window.open(`https://wa.me/5543999809454?text=${text}`, "_blank");
   };
@@ -164,7 +246,7 @@ export default function TvOnlineClient() {
       {/* ========================================================================= */}
       {/* 1. TOPLINE ESCURA COM LINKS RÁPIDOS E RETORNO                             */}
       {/* ========================================================================= */}
-      <div className="bg-black/90 border-b border-slate-800/80 text-xs py-2.5 px-4 sticky top-0 z-50 backdrop-blur-md">
+      <div className="bg-black/95 border-b border-slate-800/80 text-xs py-2.5 px-4 sticky top-0 z-50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
@@ -176,29 +258,40 @@ export default function TvOnlineClient() {
             </Link>
             <span className="text-slate-700 hidden sm:inline">|</span>
             <span className="text-slate-400 hidden sm:inline">
-              Emissora Oficial da Rede Apucarana de Comunicação
+              Hub Oficial de Streaming • TV Apucarana & RedeCast
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 text-red-400 font-bold text-[11px] bg-red-950/60 border border-red-800/60 px-2.5 py-0.5 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              SINAL DIGITAL 24H
-            </span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {playerMode === "vod" ? (
+              <button
+                type="button"
+                onClick={handleReturnToLive}
+                className="inline-flex items-center gap-1.5 text-white font-black text-[11px] bg-red-600 hover:bg-red-500 px-3 py-1 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer animate-pulse"
+              >
+                <span>🔴</span>
+                <span>VOLTAR PARA A TV AO VIVO</span>
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-red-400 font-bold text-[11px] bg-red-950/60 border border-red-800/60 px-2.5 py-0.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                SINAL DIGITAL AO VIVO 24H
+              </span>
+            )}
             <a
               href="https://wa.me/5543999809454?text=Ol%C3%A1%2C%20quero%20anunciar%20na%20TV%20Rede%20Apucarana"
               target="_blank"
               rel="noreferrer"
               className="hidden md:inline-flex text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors"
             >
-              Anuncie na TV
+              Anuncie no Hub
             </a>
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. CABEÇALHO DA EMISSORA (BRANDING PREMIUM)                              */}
+      {/* 2. CABEÇALHO DO HUB DE STREAMING (TV APUCARANA + REDECAST)               */}
       {/* ========================================================================= */}
       <header className="bg-slate-900/60 border-b border-slate-800/90 py-4 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -212,16 +305,19 @@ export default function TvOnlineClient() {
             </Link>
 
             <div className="border-l border-slate-800 pl-4">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-heading font-black text-lg sm:text-xl text-white tracking-tight">
-                  TV REDE APUCARANA
+                  HUB DE STREAMING
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-red-600/90 text-white font-extrabold text-[10px] uppercase tracking-wider">
-                  AO VIVO
+                <span className="px-2 py-0.5 rounded-md bg-red-600/90 text-white font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1">
+                  <Tv className="w-3 h-3" /> TV Apucarana
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-600/90 text-white font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1">
+                  <Mic className="w-3 h-3" /> RedeCast
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Jornalismo Regional, Entrevistas do RedeCast & Transmissão 24h para o Vale do Ivaí
+                Emissora digital ao vivo e catálogo sob demanda com os dois canais oficiais no YouTube
               </p>
             </div>
           </div>
@@ -250,63 +346,143 @@ export default function TvOnlineClient() {
       </header>
 
       {/* ========================================================================= */}
-      {/* 3. CONTEÚDO PRINCIPAL (MODO CINEMA)                                      */}
+      {/* 3. PALCO PRINCIPAL (PALCO HÍBRIDO AO VIVO <-> ON-DEMAND MULTI-CANAL)      */}
       {/* ========================================================================= */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-12">
         <div
+          ref={playerContainerRef}
           className={`grid gap-8 transition-all duration-300 ${
-            isTheater
-              ? "grid-cols-1"
-              : "grid-cols-1 lg:grid-cols-12"
+            isTheater ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-12"
           }`}
         >
-          {/* COLUNA PRINCIPAL: PLAYER DE ALTA DEFINIÇÃO + CONTROLES (8 COLUNAS) */}
-          <div
-            className={`space-y-5 transition-all ${
-              isTheater ? "w-full" : "lg:col-span-8"
-            }`}
-          >
-            {/* Player HLS Oficial */}
-            <div className="relative">
-              <LiveTvPlayer
-                onTheaterToggle={() => setIsTheater(!isTheater)}
-                isTheater={isTheater}
-                streamUrl="https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8"
-              />
+          {/* COLUNA ESQUERDA: PLAYER HÍBRIDO (8 COLUNAS) */}
+          <div className={`space-y-4 transition-all ${isTheater ? "w-full" : "lg:col-span-8"}`}>
+            {/* CONTAINER 16:9 DO PLAYER */}
+            <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+              {playerMode === "live" ? (
+                // 1. ESTADO AO VIVO: Player HLS com M3U8
+                <LiveTvPlayer
+                  onTheaterToggle={() => setIsTheater(!isTheater)}
+                  isTheater={isTheater}
+                  streamUrl="https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8"
+                />
+              ) : (
+                // 2. ESTADO SOB DEMANDA (VOD): Player YouTube com Header Multi-Canal
+                <div className="relative w-full h-full flex flex-col bg-slate-950">
+                  {/* BARRA SUPERIOR DO PALCO VOD */}
+                  <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/70 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
+                    <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
+                      {currentVodVideo?.channel_source === "RedeCast" ? (
+                        <span className="px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                          <Mic className="w-3.5 h-3.5" />
+                          <span>Canal RedeCast</span>
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                          <Tv className="w-3.5 h-3.5" />
+                          <span>Canal TV Apucarana</span>
+                        </span>
+                      )}
+
+                      <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
+                        {currentVodVideo?.title}
+                      </span>
+                    </div>
+
+                    {/* BOTÃO IMEDIATO: VOLTAR PARA A TV AO VIVO */}
+                    <button
+                      type="button"
+                      onClick={handleReturnToLive}
+                      className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                      title="Voltar para a transmissão ao vivo da TV"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                      </span>
+                      <span>VOLTAR PARA A TV AO VIVO</span>
+                    </button>
+                  </div>
+
+                  {/* IFRAME DO YOUTUBE COM AUTOPLAY */}
+                  {currentVodVideo?.youtube_id && (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1`}
+                      title={currentVodVideo.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Barra de Informações do Programa no Ar */}
+            {/* BARRA DE INFORMAÇÕES ABAIXO DO PLAYER */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2.5 w-2.5 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-                  </span>
-                  <span className="text-[11px] font-black uppercase tracking-wider text-red-400">
-                    NO AR AGORA • {programaNoAr.inicio} às {programaNoAr.fim}
-                  </span>
-                  <span className="text-slate-600">·</span>
-                  <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    {programaNoAr.categoria}
-                  </span>
-                </div>
+              <div className="space-y-1 min-w-0">
+                {playerMode === "live" ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2.5 w-2.5 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                      </span>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-red-400">
+                        NO AR AGORA • {programaNoAr.inicio} às {programaNoAr.fim}
+                      </span>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        {programaNoAr.categoria}
+                      </span>
+                    </div>
 
-                <h1 className="font-heading font-extrabold text-lg sm:text-xl text-white">
-                  {programaNoAr.titulo}
-                </h1>
-                <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
-                  {programaNoAr.subtitulo}
-                </p>
+                    <h1 className="font-heading font-extrabold text-lg sm:text-xl text-white truncate">
+                      {programaNoAr.titulo}
+                    </h1>
+                    <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
+                      {programaNoAr.subtitulo}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        {currentVodVideo?.category}
+                      </span>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-xs text-slate-400 font-mono">
+                        ⏱ {currentVodVideo?.duration}
+                      </span>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-xs text-slate-400">
+                        {currentVodVideo?.views_count} visualizações
+                      </span>
+                    </div>
+
+                    <h1 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-snug">
+                      {currentVodVideo?.title}
+                    </h1>
+                  </>
+                )}
               </div>
 
-              {/* Botões de Ação Imediata */}
+              {/* Botões de Ação */}
               <div className="flex items-center gap-2.5 shrink-0">
+                {playerMode === "vod" && (
+                  <button
+                    type="button"
+                    onClick={handleReturnToLive}
+                    className="px-3.5 py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 font-bold text-xs flex items-center gap-1.5 transition-colors border border-red-500/30 cursor-pointer"
+                  >
+                    <span>🔴 Sintonizar TV</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleParticiparWhatsApp}
                   className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer"
-                  title="Envie sua mensagem para a produção da TV"
                 >
                   <MessageCircle className="w-4 h-4 fill-current" />
                   <span>Mandar Mensagem</span>
@@ -316,212 +492,434 @@ export default function TvOnlineClient() {
                   type="button"
                   onClick={handleShareWhatsApp}
                   className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
-                  title="Compartilhar link da transmissão"
                 >
                   <Share2 className="w-4 h-4 text-emerald-400" />
-                  <span className="hidden sm:inline">Compartilhar</span>
                 </button>
               </div>
             </div>
-
-            {/* Informações Institucionais da Emissora */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5 flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-red-950/60 border border-red-800/60 text-red-400 flex items-center justify-center shrink-0">
-                  <Tv className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-heading font-bold text-xs text-white">
-                    Estúdios em Apucarana
-                  </h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Transmissão própria com estrutura profissional no coração do Vale do Ivaí.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5 flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-950/60 border border-amber-800/60 text-amber-400 flex items-center justify-center shrink-0">
-                  <Building2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-heading font-bold text-xs text-white">
-                    Cobertura das 27 Cidades
-                  </h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Jornalismo factual, entrevistas e utilidade pública conectando toda a região.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5 flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-heading font-bold text-xs text-white">
-                    Transmissão 24 Horas
-                  </h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Programação contínua com tecnologia AutoVJ de última geração em 1080p.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* COLUNA LATERAL: GRADE DE PROGRAMAÇÃO & INTERATIVIDADE (4 COLUNAS) */}
-          <div
-            className={`space-y-6 ${
-              isTheater ? "w-full grid grid-cols-1 md:grid-cols-3 gap-6 space-y-0" : "lg:col-span-4"
-            }`}
-          >
-            {/* CARD 1: PROGRAMAÇÃO COMPLETA DO DIA */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-800 mb-3.5">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  <h3 className="font-heading font-black text-sm text-white">
-                    Grade de Programação
-                  </h3>
-                </div>
-                {horaAtual && (
-                  <span className="text-[11px] font-mono text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded">
-                    {horaAtual}
-                  </span>
-                )}
+          {/* COLUNA DIREITA: DESTAQUES DOS CANAIS & GRADE COM 3 ABAS (4 COLUNAS) */}
+          <div className={`space-y-4 ${isTheater ? "w-full" : "lg:col-span-4"}`}>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[480px]">
+              {/* SELETOR DAS 3 ABAS */}
+              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTabSidebar("redecast")}
+                  className={`py-2 px-1 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                    activeTabSidebar === "redecast"
+                      ? "bg-purple-600 text-white shadow-md font-black"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span>🎙️</span>
+                  <span>RedeCast</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTabSidebar("tvapucarana")}
+                  className={`py-2 px-1 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                    activeTabSidebar === "tvapucarana"
+                      ? "bg-red-600 text-white shadow-md font-black"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span>📺</span>
+                  <span>TV Apucarana</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTabSidebar("grade")}
+                  className={`py-2 px-1 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                    activeTabSidebar === "grade"
+                      ? "bg-slate-800 text-amber-400 shadow-md font-black"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span>📡</span>
+                  <span>Grade 24h</span>
+                </button>
               </div>
 
-              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
-                {GRADE_PROGRAMACAO.map((bloco, idx) => {
-                  const isCurrent = bloco.titulo === programaNoAr.titulo;
+              {/* CONTEÚDO DA ABA 1: CANAL REDECAST */}
+              {activeTabSidebar === "redecast" && (
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold px-1 pb-1">
+                    <span>Episódios & Entrevistas RedeCast</span>
+                    <span className="text-purple-400">{sidebarRedeCast.length} vídeos</span>
+                  </div>
 
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-xl border transition-all ${
-                        isCurrent
-                          ? "bg-red-950/40 border-red-700/80 shadow-md ring-1 ring-red-500/30"
-                          : "bg-slate-950/40 border-slate-800/60 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span
-                          className={`font-mono text-[11px] font-bold ${
-                            isCurrent ? "text-red-400" : "text-slate-400"
-                          }`}
-                        >
-                          {bloco.inicio} - {bloco.fim}
-                        </span>
+                  {sidebarRedeCast.map((video) => {
+                    const isSelected = playerMode === "vod" && currentVodVideo?.id === video.id;
 
-                        {isCurrent ? (
-                          <span className="px-2 py-0.5 rounded-full bg-red-600 text-white font-extrabold text-[9px] uppercase tracking-wider animate-pulse flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                            No Ar
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 font-semibold">
-                            {bloco.categoria}
-                          </span>
-                        )}
-                      </div>
-
-                      <h4
-                        className={`font-heading font-bold text-xs ${
-                          isCurrent ? "text-white font-extrabold" : "text-slate-200"
+                    return (
+                      <button
+                        key={video.id}
+                        type="button"
+                        onClick={() => handleSelectVod(video)}
+                        className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer group ${
+                          isSelected
+                            ? "bg-purple-950/50 border-purple-600 shadow-md ring-1 ring-purple-500/40"
+                            : "bg-slate-950/40 border-slate-800/80 hover:border-purple-600/60 hover:bg-slate-950"
                         }`}
                       >
-                        {bloco.titulo}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                        {bloco.subtitulo}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                        <div className="relative w-20 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-slate-800">
+                          <img
+                            src={video.thumbnail_url}
+                            alt={video.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-white font-mono text-[9px] font-bold px-1 rounded">
+                            {video.duration}
+                          </span>
+                        </div>
 
-            {/* CARD 2: CORTES EM VÍDEO (9:16) */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-800 mb-3.5">
-                <div className="flex items-center gap-2">
-                  <Film className="w-4 h-4 text-red-500" />
-                  <h3 className="font-heading font-black text-sm text-white">
-                    Cortes & Entrevistas
-                  </h3>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-heading font-bold text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-snug">
+                            {video.title}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
+                            <span className="text-purple-400 font-bold">🎙️ RedeCast</span>
+                            <span>·</span>
+                            <span>{video.views_count} views</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <Link
-                  href="/videos"
-                  className="text-[11px] font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-0.5"
-                >
-                  <span>Ver todos</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
+              )}
 
-              <div className="space-y-2.5">
-                {CORTES_DESTAQUES.map((corte) => (
-                  <Link
-                    key={corte.id}
-                    href="/videos"
-                    className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/60 hover:border-red-600/60 hover:bg-slate-950/70 transition-all flex items-start gap-3 group"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-red-600 group-hover:text-white transition-all">
-                      <Play className="w-3.5 h-3.5 fill-current translate-x-0.5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-bold text-slate-200 group-hover:text-white line-clamp-2 leading-snug transition-colors">
-                        {corte.titulo}
-                      </h4>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-1">
-                        <span>⏱ {corte.duracao}</span>
-                        <span>·</span>
-                        <span>👁 {corte.visualizacoes} views</span>
+              {/* CONTEÚDO DA ABA 2: CANAL TV APUCARANA */}
+              {activeTabSidebar === "tvapucarana" && (
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold px-1 pb-1">
+                    <span>Reportagens & Notícias TV Apucarana</span>
+                    <span className="text-red-400">{sidebarTvApucarana.length} vídeos</span>
+                  </div>
+
+                  {sidebarTvApucarana.map((video) => {
+                    const isSelected = playerMode === "vod" && currentVodVideo?.id === video.id;
+
+                    return (
+                      <button
+                        key={video.id}
+                        type="button"
+                        onClick={() => handleSelectVod(video)}
+                        className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer group ${
+                          isSelected
+                            ? "bg-red-950/50 border-red-600 shadow-md ring-1 ring-red-500/40"
+                            : "bg-slate-950/40 border-slate-800/80 hover:border-red-600/60 hover:bg-slate-950"
+                        }`}
+                      >
+                        <div className="relative w-20 aspect-video rounded-lg overflow-hidden bg-black shrink-0 border border-slate-800">
+                          <img
+                            src={video.thumbnail_url}
+                            alt={video.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-white font-mono text-[9px] font-bold px-1 rounded">
+                            {video.duration}
+                          </span>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-heading font-bold text-xs text-slate-200 group-hover:text-white line-clamp-2 leading-snug">
+                            {video.title}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1">
+                            <span className="text-red-400 font-bold">📺 TV Apucarana</span>
+                            <span>·</span>
+                            <span>{video.views_count} views</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* CONTEÚDO DA ABA 3: GRADE DE PROGRAMAÇÃO DA TV AO VIVO */}
+              {activeTabSidebar === "grade" && (
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold px-1 pb-1">
+                    <span>Programação 24h</span>
+                    {horaAtual && (
+                      <span className="font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
+                        {horaAtual}
+                      </span>
+                    )}
+                  </div>
+
+                  {GRADE_PROGRAMACAO.map((bloco, idx) => {
+                    const isCurrent = bloco.titulo === programaNoAr.titulo;
+
+                    return (
+                      <div
+                        key={idx}
+                        onClick={handleReturnToLive}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          isCurrent
+                            ? "bg-red-950/40 border-red-700/80 shadow-md ring-1 ring-red-500/30"
+                            : "bg-slate-950/40 border-slate-800/60 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span
+                            className={`font-mono text-[10px] font-bold ${
+                              isCurrent ? "text-red-400" : "text-slate-400"
+                            }`}
+                          >
+                            {bloco.inicio} - {bloco.fim}
+                          </span>
+
+                          {isCurrent ? (
+                            <span className="px-2 py-0.5 rounded-full bg-red-600 text-white font-black text-[9px] uppercase tracking-wider animate-pulse flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                              No Ar
+                            </span>
+                          ) : (
+                            <span className="text-[9px] text-slate-500 font-semibold">
+                              {bloco.categoria}
+                            </span>
+                          )}
+                        </div>
+
+                        <h4
+                          className={`font-heading font-bold text-xs ${
+                            isCurrent ? "text-white font-extrabold" : "text-slate-200"
+                          }`}
+                        >
+                          {bloco.titulo}
+                        </h4>
                       </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* CARD 3: COMERCIAL - ANUNCIE NA TV REDE APUCARANA */}
-            <div className="bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border border-amber-600/40 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-
-              <div className="relative z-10 space-y-3">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black text-[10px] uppercase tracking-wider border border-amber-500/30">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  MÍDIA EM VÍDEO REGIONAL
+            {/* CARD COMERCIAL RÁPIDO */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/40 to-slate-900 border border-amber-500/30 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                  Publicidade em Vídeo
                 </span>
-
-                <h3 className="font-heading font-black text-sm text-white leading-snug">
-                  Anuncie sua Empresa na TV Rede Apucarana
-                </h3>
-
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Seu comercial em vídeo rodando 24 horas na programação da TV digital e no Super-App da Rede Apucarana, alcançando milhares de famílias nas 27 cidades do Vale do Ivaí.
+                <p className="text-xs font-bold text-white leading-tight mt-0.5">
+                  Anuncie sua marca na TV Apucarana & RedeCast
                 </p>
-
-                <div className="pt-1">
-                  <a
-                    href="https://wa.me/5543999809454?text=Ol%C3%A1%2C%20gostaria%20de%20receber%20a%20tabela%20comercial%20para%20anunciar%20em%20v%C3%ADdeo%20na%20TV%20Rede%20Apucarana"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-lg hover:shadow-amber-500/20 transition-all active:scale-95 cursor-pointer"
-                  >
-                    <MessageCircle className="w-4 h-4 fill-current" />
-                    <span>Falar com o Comercial da TV</span>
-                  </a>
-                </div>
               </div>
+              <a
+                href="https://wa.me/5543999809454?text=Ol%C3%A1%2C%20gostaria%20de%20anunciar%20em%20v%C3%ADdeo%20na%20Rede%20Apucarana"
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shrink-0 transition-transform active:scale-95"
+              >
+                Anuncie ↗
+              </a>
             </div>
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* 4. PRATELEIRAS ESTILO NETFLIX COM FILTRO MULTI-CANAL                     */}
+        {/* ========================================================================= */}
+        <section className="space-y-8 pt-4">
+          {/* BARRA SUPERIOR DO CATÁLOGO: SELETOR DE CANAL */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-red-600/20 text-red-400 border border-red-500/30 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                  <Film className="w-3 h-3" /> Catálogo Sob Demanda
+                </span>
+              </div>
+              <h2 className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
+                Explore os Vídeos dos Nossos Canais Oficiais
+              </h2>
+            </div>
+
+            {/* SELETOR RÁPIDO DE CANAL */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-900 rounded-xl border border-slate-800 shrink-0">
+              <button
+                type="button"
+                onClick={() => setFiltroCanalCatalogo("todos")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filtroCanalCatalogo === "todos"
+                    ? "bg-slate-800 text-white shadow-md font-black"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                <span>Todos os Vídeos</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFiltroCanalCatalogo("TV Apucarana")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filtroCanalCatalogo === "TV Apucarana"
+                    ? "bg-red-600 text-white shadow-md font-black"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>Canal TV Apucarana</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFiltroCanalCatalogo("RedeCast")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filtroCanalCatalogo === "RedeCast"
+                    ? "bg-purple-600 text-white shadow-md font-black"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Mic className="w-3.5 h-3.5" />
+                <span>Canal RedeCast</span>
+              </button>
+            </div>
+          </div>
+
+          {/* PRATELEIRA 1: REDECAST — EPISÓDIOS COMPLETOS & ENTREVISTAS */}
+          {prateleiraRedeCast.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-purple-600/20 text-purple-400 flex items-center justify-center font-bold">
+                    🎙️
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-black text-lg sm:text-xl text-white">
+                      RedeCast — Episódios Completos & Entrevistas
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Conversas aprofundadas com líderes, personalidades e empreendedores do Paraná
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Carrossel Horizontal */}
+              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-none snap-x">
+                {prateleiraRedeCast.map((video) => (
+                  <VideoShelfCard
+                    key={video.id}
+                    video={video}
+                    onSelect={() => handleSelectVod(video)}
+                    isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PRATELEIRA 2: TV APUCARANA — REPORTAGENS & JORNALISMO REGIONAL */}
+          {prateleiraTvApucarana.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center font-bold">
+                    📺
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-black text-lg sm:text-xl text-white">
+                      TV Apucarana — Reportagens & Jornalismo Regional
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Cobertura factual, infraestrutura, polícia e utilidade pública nas 27 cidades
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Carrossel Horizontal */}
+              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-none snap-x">
+                {prateleiraTvApucarana.map((video) => (
+                  <VideoShelfCard
+                    key={video.id}
+                    video={video}
+                    onSelect={() => handleSelectVod(video)}
+                    isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PRATELEIRA 3: CORTES RÁPIDOS & DESTAQUES */}
+          {prateleiraCortes.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold">
+                    ⚡
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-black text-lg sm:text-xl text-white">
+                      Cortes Rápidos & Destaques (RedeCast + TV Apucarana)
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Os melhores momentos, declarações polêmicas e flagrantes em vídeos curtos
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Carrossel Horizontal */}
+              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-none snap-x">
+                {prateleiraCortes.map((video) => (
+                  <VideoShelfCard
+                    key={video.id}
+                    video={video}
+                    onSelect={() => handleSelectVod(video)}
+                    isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PRATELEIRA 4: ESPECIAL CULTURA, MÚSICA & ENTRETENIMENTO */}
+          {prateleiraEspeciais.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold">
+                    🎸
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-black text-lg sm:text-xl text-white">
+                      Especial Cultura, Música & Entretenimento
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Apresentações exclusivas no estúdio, música raiz e patrimônio do Norte do Paraná
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Carrossel Horizontal */}
+              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-none snap-x">
+                {prateleiraEspeciais.map((video) => (
+                  <VideoShelfCard
+                    key={video.id}
+                    video={video}
+                    onSelect={() => handleSelectVod(video)}
+                    isCurrent={playerMode === "vod" && currentVodVideo?.id === video.id}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       </main>
 
       {/* ========================================================================= */}
-      {/* 4. FOOTER DA EMISSORA                                                    */}
+      {/* 5. FOOTER DA EMISSORA                                                    */}
       {/* ========================================================================= */}
       <footer className="bg-black border-t border-slate-900 py-6 px-4 sm:px-6 lg:px-8 mt-12 text-xs text-slate-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
@@ -532,7 +930,7 @@ export default function TvOnlineClient() {
               className="h-8 w-auto object-contain opacity-75"
             />
             <span>
-              © {new Date().getFullYear()} TV Rede Apucarana • Conectando todo o Vale do Ivaí
+              © {new Date().getFullYear()} Hub de Streaming • TV Rede Apucarana & RedeCast
             </span>
           </div>
 
@@ -540,11 +938,11 @@ export default function TvOnlineClient() {
             <Link href="/" className="hover:text-white transition-colors">
               Página Inicial
             </Link>
-            <Link href="/videos" className="hover:text-white transition-colors">
-              Cortes & Vídeos
+            <Link href="/tv-online" className="hover:text-white transition-colors">
+              TV Ao Vivo
             </Link>
             <Link href="/anuncie" className="hover:text-white transition-colors">
-              Publicidade
+              Anunciar
             </Link>
             <Link href="/contato" className="hover:text-white transition-colors">
               Fale Conosco
@@ -553,5 +951,89 @@ export default function TvOnlineClient() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/**
+ * Card individual das prateleiras estilo Netflix
+ */
+function VideoShelfCard({
+  video,
+  onSelect,
+  isCurrent,
+}: {
+  video: PortalVideoItem;
+  onSelect: () => void;
+  isCurrent?: boolean;
+}) {
+  const isRedeCast = video.channel_source === "RedeCast";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group relative w-64 sm:w-72 shrink-0 rounded-2xl overflow-hidden bg-slate-900 border text-left cursor-pointer transition-all duration-300 transform hover:-translate-y-1.5 focus:outline-none snap-start p-0 flex flex-col shadow-lg ${
+        isCurrent
+          ? "border-amber-500 ring-2 ring-amber-400/50 shadow-amber-500/10"
+          : "border-slate-800 hover:border-slate-700"
+      }`}
+    >
+      {/* Thumbnail 16:9 */}
+      <div className="relative aspect-video w-full bg-black overflow-hidden">
+        <img
+          src={video.thumbnail_url}
+          alt={video.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+          loading="lazy"
+        />
+
+        {/* Gradiente escuro */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
+
+        {/* Selo do Canal */}
+        <div className="absolute top-2.5 left-2.5 z-10">
+          {isRedeCast ? (
+            <span className="px-2 py-0.5 rounded-md bg-purple-600/90 text-white font-extrabold text-[9px] uppercase tracking-wider backdrop-blur-xs shadow-sm flex items-center gap-1">
+              <Mic className="w-2.5 h-2.5" /> RedeCast
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-md bg-red-600/90 text-white font-extrabold text-[9px] uppercase tracking-wider backdrop-blur-xs shadow-sm flex items-center gap-1">
+              <Tv className="w-2.5 h-2.5" /> TV Apucarana
+            </span>
+          )}
+        </div>
+
+        {/* Duração no canto inferior direito */}
+        <span className="absolute bottom-2 right-2 bg-black/85 text-white font-mono text-[10px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
+          {video.duration}
+        </span>
+
+        {/* Ícone de Play no Hover */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <div className="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-xl transform scale-75 group-hover:scale-100 transition-transform">
+            <Play className="w-5 h-5 fill-current translate-x-0.5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Detalhes do Card */}
+      <div className="p-3.5 flex flex-col flex-1 justify-between bg-slate-900">
+        <div>
+          <h4 className="font-heading font-bold text-xs sm:text-sm text-slate-200 group-hover:text-white line-clamp-2 leading-snug transition-colors">
+            {video.title}
+          </h4>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2.5 pt-2 border-t border-slate-800">
+          <span className="text-[10px] font-semibold text-slate-400">
+            {video.category}
+          </span>
+          <span className="text-emerald-400 font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+            <span>Assistir</span>
+            <span>▶</span>
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }

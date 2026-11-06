@@ -1,26 +1,27 @@
-import PortalClient from "../PortalClient";
+import React from "react";
+import type { Metadata } from "next";
+import TvOnlineClient from "@/components/TvOnlineClient";
 
-export const metadata = {
-  title: "Vídeos & Cortes Digitais | Rede Apucarana de Comunicação",
-  description: "Assista aos vídeos curtos, reportagens, YouTube Shorts, reels e bastidores de Apucarana e região no portal Rede Apucarana de Comunicação.",
+export const revalidate = 60; // ISR
+
+export const metadata: Metadata = {
+  title: "Vídeos & Streaming Oficial • TV Apucarana e RedeCast",
+  description:
+    "Assista aos episódios do RedeCast, reportagens da TV Apucarana, entrevistas e cortes no Hub de Streaming oficial da Rede Apucarana de Comunicação.",
   alternates: {
     canonical: "https://www.redeapucarana.com.br/videos",
   },
   openGraph: {
-    title: "Vídeos & Cortes Digitais | Rede Apucarana de Comunicação",
-    description: "Assista aos vídeos curtos, reportagens, YouTube Shorts, reels e bastidores de Apucarana e região.",
+    title: "Hub de Streaming • TV Apucarana & RedeCast",
+    description:
+      "Assista aos vídeos oficiais dos canais TV Apucarana e RedeCast sob demanda e ao vivo.",
     url: "https://www.redeapucarana.com.br/videos",
     siteName: "Rede Apucarana de Comunicação",
     locale: "pt_BR",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Vídeos & Cortes Digitais | Rede Apucarana de Comunicação",
-    description: "Assista aos vídeos curtos, reportagens, YouTube Shorts, reels e bastidores de Apucarana e região.",
+    type: "video.other",
   },
 };
 
 export default function VideosPage() {
-  return <PortalClient initialCity="Geral" initialTab="videos" />;
+  return <TvOnlineClient />;
 }

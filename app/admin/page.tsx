@@ -5,6 +5,7 @@ import SocialPublishWidget from "@/components/SocialPublishWidget";
 import AdminOndeIrManager from "@/components/admin/AdminOndeIrManager";
 import AdminOfertasManager from "@/components/admin/AdminOfertasManager";
 import AdminClassificadosManager from "@/components/admin/AdminClassificadosManager";
+import AdminTvVideosManager from "@/components/admin/AdminTvVideosManager";
 import { compressImageClient } from "@/lib/image-compression";
 import { decodeHtmlEntities } from "@/lib/text-utils";
 import { useEffect, useMemo, useState } from "react";
@@ -53,7 +54,7 @@ const CIDADES = ["Geral", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Iva�
 const CAT_NOT = ["Política", "Cidade", "Segurança", "Economia", "Eventos", "Destaque"];
 const CAT_ONDE = ["Restaurantes", "Lanchonetes", "Pizzarias", "Bares", "Cafés", "Serviços", "Lojas"];
 const CAT_CLASS = ["Imóveis", "Veículos", "Eletrônicos", "Móveis", "Celulares", "Outros"];
-const TABS: [Tab, string][] = [["capa", "🎬 Capa Principal"], ["noticias", "Notícias"], ["videos", "Vídeos"], ["ondeir", "Onde Ir"], ["ofertas", "🛒 Ofertas & Mercados"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["publicidade", "Publicidade"], ["contato", "Contato"]];
+const TABS: [Tab, string][] = [["capa", "🎬 Capa Principal"], ["noticias", "Notícias"], ["videos", "📺 TV & Vídeos YouTube"], ["ondeir", "Onde Ir"], ["ofertas", "🛒 Ofertas & Mercados"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["publicidade", "Publicidade"], ["contato", "Contato"]];
 
 function getMainAdKeys(city: string, position: number) {
   const isGeral = city === "Geral";
@@ -1572,10 +1573,12 @@ const salvarVideo = async () => {
         )}
 
         {tab === "videos" && (
-          <AdminSection
-            title="Central de Vídeos Verticais (Shorts, Reels, TikTok)"
-            description="Cadastre e gerencie os vídeos da Faixa Multimídia da Home e da aba Vídeos do portal. Suporta YouTube Shorts, Instagram Reels, TikTok e vídeos em MP4 (proporção 9:16)."
-          >
+          <div className="space-y-8">
+            <AdminTvVideosManager />
+            <AdminSection
+              title="Cortes & Vídeos Verticais da Home (Shorts 9:16)"
+              description="Gerenciamento complementar para vídeos em formato vertical que aparecem no carrossel da Home."
+            >
             {/* Bloco 2 Colunas: Formulário + Live Preview */}
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(260px, 1fr)", gap: "24px", alignItems: "start", marginBottom: "20px" }}>
               
@@ -2121,7 +2124,8 @@ const salvarVideo = async () => {
               </div>
             )}
           </AdminSection>
-        )}
+        </div>
+      )}
 
         {tab === "ondeir" && (
           <AdminOndeIrManager />
