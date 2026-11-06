@@ -1035,11 +1035,11 @@ export default function PortalClient({
         onOpenClima={() => trocarAba("clima")}
       />
       
-      {/* Faixa da Marca e Ações (Marca Imponente na Esquerda + Busca Suave e Player Rádio na Direita) */}
-      <div className="header-brand-bar bg-white border-b border-slate-200/80 py-2 sm:py-2.5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          {/* 1. Marca / Logo Oficial Imponente (Arte Completa Integrada) */}
-          <div className="flex items-center shrink-0">
+      {/* Faixa da Marca e Ações (Marca Imponente 100% Maior na Esquerda + Busca Suave e Player Rádio na Direita) */}
+      <div className="header-brand-bar bg-white border-b border-slate-200/80 py-2.5 sm:py-3.5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6">
+          {/* 1. Marca / Logo Oficial Imponente (Arte Completa Integrada - 100% Maior) */}
+          <div className="flex items-center justify-center md:justify-start shrink-0">
             <Link
               href="/"
               className="inline-flex items-center shrink-0 transition-opacity hover:opacity-95"
@@ -1048,13 +1048,13 @@ export default function PortalClient({
               <img
                 src="/logo-rede-apucarana-oficial.png"
                 alt="Rede Apucarana de Comunicação - Tudo em um só lugar"
-                className="h-14 sm:h-16 lg:h-[72px] w-auto object-contain"
+                className="h-28 sm:h-32 lg:h-[144px] w-auto max-w-full object-contain"
               />
             </Link>
           </div>
 
           {/* 2. Direita: Busca Suave e Player da Rádio Integrado com Espaçamento Nobre */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center justify-center md:justify-end gap-2.5 sm:gap-3 shrink-0 w-full md:w-auto">
             {/* Caixa de Busca com Fundo Cinza Suave (Sem Caixa Pesada) */}
             <div className="relative flex items-center bg-slate-100/80 hover:bg-slate-100 focus-within:bg-white border border-transparent focus-within:border-slate-300 rounded-lg transition-all">
               <div className="pl-3 sm:pl-3.5 pointer-events-none text-slate-400 flex items-center shrink-0">
