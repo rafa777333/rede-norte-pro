@@ -735,6 +735,14 @@ export default function AdminTvVideosManager() {
               </button>
             </div>
 
+            {/* AVISO IMPORTANTE SOBRE O AUTOVJ DO SAMCAST */}
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+              <span className="text-base shrink-0">⚠️</span>
+              <p className="leading-relaxed">
+                <strong>Atenção para o Modo Automático com o OBS:</strong> Para que a transição ocorra de forma 100% automática ao ligar ou desligar o OBS, certifique-se de que o <u>AutoVJ interno do SamCast esteja pausado/desligado</u> no painel da SamCast. Caso o AutoVJ da SamCast fique rodando lá no servidor deles, o link M3U8 continuará emitindo pacotes 24h e o sistema considerará o sinal como ativo continuamente.
+              </p>
+            </div>
+
             {/* Configurações Adicionais do Ao Vivo (Título e URL M3U8) */}
             <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

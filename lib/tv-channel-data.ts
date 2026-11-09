@@ -41,77 +41,77 @@ export const DEFAULT_TV_SETTINGS: TvSettings = {
 export const INITIAL_TV_PLAYLIST: TvPlaylistItem[] = [
   {
     id: "tv-item-1",
-    title: "RedeCast Especial • O Futuro do Empreendedorismo no Vale do Ivaí",
-    youtube_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    youtube_id: "dQw4w9WgXcQ",
+    title: "RedeCast • Terra de Cowboy & Entrevistas do Vale",
+    youtube_url: "https://www.youtube.com/watch?v=siHRXs-J-R8",
+    youtube_id: "siHRXs-J-R8",
     type: "podcast",
-    duration_seconds: 3600, // 1h 00m
+    duration_seconds: 4200, // 1h 10m
     sort_order: 1,
     active: true,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-2",
-    title: "Comercial Patrocinador Master • Sicredi Vale do Piquiri & Região",
-    youtube_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    youtube_id: "dQw4w9WgXcQ",
-    type: "comercial",
-    duration_seconds: 45, // 45s
+    title: "Conexão Sertaneja • Show e Bate-papo com Josy Rosseto",
+    youtube_url: "https://www.youtube.com/watch?v=s_EhTC5GMjQ",
+    youtube_id: "s_EhTC5GMjQ",
+    type: "musical",
+    duration_seconds: 3600, // 1h 00m
     sort_order: 2,
     active: true,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-3",
-    title: "Giro Regional • Obras da Perimetral e Infraestrutura em Apucarana",
-    youtube_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    youtube_id: "dQw4w9WgXcQ",
-    type: "reportagem",
-    duration_seconds: 720, // 12m
+    title: "RedeCast • Bate-papo com Nenê de Paula (Músico & Produtor Cultural)",
+    youtube_url: "https://www.youtube.com/watch?v=lBJIN6tE0zw",
+    youtube_id: "lBJIN6tE0zw",
+    type: "podcast",
+    duration_seconds: 4500, // 1h 15m
     sort_order: 3,
     active: true,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-4",
-    title: "Comercial • Hospital da Providência & Saúde Regional",
-    youtube_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    youtube_id: "dQw4w9WgXcQ",
-    type: "comercial",
-    duration_seconds: 30, // 30s
+    title: "RedeCast Entrevista • Eliane Tapira & Histórias Regionais",
+    youtube_url: "https://www.youtube.com/watch?v=y2zdEohCZDs",
+    youtube_id: "y2zdEohCZDs",
+    type: "podcast",
+    duration_seconds: 3600, // 1h 00m
     sort_order: 4,
     active: true,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-5",
-    title: "Especial Musical Estúdio • Sertanejo Raiz e Cultura Paranaense",
-    youtube_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    youtube_id: "dQw4w9WgXcQ",
-    type: "musical",
-    duration_seconds: 480, // 8m
+    title: "RedeCast Política & Sociedade • Deputada Carol Dartora no Estúdio",
+    youtube_url: "https://www.youtube.com/watch?v=5TXJP8-U94k",
+    youtube_id: "5TXJP8-U94k",
+    type: "podcast",
+    duration_seconds: 3900, // 1h 05m
     sort_order: 5,
     active: true,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-6",
-    title: "Plantão Policial 24h • Ronda Noturna e Segurança Pública",
-    youtube_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    youtube_id: "dQw4w9WgXcQ",
-    type: "reportagem",
-    duration_seconds: 900, // 15m
+    title: "O Pior Programa do Mundo #6 • Entrevista com Rafa Carraro",
+    youtube_url: "https://www.youtube.com/watch?v=R6-QAtKZM3Q",
+    youtube_id: "R6-QAtKZM3Q",
+    type: "podcast",
+    duration_seconds: 3300, // 55m
     sort_order: 6,
     active: true,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-7",
-    title: "Comercial • Anuncie na Rede Apucarana de Comunicação",
-    youtube_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    youtube_id: "dQw4w9WgXcQ",
-    type: "comercial",
-    duration_seconds: 35, // 35s
+    title: "RedeCast Especial • Autismo em Pauta com Especialistas de Apucarana",
+    youtube_url: "https://www.youtube.com/watch?v=DdvQWXAue0U",
+    youtube_id: "DdvQWXAue0U",
+    type: "reportagem",
+    duration_seconds: 3600, // 1h 00m
     sort_order: 7,
     active: true,
     created_at: new Date().toISOString(),
