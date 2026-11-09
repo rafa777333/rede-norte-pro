@@ -245,10 +245,22 @@ export default function LiveTvPlayer({
   // Monitoramento de Fullscreen
   useEffect(() => {
     const onFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFullscreen(isFs);
+      if (!isFs) {
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).unlock === "function") {
+            (screen.orientation as any).unlock();
+          }
+        } catch {}
+      }
     };
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
   }, []);
 
   // Monitoramento de Picture-in-Picture
@@ -359,14 +371,37 @@ export default function LiveTvPlayer({
 
   const toggleFullscreen = async () => {
     const container = containerRef.current;
+    const video = videoRef.current;
     if (!container) return;
 
     try {
-      if (!document.fullscreenElement) {
-        await container.requestFullscreen();
+      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any).webkitRequestFullscreen) {
+          await (container as any).webkitRequestFullscreen();
+        } else if (video && (video as any).webkitEnterFullscreen) {
+          (video as any).webkitEnterFullscreen();
+        }
+
+        // Tenta travar em paisagem no smartphone
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).lock === "function") {
+            await (screen.orientation as any).lock("landscape").catch(() => {});
+          }
+        } catch {}
         setIsFullscreen(true);
       } else {
-        await document.exitFullscreen();
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).unlock === "function") {
+            (screen.orientation as any).unlock();
+          }
+        } catch {}
         setIsFullscreen(false);
       }
     } catch (err) {

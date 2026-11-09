@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useImperativeHandle, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -26,6 +26,10 @@ import {
   Video as VideoIcon,
   Smartphone,
   VolumeX,
+  PictureInPicture,
+  Maximize2,
+  Minimize2,
+  Expand,
 } from "lucide-react";
 import LiveTvPlayer from "./LiveTvPlayer";
 import {
@@ -57,313 +61,331 @@ declare global {
  * =========================================================================
  * COMPONENTE: YouTubeFastGridPlayer
  * Player Oficial com window.YT.Player, loadVideoById (Zero Cliques),
- * Overscan CSS Anti-Marcas e Transição Estritamente Sequencial.
+ * Enquadramento 100% Original, Controles Liberados (HD/1080p, FS) e
+ * Transição Estritamente Sequencial.
  * =========================================================================
  */
+export interface YouTubeFastGridPlayerHandle {
+  toggleMute: () => void;
+  unMute: () => void;
+  mute: () => void;
+  isMuted: () => boolean;
+}
+
 interface YouTubeFastGridPlayerProps {
   playlist: TvPlaylistItem[];
   onCurrentItemChange?: (item: TvPlaylistItem, nextItem: TvPlaylistItem, remainingSeconds: number) => void;
-  onTheaterToggle?: () => void;
-  isTheater?: boolean;
+  onMuteChange?: (muted: boolean) => void;
 }
 
-function YouTubeFastGridPlayer({
-  playlist,
-  onCurrentItemChange,
-  onTheaterToggle,
-  isTheater = false,
-}: YouTubeFastGridPlayerProps) {
-  const playerRef = useRef<any>(null);
-  const isTransitioningRef = useRef(false);
-  const hasInitializedRef = useRef(false);
+const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouTubeFastGridPlayerProps>(
+  function YouTubeFastGridPlayer(
+    {
+      playlist,
+      onCurrentItemChange,
+      onMuteChange,
+    },
+    ref
+  ) {
+    const playerRef = useRef<any>(null);
+    const isTransitioningRef = useRef(false);
 
-  // Lista apenas com itens ativos e com duração válida
-  const activePlaylist = useMemo(() => {
-    const list = playlist.filter((i) => i.active && i.youtube_id && i.duration_seconds > 0);
-    return list.length > 0 ? list : INITIAL_TV_PLAYLIST;
-  }, [playlist]);
+    // Lista apenas com itens ativos e com duração válida
+    const activePlaylist = useMemo(() => {
+      const list = playlist.filter((i) => i.active && i.youtube_id && i.duration_seconds > 0);
+      return list.length > 0 ? list : INITIAL_TV_PLAYLIST;
+    }, [playlist]);
 
-  // Ponto de partida calculado pelo relógio sincronizado
-  const initialCalculated = useMemo(() => {
-    return calculateTvProgramAtTime(activePlaylist);
-  }, [activePlaylist]);
+    // Ponto de partida calculado pelo relógio sincronizado
+    const initialCalculated = useMemo(() => {
+      return calculateTvProgramAtTime(activePlaylist);
+    }, [activePlaylist]);
 
-  // Índice sequencial rigoroso na fila da grade
-  const [currentIndex, setCurrentIndex] = useState(() => initialCalculated?.currentIndex ?? 0);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [remainingTime, setRemainingTime] = useState<number>(0);
+    // Índice sequencial rigoroso na fila da grade
+    const [currentIndex, setCurrentIndex] = useState(() => initialCalculated?.currentIndex ?? 0);
+    const [isMuted, setIsMuted] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [remainingTime, setRemainingTime] = useState<number>(0);
 
-  const currentItem = activePlaylist[currentIndex] || activePlaylist[0];
-  const nextIndex = (currentIndex + 1) % activePlaylist.length;
-  const nextItem = activePlaylist[nextIndex] || currentItem;
+    const currentItem = activePlaylist[currentIndex] || activePlaylist[0];
+    const nextIndex = (currentIndex + 1) % activePlaylist.length;
+    const nextItem = activePlaylist[nextIndex] || currentItem;
 
-  // Notifica o componente pai sobre o item no ar e o próximo
-  useEffect(() => {
-    if (currentItem && nextItem) {
-      onCurrentItemChange?.(currentItem, nextItem, remainingTime);
-    }
-  }, [currentItem, nextItem, remainingTime, onCurrentItemChange]);
-
-  // Transição sequencial rigorosa entre vídeos sem cliques (loadVideoById)
-  const advanceToNextVideo = useCallback(() => {
-    if (isTransitioningRef.current || activePlaylist.length === 0) return;
-    isTransitioningRef.current = true;
-
-    setCurrentIndex((prev) => {
-      const nextIdx = (prev + 1) % activePlaylist.length;
-      const nextVid = activePlaylist[nextIdx];
-
-      if (nextVid && playerRef.current && typeof playerRef.current.loadVideoById === "function") {
-        try {
-          playerRef.current.loadVideoById({
-            videoId: nextVid.youtube_id,
-            startSeconds: 0,
-          });
-          playerRef.current.playVideo();
-        } catch (e) {
-          console.warn("[YouTubeFastGridPlayer] Falha ao avançar vídeo:", e);
-        }
+    // Notifica o componente pai sobre o item no ar e o próximo
+    useEffect(() => {
+      if (currentItem && nextItem) {
+        onCurrentItemChange?.(currentItem, nextItem, remainingTime);
       }
+    }, [currentItem, nextItem, remainingTime, onCurrentItemChange]);
 
-      return nextIdx;
-    });
+    // Transição sequencial rigorosa entre vídeos sem cliques (loadVideoById)
+    const advanceToNextVideo = useCallback(() => {
+      if (isTransitioningRef.current || activePlaylist.length === 0) return;
+      isTransitioningRef.current = true;
 
-    // Trava de segurança para não chamar loadVideoById em duplicidade
-    setTimeout(() => {
-      isTransitioningRef.current = false;
-    }, 2000);
-  }, [activePlaylist]);
+      setCurrentIndex((prev) => {
+        const nextIdx = (prev + 1) % activePlaylist.length;
+        const nextVid = activePlaylist[nextIdx];
 
-  // Inicialização única da API oficial do YouTube IFrame (window.YT)
-  useEffect(() => {
-    let cancel = false;
-
-    const setupPlayerInstance = () => {
-      if (cancel || playerRef.current || !window.YT || !window.YT.Player) return;
-
-      const container = document.getElementById("yt-fast-player-container");
-      if (!container) return;
-
-      const initialStart = initialCalculated?.offsetInCurrentVideo ?? 0;
-      const initialYtId = currentItem?.youtube_id || activePlaylist[0]?.youtube_id;
-
-      try {
-        playerRef.current = new window.YT.Player("yt-fast-player-container", {
-          videoId: initialYtId,
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            disablekb: 1,
-            fs: 0,
-            iv_load_policy: 3,
-            modestbranding: 1,
-            rel: 0,
-            playsinline: 1,
-            start: Math.floor(initialStart),
-            origin: typeof window !== "undefined" ? window.location.origin : undefined,
-          },
-          events: {
-            onReady: (e: any) => {
-              if (cancel) return;
-              e.target.playVideo();
-              setIsPlaying(true);
-              if (e.target.isMuted()) {
-                setIsMuted(true);
-              }
-            },
-            onStateChange: (e: any) => {
-              // 0 = YT.PlayerState.ENDED
-              if (e.data === 0) {
-                advanceToNextVideo();
-              }
-            },
-            onError: (e: any) => {
-              console.warn("[YT Fast Grid Error Code]:", e.data);
-              // Se o vídeo tiver restrição de incorporação ou falhar, avança direto para o próximo
-              advanceToNextVideo();
-            },
-          },
-        });
-      } catch (err) {
-        console.warn("[YouTubeFastGridPlayer] Erro na instanciação do YT.Player:", err);
-      }
-    };
-
-    if (window.YT && window.YT.Player) {
-      setupPlayerInstance();
-    } else {
-      // Carrega o script oficial do YouTube caso ainda não esteja no DOM
-      if (!document.getElementById("yt-iframe-api-script")) {
-        const tag = document.createElement("script");
-        tag.id = "yt-iframe-api-script";
-        tag.src = "https://www.youtube.com/iframe_api";
-        document.body.appendChild(tag);
-      }
-
-      const prevReady = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        if (typeof prevReady === "function") prevReady();
-        setupPlayerInstance();
-      };
-    }
-
-    return () => {
-      cancel = true;
-    };
-  }, [currentItem?.youtube_id, initialCalculated?.offsetInCurrentVideo, activePlaylist, advanceToNextVideo]);
-
-  // Monitor de tempo a cada 400ms: aciona a transição 1.2s antes do final para NUNCA exibir tela de sugestões
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const p = playerRef.current;
-      if (!p || typeof p.getCurrentTime !== "function" || typeof p.getDuration !== "function") {
-        return;
-      }
-
-      try {
-        const curr = p.getCurrentTime();
-        const dur = p.getDuration();
-
-        if (dur > 0 && curr >= 0) {
-          const rem = Math.max(0, dur - curr);
-          setRemainingTime(Math.round(rem));
-
-          // 1.2 segundo antes de acabar: carrega imediatamente o próximo item
-          if (curr >= dur - 1.2 && dur > 4) {
-            advanceToNextVideo();
+        if (nextVid && playerRef.current && typeof playerRef.current.loadVideoById === "function") {
+          try {
+            playerRef.current.loadVideoById({
+              videoId: nextVid.youtube_id,
+              startSeconds: 0,
+            });
+            playerRef.current.playVideo();
+          } catch (e) {
+            console.warn("[YouTubeFastGridPlayer] Falha ao avançar vídeo:", e);
           }
         }
-      } catch (err) {
-        // Ignora leituras durante transição de estado
+
+        return nextIdx;
+      });
+
+      // Trava de segurança para não chamar loadVideoById em duplicidade
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 2000);
+    }, [activePlaylist]);
+
+    // Controle de áudio desmutar / mutar
+    const handleToggleMute = useCallback(() => {
+      const p = playerRef.current;
+      if (!p) return;
+
+      try {
+        if (isMuted) {
+          p.unMute();
+          p.setVolume(100);
+          setIsMuted(false);
+          onMuteChange?.(false);
+        } else {
+          p.mute();
+          setIsMuted(true);
+          onMuteChange?.(true);
+        }
+      } catch (e) {
+        console.warn("Erro ao alternar áudio:", e);
       }
-    }, 400);
+    }, [isMuted, onMuteChange]);
 
-    return () => clearInterval(interval);
-  }, [advanceToNextVideo]);
+    // Expõe métodos imperativos para controle externo
+    useImperativeHandle(
+      ref,
+      () => ({
+        toggleMute: handleToggleMute,
+        unMute: () => {
+          const p = playerRef.current;
+          if (p && typeof p.unMute === "function") {
+            try {
+              p.unMute();
+              p.setVolume(100);
+              setIsMuted(false);
+              onMuteChange?.(false);
+            } catch {}
+          }
+        },
+        mute: () => {
+          const p = playerRef.current;
+          if (p && typeof p.mute === "function") {
+            try {
+              p.mute();
+              setIsMuted(true);
+              onMuteChange?.(true);
+            } catch {}
+          }
+        },
+        isMuted: () => isMuted,
+      }),
+      [handleToggleMute, isMuted, onMuteChange]
+    );
 
-  // Destruição limpa no unmount
-  useEffect(() => {
-    return () => {
-      if (playerRef.current && typeof playerRef.current.destroy === "function") {
+    // Inicialização única da API oficial do YouTube IFrame (window.YT)
+    useEffect(() => {
+      let cancel = false;
+
+      const setupPlayerInstance = () => {
+        if (cancel || playerRef.current || !window.YT || !window.YT.Player) return;
+
+        const container = document.getElementById("yt-fast-player-container");
+        if (!container) return;
+
+        const initialStart = initialCalculated?.offsetInCurrentVideo ?? 0;
+        const initialYtId = currentItem?.youtube_id || activePlaylist[0]?.youtube_id;
+
         try {
-          playerRef.current.destroy();
-        } catch {}
-        playerRef.current = null;
-      }
-    };
-  }, []);
+          playerRef.current = new window.YT.Player("yt-fast-player-container", {
+            videoId: initialYtId,
+            playerVars: {
+              autoplay: 1,
+              controls: 1, // Libera engrenagem de resolução HD/1080p, volume e barra
+              disablekb: 0,
+              fs: 1, // Libera botão nativo de Fullscreen para rotação mobile
+              iv_load_policy: 3,
+              modestbranding: 1,
+              rel: 0,
+              playsinline: 1,
+              start: Math.floor(initialStart),
+              origin: typeof window !== "undefined" ? window.location.origin : undefined,
+            },
+            events: {
+              onReady: (e: any) => {
+                if (cancel) return;
+                e.target.playVideo();
+                setIsPlaying(true);
 
-  // Controle de áudio desmutar / mutar
-  const handleToggleMute = () => {
-    const p = playerRef.current;
-    if (!p) return;
+                // Garante atributos de permissão no iframe gerado para tela cheia e rotação mobile
+                try {
+                  const iframe = e.target.getIframe?.();
+                  if (iframe) {
+                    iframe.setAttribute(
+                      "allow",
+                      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    );
+                    iframe.setAttribute("allowfullscreen", "true");
+                    iframe.setAttribute("webkitallowfullscreen", "true");
+                    iframe.setAttribute("mozallowfullscreen", "true");
+                    iframe.className = "w-full h-full border-0";
+                  }
+                } catch {}
 
-    try {
-      if (isMuted) {
-        p.unMute();
-        p.setVolume(100);
-        setIsMuted(false);
+                if (typeof e.target.isMuted === "function") {
+                  const m = e.target.isMuted();
+                  setIsMuted(m);
+                  onMuteChange?.(m);
+                }
+              },
+              onStateChange: (e: any) => {
+                // 0 = YT.PlayerState.ENDED
+                if (e.data === 0) {
+                  advanceToNextVideo();
+                }
+              },
+              onError: (e: any) => {
+                console.warn("[YT Fast Grid Error Code]:", e.data);
+                // Se o vídeo falhar, avança direto para o próximo da grade
+                advanceToNextVideo();
+              },
+            },
+          });
+        } catch (err) {
+          console.warn("[YouTubeFastGridPlayer] Erro na instanciação do YT.Player:", err);
+        }
+      };
+
+      if (window.YT && window.YT.Player) {
+        setupPlayerInstance();
       } else {
-        p.mute();
-        setIsMuted(true);
+        // Carrega o script oficial do YouTube caso ainda não esteja no DOM
+        if (!document.getElementById("yt-iframe-api-script")) {
+          const tag = document.createElement("script");
+          tag.id = "yt-iframe-api-script";
+          tag.src = "https://www.youtube.com/iframe_api";
+          document.body.appendChild(tag);
+        }
+
+        const prevReady = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = () => {
+          if (typeof prevReady === "function") prevReady();
+          setupPlayerInstance();
+        };
       }
-    } catch (e) {
-      console.warn("Erro ao alternar áudio:", e);
-    }
-  };
 
-  const typeMeta = getPlaylistItemTypeMeta(currentItem?.type || "podcast");
+      return () => {
+        cancel = true;
+      };
+    }, [currentItem?.youtube_id, initialCalculated?.offsetInCurrentVideo, activePlaylist, advanceToNextVideo, onMuteChange]);
 
-  return (
-    <div className="relative w-full aspect-video bg-black overflow-hidden rounded-2xl shadow-2xl border border-slate-800 flex items-center justify-center select-none">
-      {/* ========================================================================= */}
-      {/* TÉCNICA BROADCAST OVERSCAN CSS: CORTA 100% DA LOGO E DO TÍTULO DO YOUTUBE  */}
-      {/* w-[104%] h-[124%] -top-[12%] -left-[2%] absolute pointer-events-none      */}
-      {/* ========================================================================= */}
-      <div className="absolute w-[104%] h-[124%] -top-[12%] -left-[2%] pointer-events-none select-none overflow-hidden">
-        <div id="yt-fast-player-container" className="w-full h-full" />
-      </div>
+    // Monitor de tempo a cada 400ms: aciona a transição 1.2s antes do final e sincroniza áudio
+    useEffect(() => {
+      const interval = setInterval(() => {
+        const p = playerRef.current;
+        if (!p || typeof p.getCurrentTime !== "function" || typeof p.getDuration !== "function") {
+          return;
+        }
 
-      {/* ========================================================================= */}
-      {/* HUD SUPERIOR PERSONALIZADO DA REDE APUCARANA (SOBREPOSTO)                 */}
-      {/* ========================================================================= */}
-      <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/50 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="px-3 py-1 rounded-full bg-purple-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
-            <Radio className="w-3.5 h-3.5 animate-pulse" />
-            <span>TRANSMISSÃO 24H • GRADE PROGRAMADA</span>
+        try {
+          const curr = p.getCurrentTime();
+          const dur = p.getDuration();
+
+          if (dur > 0 && curr >= 0) {
+            const rem = Math.max(0, dur - curr);
+            setRemainingTime(Math.round(rem));
+
+            // 1.2 segundo antes de acabar: carrega imediatamente o próximo item
+            if (curr >= dur - 1.2 && dur > 4) {
+              advanceToNextVideo();
+            }
+          }
+
+          // Sincroniza estado de mudo com controles nativos do YouTube
+          if (typeof p.isMuted === "function") {
+            const actualMuted = p.isMuted();
+            if (actualMuted !== isMuted) {
+              setIsMuted(actualMuted);
+              onMuteChange?.(actualMuted);
+            }
+          }
+        } catch (err) {
+          // Ignora leituras durante transição de estado
+        }
+      }, 400);
+
+      return () => clearInterval(interval);
+    }, [advanceToNextVideo, isMuted, onMuteChange]);
+
+    // Destruição limpa no unmount
+    useEffect(() => {
+      return () => {
+        if (playerRef.current && typeof playerRef.current.destroy === "function") {
+          try {
+            playerRef.current.destroy();
+          } catch {}
+          playerRef.current = null;
+        }
+      };
+    }, []);
+
+    const typeMeta = getPlaylistItemTypeMeta(currentItem?.type || "podcast");
+
+    return (
+      <div className="relative w-full h-full aspect-video bg-black flex items-center justify-center select-none group">
+        {/* Container do player oficial YouTube IFrame - 100% original sem corte */}
+        <div className="w-full h-full aspect-video">
+          <div id="yt-fast-player-container" className="w-full h-full" />
+        </div>
+
+        {/* Badge discreto no canto superior esquerdo (pointer-events-none para não bloquear cliques no vídeo) */}
+        <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none flex items-center gap-2">
+          <span className="px-2.5 py-1 rounded-full bg-purple-600/95 text-white font-black text-[10px] uppercase tracking-wider shadow-md backdrop-blur-xs flex items-center gap-1.5 border border-purple-400/30">
+            <Radio className="w-3 h-3 animate-pulse" />
+            <span>GRADE 24H</span>
           </span>
-
-          <span className={`hidden sm:inline-block px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider border backdrop-blur-xs ${typeMeta.badgeBg}`}>
+          <span className="hidden sm:inline-flex px-2 py-0.5 rounded bg-black/70 text-amber-400 font-bold text-[10px] border border-amber-500/30 backdrop-blur-xs">
+            HD 1080p
+          </span>
+          <span className={`hidden md:inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border backdrop-blur-xs ${typeMeta.badgeBg}`}>
             {typeMeta.icon} {typeMeta.label}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Botão de Som Desmutar / Mutar */}
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            className={`px-3 py-1.5 rounded-full text-xs font-black transition-all flex items-center gap-1.5 shadow-md cursor-pointer ${
-              isMuted
-                ? "bg-red-600 hover:bg-red-500 text-white animate-pulse"
-                : "bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700"
-            }`}
-            title={isMuted ? "Clique para ativar o áudio da TV" : "Mutar áudio"}
-          >
-            {isMuted ? (
-              <>
-                <VolumeX className="w-3.5 h-3.5 text-white" />
-                <span>ATIVAR SOM</span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>SOM LIGADO</span>
-              </>
-            )}
-          </button>
-
-          {/* Toggle de Modo Teatro */}
-          {onTheaterToggle && (
+        {/* Botão flutuante para desbloquear áudio se iniciar no mudo (autoplay do navegador) */}
+        {isMuted && (
+          <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
             <button
               type="button"
-              onClick={onTheaterToggle}
-              className="hidden sm:inline-flex px-2.5 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 transition"
-              title="Modo Teatro"
+              onClick={handleToggleMute}
+              className="pointer-events-auto px-5 py-3 rounded-2xl bg-black/85 hover:bg-black text-white font-black text-xs sm:text-sm flex items-center gap-2.5 shadow-2xl border-2 border-red-500 backdrop-blur-md transition-all hover:scale-105 active:scale-95 animate-pulse cursor-pointer"
             >
-              {isTheater ? "Normal" : "Teatro"}
+              <VolumeX className="w-4 h-4 text-red-500" />
+              <span>CLIQUE PARA ATIVAR O SOM DA TV</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-
-      {/* ========================================================================= */}
-      {/* BOTÃO FLUTUANTE DE DESBLOQUEIO DE ÁUDIO CASO INICIE NO MUDO               */}
-      {/* ========================================================================= */}
-      {isMuted && (
-        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            className="pointer-events-auto px-6 py-3.5 rounded-2xl bg-black/85 hover:bg-black text-white font-black text-xs sm:text-sm flex items-center gap-3 shadow-2xl border-2 border-red-500/80 backdrop-blur-md transition-all hover:scale-105 active:scale-95 animate-pulse cursor-pointer"
-          >
-            <VolumeX className="w-5 h-5 text-red-500" />
-            <span>CLIQUE PARA OUVIR O ÁUDIO DA TRANSMISSÃO</span>
-          </button>
-        </div>
-      )}
-
-      {/* Marca d'água oficial no canto inferior direito da TV */}
-      <div className="absolute bottom-3 right-3 z-20 pointer-events-none opacity-80">
-        <span className="text-[10px] font-mono font-black text-slate-400 bg-black/60 px-2 py-0.5 rounded border border-white/10 backdrop-blur-xs">
-          REDE APUCARANA HD
-        </span>
-      </div>
-    </div>
-  );
-}
+    );
+  }
+);
 
 /**
  * =========================================================================
@@ -396,7 +418,16 @@ function TvOnlineHubContent() {
   const [videos, setVideos] = useState<PortalVideoItem[]>(MOCK_PORTAL_VIDEOS);
   const [loadingVideos, setLoadingVideos] = useState(false);
 
+  // Estados de Interface e Controles Modernos
+  const [isFloating, setIsFloating] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isGlobalMuted, setIsGlobalMuted] = useState(true);
+
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const playerStageRef = useRef<HTMLDivElement>(null);
+  const playerScrollAnchorRef = useRef<HTMLDivElement>(null);
+  const userDismissedFloatingRef = useRef(false);
+  const ytPlayerHandleRef = useRef<YouTubeFastGridPlayerHandle | null>(null);
   const hasAppliedParam = useRef<string | null>(null);
 
   // 1. Carrega configurações do Canal 24h e Playlist da Grade
@@ -534,6 +565,144 @@ function TvOnlineHubContent() {
       window.history.replaceState({}, "", url.toString());
     }
   };
+
+  // 6. Alternar Áudio Global do Player
+  const handleToggleGlobalMute = () => {
+    if (playerMode === "live") {
+      if (isObsLiveActive) {
+        const video = playerStageRef.current?.querySelector("video");
+        if (video) {
+          video.muted = !video.muted;
+          setIsGlobalMuted(video.muted);
+        }
+      } else {
+        ytPlayerHandleRef.current?.toggleMute();
+      }
+    } else {
+      const video = playerStageRef.current?.querySelector("video");
+      if (video) {
+        video.muted = !video.muted;
+        setIsGlobalMuted(video.muted);
+      }
+    }
+  };
+
+  // 7. Alternar Janela Flutuante (Mini-Player Fixo + PiP)
+  const handleToggleFloating = async () => {
+    if (isFloating) {
+      setIsFloating(false);
+      userDismissedFloatingRef.current = false;
+      return;
+    }
+
+    // Se estiver no sinal OBS e o navegador suportar Picture-in-Picture nativo no elemento de vídeo
+    if (playerMode === "live" && isObsLiveActive) {
+      const video = playerStageRef.current?.querySelector("video");
+      if (document.pictureInPictureEnabled && video && !document.pictureInPictureElement) {
+        try {
+          await video.requestPictureInPicture();
+          return;
+        } catch (err) {
+          console.info("[TvOnlineClient] Fallback para Mini-Player Universal:", err);
+        }
+      }
+    }
+
+    // Modo Universal: funciona perfeitamente para YouTube, VOD e fallback M3U8
+    userDismissedFloatingRef.current = false;
+    setIsFloating(true);
+  };
+
+  // 8. Tela Cheia com Auto-Rotate Paisagem no Smartphone
+  const handleFullscreenToggle = async () => {
+    const container = playerStageRef.current;
+    if (!container) return;
+
+    try {
+      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any).webkitRequestFullscreen) {
+          await (container as any).webkitRequestFullscreen();
+        } else {
+          const video = container.querySelector("video");
+          if (video && (video as any).webkitEnterFullscreen) {
+            (video as any).webkitEnterFullscreen();
+          }
+        }
+
+        // Tenta travar orientação em paisagem (landscape) no smartphone
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).lock === "function") {
+            await (screen.orientation as any).lock("landscape").catch(() => {});
+          }
+        } catch {}
+        setIsFullscreen(true);
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).unlock === "function") {
+            (screen.orientation as any).unlock();
+          }
+        } catch {}
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.warn("[Fullscreen] Falha ao alternar tela cheia:", err);
+    }
+  };
+
+  // Monitora alterações de Fullscreen pelo navegador/sistema
+  useEffect(() => {
+    const onFsChange = () => {
+      const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFullscreen(isFs);
+      if (!isFs) {
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).unlock === "function") {
+            (screen.orientation as any).unlock();
+          }
+        } catch {}
+      }
+    };
+
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
+  }, []);
+
+  // Monitora rolagem para acionar Mini-Player Flutuante automaticamente ao rolar além do player
+  useEffect(() => {
+    const anchor = playerScrollAnchorRef.current;
+    if (!anchor || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        const scrolledPast = entry.boundingClientRect.top < -100;
+
+        if (scrolledPast && !entry.isIntersecting) {
+          if (!userDismissedFloatingRef.current && !isFullscreen) {
+            setIsFloating(true);
+          }
+        } else if (entry.isIntersecting) {
+          userDismissedFloatingRef.current = false;
+          setIsFloating(false);
+        }
+      },
+      { threshold: [0, 0.2, 1] }
+    );
+
+    observer.observe(anchor);
+    return () => observer.disconnect();
+  }, [isFullscreen]);
 
   // Filtragem dos vídeos da barra lateral (Aba 1: RedeCast, Aba 2: TV Apucarana)
   const sidebarRedeCast = useMemo(() => {
@@ -730,157 +899,335 @@ function TvOnlineHubContent() {
         >
           {/* COLUNA ESQUERDA: PALCO PRINCIPAL DA TV (8 COLUNAS) */}
           <div className={`space-y-4 transition-all ${isTheater ? "w-full" : "lg:col-span-8"}`}>
-            {/* CONTAINER ADAPTATIVO DO PLAYER */}
-            {playerMode === "live" ? (
-              isObsLiveActive ? (
-                // 1.1 ESTADO AO VIVO OBS (SamCast HLS M3U8)
-                <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex items-center justify-center">
-                  <LiveTvPlayer
-                    onTheaterToggle={() => setIsTheater(!isTheater)}
-                    isTheater={isTheater}
-                    streamUrl={tvSettings.live_m3u8_url}
-                    onStreamActive={() => setM3u8HasError(false)}
-                    onError={() => {
-                      if (tvSettings.mode === "auto") {
-                        console.info("[LiveTvPlayer] Sinal M3U8 offline. Ativando Grade YouTube 24h.");
-                        setM3u8HasError(true);
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                // 1.2 ESTADO GRADE YOUTUBE 24H (API OFICIAL window.YT.Player COM OVERSCAN E ZERO CLIQUES)
-                <YouTubeFastGridPlayer
-                  playlist={tvPlaylist}
-                  onCurrentItemChange={(curr, next, rem) => {
-                    setLiveCurrentItem(curr);
-                    setLiveNextItem(next);
-                    setLiveRemainingSeconds(rem);
-                  }}
-                  onTheaterToggle={() => setIsTheater(!isTheater)}
-                  isTheater={isTheater}
-                />
-              )
-            ) : isCurrentVideoVertical ? (
-              // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur + Player Centralizado
-              <div className="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex items-center justify-center">
-                {/* Fundo Ambient com Blur */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-                  <img
-                    src={currentVodVideo?.thumbnail_url}
-                    alt=""
-                    className="w-full h-full object-cover filter blur-3xl opacity-40 scale-125"
-                  />
-                  <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
-                </div>
+            {/* Âncora invisível para detecção de scroll do player */}
+            <div ref={playerScrollAnchorRef} className="h-0 w-full pointer-events-none" />
 
-                {/* Barra Superior com Botão de Voltar para a TV */}
-                <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
-                  <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
-                    <span className="px-3 py-1 rounded-full bg-pink-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
-                      <Smartphone className="w-3.5 h-3.5" />
-                      <span>Corte 9:16</span>
-                    </span>
-                    <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
-                      {currentVodVideo?.title}
-                    </span>
+            {/* Espaço reservado (Placeholder) para manter o layout estável quando o Mini-Player estiver flutuando */}
+            {isFloating && (
+              <div className="w-full aspect-video rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col items-center justify-center text-center p-4">
+                <div className="w-12 h-12 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-2 animate-pulse">
+                  <Tv className="w-6 h-6" />
+                </div>
+                <p className="text-xs sm:text-sm font-bold text-slate-200">
+                  A transmissão está em reprodução na Janela Flutuante
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Você pode continuar assistindo enquanto navega pelo catálogo e notícias abaixo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsFloating(false);
+                    userDismissedFloatingRef.current = false;
+                    playerContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  className="mt-3 px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <span>⬆️ Voltar ao Tamanho Normal</span>
+                </button>
+              </div>
+            )}
+
+            {/* PALCO DO PLAYER (TRANSFORMA-SE EM MINI-PLAYER FLUTUANTE QUANDO isFloating = true) */}
+            <div
+              ref={playerStageRef}
+              className={
+                isFloating
+                  ? "fixed bottom-4 right-4 w-72 sm:w-96 aspect-video z-50 rounded-xl shadow-2xl border-2 border-red-600 bg-black overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-4"
+                  : "relative w-full aspect-video rounded-2xl bg-black overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300"
+              }
+            >
+              {/* Barra Superior da Janela Flutuante (apenas visível quando em modo flutuante) */}
+              {isFloating && (
+                <div className="absolute top-0 inset-x-0 z-40 bg-gradient-to-b from-black/95 via-black/80 to-transparent p-2 sm:p-2.5 flex items-center justify-between text-white text-xs font-bold backdrop-blur-xs">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
+                    <span className="truncate text-[11px] font-black text-white">TV REDE APUCARANA</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsFloating(false);
+                        userDismissedFloatingRef.current = false;
+                        playerContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                      title="Voltar ao Tamanho Normal"
+                    >
+                      <span>⬆️ Voltar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsFloating(false);
+                        userDismissedFloatingRef.current = true;
+                      }}
+                      className="w-5 h-5 rounded-full bg-black/70 hover:bg-red-600 text-white flex items-center justify-center text-xs transition cursor-pointer"
+                      title="Fechar Janela Flutuante"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* CONTEÚDO ATIVO DO PLAYER */}
+              {playerMode === "live" ? (
+                isObsLiveActive ? (
+                  // 1.1 ESTADO AO VIVO OBS (SamCast HLS M3U8)
+                  <div className="relative w-full h-full aspect-video bg-black flex items-center justify-center">
+                    <LiveTvPlayer
+                      onTheaterToggle={() => setIsTheater(!isTheater)}
+                      isTheater={isTheater}
+                      streamUrl={tvSettings.live_m3u8_url}
+                      onStreamActive={() => setM3u8HasError(false)}
+                      onError={() => {
+                        if (tvSettings.mode === "auto") {
+                          console.info("[LiveTvPlayer] Sinal M3U8 offline. Ativando Grade YouTube 24h.");
+                          setM3u8HasError(true);
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  // 1.2 ESTADO GRADE YOUTUBE 24H (Enquadramento 100% Original, Controles HD/FS liberados e Zero Cliques)
+                  <YouTubeFastGridPlayer
+                    ref={ytPlayerHandleRef}
+                    playlist={tvPlaylist}
+                    onCurrentItemChange={(curr, next, rem) => {
+                      setLiveCurrentItem(curr);
+                      setLiveNextItem(next);
+                      setLiveRemainingSeconds(rem);
+                    }}
+                    onMuteChange={(muted) => setIsGlobalMuted(muted)}
+                  />
+                )
+              ) : isCurrentVideoVertical ? (
+                // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur + Player Centralizado
+                <div className="relative w-full h-full aspect-video bg-slate-950 flex items-center justify-center">
+                  {/* Fundo Ambient com Blur */}
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+                    <img
+                      src={currentVodVideo?.thumbnail_url}
+                      alt=""
+                      className="w-full h-full object-cover filter blur-3xl opacity-40 scale-125"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleReturnToLive}
-                    className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                    </span>
-                    <span>VOLTAR PARA A PROGRAMAÇÃO DA TV</span>
-                  </button>
-                </div>
+                  {/* Barra Superior com Botão de Voltar para a TV */}
+                  <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
+                    <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
+                      <span className="px-3 py-1 rounded-full bg-pink-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span>Corte 9:16</span>
+                      </span>
+                      <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
+                        {currentVodVideo?.title}
+                      </span>
+                    </div>
 
-                {/* Moldura Centralizada 9:16 */}
-                <div className="relative h-full max-h-[96%] aspect-[9/16] rounded-xl overflow-hidden shadow-2xl border border-slate-700/80 z-10 bg-black flex items-center justify-center my-auto">
+                    <button
+                      type="button"
+                      onClick={handleReturnToLive}
+                      className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                      </span>
+                      <span>VOLTAR PARA A TV AO VIVO</span>
+                    </button>
+                  </div>
+
+                  {/* Moldura Centralizada 9:16 */}
+                  <div className="relative h-full max-h-[96%] aspect-[9/16] rounded-xl overflow-hidden shadow-2xl border border-slate-700/80 z-10 bg-black flex items-center justify-center my-auto">
+                    {currentVodVideo?.video_type === "mp4" ? (
+                      <video
+                        src={currentVodVideo.video_url}
+                        controls
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-contain"
+                      />
+                    ) : currentVodVideo?.youtube_id ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1&controls=1&fs=1`}
+                        title={currentVodVideo.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs text-center p-4">
+                        Pré-visualização do vídeo não disponível.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // 3. ESTADO SOB DEMANDA HORIZONTAL (16:9): Player Widescreen YouTube / MP4
+                <div className="relative w-full h-full aspect-video bg-slate-950 flex flex-col">
+                  {/* Barra Superior do Palco VOD */}
+                  <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/70 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
+                    <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
+                      {currentVodVideo?.channel_source === "RedeCast" ? (
+                        <span className="px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                          <Mic className="w-3.5 h-3.5" />
+                          <span>Canal RedeCast</span>
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                          <Tv className="w-3.5 h-3.5" />
+                          <span>Canal TV Apucarana</span>
+                        </span>
+                      )}
+
+                      <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
+                        {currentVodVideo?.title}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleReturnToLive}
+                      className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                      title="Voltar para a programação contínua da TV"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                      </span>
+                      <span>VOLTAR PARA A TV AO VIVO</span>
+                    </button>
+                  </div>
+
+                  {/* Player Widescreen: MP4 Nativo ou YouTube */}
                   {currentVodVideo?.video_type === "mp4" ? (
                     <video
                       src={currentVodVideo.video_url}
                       controls
                       autoPlay
                       playsInline
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain bg-black"
                     />
                   ) : currentVodVideo?.youtube_id ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1`}
+                      src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1&controls=1&fs=1`}
                       title={currentVodVideo.title}
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
                     />
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* ========================================================================= */}
+            {/* BARRA DE CONTROLE MODERNA DO PLAYER (SOM, MINI-PLAYER, TEATRO, FS)        */}
+            {/* ========================================================================= */}
+            <div className="bg-slate-900/95 border border-slate-800 rounded-xl px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
+              {/* Lado Esquerdo: Áudio & Status */}
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={handleToggleGlobalMute}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
+                    isGlobalMuted
+                      ? "bg-red-600 hover:bg-red-500 text-white animate-pulse"
+                      : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                  }`}
+                  title={isGlobalMuted ? "Clique para ativar o áudio" : "Mutar áudio"}
+                >
+                  {isGlobalMuted ? (
+                    <>
+                      <VolumeX className="w-4 h-4 text-white" />
+                      <span>Ativar Som</span>
+                    </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs text-center p-4">
-                      Pré-visualização do vídeo não disponível.
-                    </div>
+                    <>
+                      <Volume2 className="w-4 h-4 text-emerald-400" />
+                      <span>Som Ligado</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 border-l border-slate-800 pl-3">
+                  {playerMode === "live" ? (
+                    isObsLiveActive ? (
+                      <span className="flex items-center gap-1.5 text-red-400 font-bold text-[11px]">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                        Ao Vivo OBS (SamCast)
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-purple-400 font-bold text-[11px]">
+                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                        Grade 24h Contínua
+                      </span>
+                    )
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-pink-400 font-bold text-[11px]">
+                      <span>▶️</span> Vídeo Sob Demanda
+                    </span>
                   )}
                 </div>
               </div>
-            ) : (
-              // 3. ESTADO SOB DEMANDA HORIZONTAL (16:9): Player Widescreen YouTube / MP4
-              <div className="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col">
-                {/* Barra Superior do Palco VOD */}
-                <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/70 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
-                  <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
-                    {currentVodVideo?.channel_source === "RedeCast" ? (
-                      <span className="px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
-                        <Mic className="w-3.5 h-3.5" />
-                        <span>Canal RedeCast</span>
-                      </span>
-                    ) : (
-                      <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
-                        <Tv className="w-3.5 h-3.5" />
-                        <span>Canal TV Apucarana</span>
-                      </span>
-                    )}
 
-                    <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
-                      {currentVodVideo?.title}
-                    </span>
-                  </div>
+              {/* Lado Direito: Janela Flutuante, Teatro e Tela Cheia (Landscape Mobile) */}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {/* Botão Janela Flutuante (Mini-Player) */}
+                <button
+                  type="button"
+                  onClick={handleToggleFloating}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                    isFloating
+                      ? "bg-red-600 text-white border-red-500 shadow-md shadow-red-600/30"
+                      : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 hover:text-white"
+                  }`}
+                  title="Assistir em Janela Flutuante (Mini-Player) enquanto navega"
+                >
+                  <PictureInPicture className="w-4 h-4 text-amber-400" />
+                  <span className="hidden xs:inline">Janela Flutuante</span>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={handleReturnToLive}
-                    className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                    title="Voltar para a programação contínua da TV"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                    </span>
-                    <span>VOLTAR PARA A PROGRAMAÇÃO DA TV</span>
-                  </button>
-                </div>
+                {/* Botão Modo Teatro (Expandir Largura) */}
+                <button
+                  type="button"
+                  onClick={() => setIsTheater((prev) => !prev)}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all hidden sm:flex items-center gap-1.5 cursor-pointer border ${
+                    isTheater
+                      ? "bg-red-600/20 text-red-400 border-red-500/40"
+                      : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 hover:text-white"
+                  }`}
+                  title={isTheater ? "Voltar ao Modo Normal" : "Expandir para Modo Teatro"}
+                >
+                  <Expand className="w-4 h-4 text-slate-300" />
+                  <span>Teatro</span>
+                </button>
 
-                {/* Player Widescreen: MP4 Nativo ou YouTube */}
-                {currentVodVideo?.video_type === "mp4" ? (
-                  <video
-                    src={currentVodVideo.video_url}
-                    controls
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-contain bg-black"
-                  />
-                ) : currentVodVideo?.youtube_id ? (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1`}
-                    title={currentVodVideo.title}
-                    className="w-full h-full border-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                ) : null}
+                {/* Botão Tela Cheia (Maximizar com auto-rotate paisagem no smartphone) */}
+                <button
+                  type="button"
+                  onClick={handleFullscreenToggle}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+                  title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia (Girar Celular)"}
+                >
+                  {isFullscreen ? (
+                    <>
+                      <Minimize2 className="w-4 h-4 text-emerald-400" />
+                      <span className="hidden xs:inline">Restaurar</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="w-4 h-4 text-emerald-400" />
+                      <span className="hidden xs:inline">Tela Cheia</span>
+                    </>
+                  )}
+                </button>
               </div>
-            )}
+            </div>
 
             {/* ========================================================================= */}
             {/* BARRA DE INFORMAÇÕES ABAIXO DO PLAYER (NO AR AGORA + A SEGUIR)            */}
