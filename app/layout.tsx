@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Newsreader, Inter } from "next/font/google";
 import { GoogleTagManager, GoogleAnalytics } from "@next/third-parties/google";
+import AppVersionWatcher from "@/components/AppVersionWatcher";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -69,7 +70,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="pt-BR" className={`${newsreader.variable} ${inter.variable}`}>
-      <body className="bg-slate-50 text-slate-800 antialiased font-sans">{children}</body>
+      <body className="bg-slate-50 text-slate-800 antialiased font-sans">
+        <AppVersionWatcher />
+        {children}
+      </body>
       {gtmId && <GoogleTagManager gtmId={gtmId} />}
       {gaId && <GoogleAnalytics gaId={gaId} />}
     </html>

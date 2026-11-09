@@ -2,7 +2,8 @@ import React from "react";
 import type { Metadata } from "next";
 import TvOnlineClient from "@/components/TvOnlineClient";
 
-export const revalidate = 60; // ISR
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "TV Rede Apucarana Ao Vivo (1080p) • Transmissão 24 Horas no Vale do Ivaí",

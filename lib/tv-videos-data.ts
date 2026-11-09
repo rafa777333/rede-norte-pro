@@ -81,6 +81,47 @@ export function getYouTubeThumbnail(
   return "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=800&auto=format&fit=crop&q=80";
 }
 
+/**
+ * Helper universal para detecção inteligente de formato Vertical 9:16 (Reels/Shorts/Cortes) vs 16:9 (Horizontal).
+ */
+export function isVideoVerticalFormat(
+  video?: Partial<PortalVideoItem> | any | null,
+  overrideMp4Vertical?: boolean | null
+): boolean {
+  if (overrideMp4Vertical === true) return true;
+  if (overrideMp4Vertical === false) return false;
+  if (!video) return false;
+
+  const fmt = String(
+    video.video_format || video.format || video.formato || ""
+  ).toLowerCase();
+  if (fmt === "9:16" || fmt === "vertical") return true;
+
+  const cat = String(video.category || video.categoria || "").toLowerCase();
+  if (
+    cat.includes("corte") ||
+    cat.includes("short") ||
+    cat.includes("reel") ||
+    cat.includes("vertical")
+  ) {
+    return true;
+  }
+
+  const url = String(
+    video.youtube_url || video.video_url || video.url_video || video.videoUrl || ""
+  ).toLowerCase();
+  if (
+    url.includes("/shorts/") ||
+    url.includes("/reel/") ||
+    video.video_type === "tiktok" ||
+    video.plataforma === "tiktok"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function normalizePortalVideo(raw: any): PortalVideoItem {
   const videoUrl = (raw.youtube_url || raw.url_video || raw.videoUrl || "").trim();
   const ytId = raw.youtube_id || extractYouTubeId(videoUrl) || "";
@@ -102,16 +143,8 @@ export function normalizePortalVideo(raw: any): PortalVideoItem {
   }
 
   // Detecção de formato (16:9 vs 9:16)
-  let video_format: "16:9" | "9:16" = "16:9";
-  if (
-    raw.video_format === "9:16" ||
-    raw.formato === "9:16" ||
-    videoUrl.includes("/shorts/") ||
-    videoUrl.includes("/reel/") ||
-    video_type === "tiktok"
-  ) {
-    video_format = "9:16";
-  }
+  const isVert = isVideoVerticalFormat(raw);
+  const video_format: "16:9" | "9:16" = isVert ? "9:16" : "16:9";
 
   const rawChannel = raw.channel_source || raw.canal || "";
   const titleText = (raw.title || raw.titulo || "").toLowerCase();

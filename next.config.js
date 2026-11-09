@@ -1,4 +1,19 @@
 /** @type {import('next').NextConfig} */
+const noCacheHeaders = [
+  {
+    key: 'Cache-Control',
+    value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  },
+  {
+    key: 'Pragma',
+    value: 'no-cache',
+  },
+  {
+    key: 'Expires',
+    value: '0',
+  },
+];
+
 const nextConfig = {
   async headers() {
     return [
@@ -10,6 +25,42 @@ const nextConfig = {
             value: 'all, index, follow',
           },
         ],
+      },
+      {
+        source: '/',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/tv-online',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/videos',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/videos/:path*',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/admin',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/admin/:path*',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/sw.js',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/manifest.json',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/manifest.webmanifest',
+        headers: noCacheHeaders,
       },
     ];
   },

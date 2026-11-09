@@ -39,6 +39,7 @@ import {
   VideoCategory,
   MOCK_PORTAL_VIDEOS,
   getYouTubeThumbnail,
+  isVideoVerticalFormat,
 } from "@/lib/tv-videos-data";
 import {
   TvSettings,
@@ -74,6 +75,7 @@ export interface YouTubeFastGridPlayerHandle {
   isMuted: () => boolean;
   setQuality: (quality: string) => void;
   getQuality: () => string;
+  resyncWithClock?: (videoId: string, elapsedSeconds: number) => void;
 }
 
 interface YouTubeFastGridPlayerProps {
@@ -233,6 +235,27 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
           }
         },
         getQuality: () => selectedQuality,
+        resyncWithClock: (videoId: string, elapsedSeconds: number) => {
+          const p = playerRef.current;
+          if (!p) return;
+          try {
+            const currentVidData = typeof p.getVideoData === "function" ? p.getVideoData() : null;
+            const currentVidId = currentVidData?.video_id;
+            if (currentVidId && currentVidId !== videoId) {
+              if (typeof p.loadVideoById === "function") {
+                p.loadVideoById({ videoId, startSeconds: elapsedSeconds });
+                p.playVideo();
+              }
+            } else if (typeof p.getCurrentTime === "function" && typeof p.seekTo === "function") {
+              const currentPos = p.getCurrentTime();
+              if (Math.abs(currentPos - elapsedSeconds) > 4) {
+                p.seekTo(elapsedSeconds, true);
+              }
+            }
+          } catch (e) {
+            console.warn("[YouTubeFastGridPlayer] Falha no resync com relógio:", e);
+          }
+        },
       }),
       [handleToggleMute, isMuted, onMuteChange, selectedQuality]
     );
@@ -444,6 +467,7 @@ function TvOnlineHubContent() {
   // Modo do Player: "live" (Transmissão contínua da TV) | "vod" (Vídeo sob demanda específico)
   const [playerMode, setPlayerMode] = useState<"live" | "vod">("live");
   const [currentVodVideo, setCurrentVodVideo] = useState<PortalVideoItem | null>(null);
+  const [mp4IsVertical, setMp4IsVertical] = useState<boolean | null>(null);
   const [isTheater, setIsTheater] = useState(false);
   const [activeTabSidebar, setActiveTabSidebar] = useState<"redecast" | "tvapucarana" | "grade">("redecast");
   const [filtroCanalCatalogo, setFiltroCanalCatalogo] = useState<"todos" | "TV Apucarana" | "RedeCast">("todos");
@@ -481,69 +505,92 @@ function TvOnlineHubContent() {
   const ytPlayerHandleRef = useRef<YouTubeFastGridPlayerHandle | null>(null);
   const hasAppliedParam = useRef<string | null>(null);
 
-  // Inicializa posição padrão no canto inferior direito
+  // Detecção Inteligente de Formato 9:16 (Vertical) vs 16:9 (Horizontal)
+  // A TV ao vivo e grade normal são sempre 16:9; VOD respeita tags, URLs (/shorts/) ou metadados de vídeo MP4
+  const isCurrentVideoVertical = useMemo(() => {
+    if (playerMode === "live") return false;
+    if (!currentVodVideo) return false;
+    return isVideoVerticalFormat(currentVodVideo, mp4IsVertical);
+  }, [playerMode, currentVodVideo, mp4IsVertical]);
+
+  // Inicializa posição padrão no canto inferior direito respeitando proporção horizontal vs vertical
   const initFloatingPos = useCallback(() => {
     if (typeof window === "undefined") return;
     const isMobile = window.innerWidth < 640;
-    const width = isMobile ? 288 : 384;
-    const height = Math.round((width * 9) / 16);
+    const width = isCurrentVideoVertical ? (isMobile ? 160 : 192) : (isMobile ? 288 : 384);
+    const height = isCurrentVideoVertical ? Math.round((width * 16) / 9) : Math.round((width * 9) / 16);
     const defaultX = Math.max(12, window.innerWidth - width - 16);
     const defaultY = Math.max(12, window.innerHeight - height - 16);
     setFloatingPos({ x: defaultX, y: defaultY });
-  }, []);
+  }, [isCurrentVideoVertical]);
 
   // 1. Carrega configurações do Canal 24h e Playlist da Grade
-  useEffect(() => {
-    let cancel = false;
-    const fetchTvChannel = async () => {
-      try {
-        const res = await fetch("/api/tv-channel", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancel && json.success) {
-          if (json.settings) setTvSettings(json.settings);
-          if (Array.isArray(json.playlist) && json.playlist.length > 0) {
-            setTvPlaylist(json.playlist);
-          }
+  const fetchTvChannel = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tv-channel", { cache: "no-store" });
+      const json = await res.json();
+      if (json.success) {
+        if (json.settings) setTvSettings(json.settings);
+        if (Array.isArray(json.playlist) && json.playlist.length > 0) {
+          setTvPlaylist(json.playlist);
         }
-      } catch (err) {
-        console.warn("[TvOnlineClient] Falha ao carregar canal da TV:", err);
       }
-    };
-
-    fetchTvChannel();
-    return () => {
-      cancel = true;
-    };
+    } catch (err) {
+      console.warn("[TvOnlineClient] Falha ao carregar canal da TV:", err);
+    }
   }, []);
 
-  // 2. Sonda Inteligente do Stream M3U8 (Detecta se o OBS está realmente transmitindo pacotes .ts)
   useEffect(() => {
-    let cancel = false;
-    const checkLiveStream = async () => {
-      try {
-        const streamUrl = tvSettings.live_m3u8_url || DEFAULT_TV_SETTINGS.live_m3u8_url;
-        const res = await fetch(`/api/tv-channel/probe?url=${encodeURIComponent(streamUrl)}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!cancel) {
-          setProbeIsLive(Boolean(json.isLive));
-          if (!json.isLive) {
-            setM3u8HasError(true);
-          }
+    fetchTvChannel();
+  }, [fetchTvChannel]);
+
+  // 2. Sonda Inteligente do Stream M3U8 (Detecta se o OBS está realmente transmitindo pacotes .ts)
+  const checkLiveStream = useCallback(async () => {
+    try {
+      const streamUrl = tvSettings.live_m3u8_url || DEFAULT_TV_SETTINGS.live_m3u8_url;
+      const res = await fetch(`/api/tv-channel/probe?url=${encodeURIComponent(streamUrl)}`, {
+        cache: "no-store",
+      });
+      const json = await res.json();
+      setProbeIsLive(Boolean(json.isLive));
+      if (!json.isLive) {
+        setM3u8HasError(true);
+      }
+    } catch {
+      setProbeIsLive(false);
+    }
+  }, [tvSettings.live_m3u8_url]);
+
+  useEffect(() => {
+    checkLiveStream();
+    const interval = setInterval(checkLiveStream, 20_000); // verifica a cada 20 segundos
+    return () => clearInterval(interval);
+  }, [checkLiveStream]);
+
+  // 2.1 Listener do evento customizado app:resync-tv (Auto-update PWA Mobile e retorno do background)
+  useEffect(() => {
+    const handleResync = () => {
+      checkLiveStream();
+      fetchTvChannel();
+      if (playerMode === "live" && tvPlaylist.length > 0) {
+        const calc = calculateTvProgramAtTime(tvPlaylist);
+        if (calc) {
+          setLiveCurrentItem(calc.currentItem);
+          setLiveNextItem(calc.nextItem);
+          setLiveRemainingSeconds(calc.remainingInCurrent);
+          ytPlayerHandleRef.current?.resyncWithClock?.(
+            calc.currentItem.youtube_id,
+            calc.offsetInCurrentVideo
+          );
         }
-      } catch (err) {
-        if (!cancel) setProbeIsLive(false);
       }
     };
 
-    void checkLiveStream();
-    const interval = setInterval(checkLiveStream, 20_000); // verifica a cada 20 segundos
+    window.addEventListener("app:resync-tv", handleResync);
     return () => {
-      cancel = true;
-      clearInterval(interval);
+      window.removeEventListener("app:resync-tv", handleResync);
     };
-  }, [tvSettings.live_m3u8_url]);
+  }, [playerMode, tvPlaylist, checkLiveStream, fetchTvChannel]);
 
   // 3. Carrega catálogo de vídeos da API
   useEffect(() => {
@@ -603,6 +650,7 @@ function TvOnlineHubContent() {
 
   // Tocar vídeo On-Demand no player principal e atualizar a barra de endereço
   const handleSelectVod = (video: PortalVideoItem) => {
+    setMp4IsVertical(null);
     setCurrentVodVideo(video);
     setPlayerMode("vod");
 
@@ -619,6 +667,7 @@ function TvOnlineHubContent() {
 
   // Voltar para a programação contínua da TV (Ao Vivo OBS ou Grade 24h)
   const handleReturnToLive = () => {
+    setMp4IsVertical(null);
     setPlayerMode("live");
     setCurrentVodVideo(null);
 
@@ -764,9 +813,9 @@ function TvOnlineHubContent() {
       window.removeEventListener("touchmove", handleMove);
       window.removeEventListener("touchend", handleEnd);
     };
-  }, [isFloating]);
+  }, [isFloating, isCurrentVideoVertical]);
 
-  // 8. Tela Cheia com Auto-Rotate Paisagem no Smartphone
+  // 8. Tela Cheia com Inteligência de Orientação: 16:9 Landscape vs 9:16 Portrait (Em Pé)
   const handleFullscreenToggle = async () => {
     const container = playerStageRef.current;
     if (!container) return;
@@ -784,10 +833,22 @@ function TvOnlineHubContent() {
           }
         }
 
-        // Tenta travar orientação em paisagem (landscape) no smartphone
+        // Orientação inteligente:
+        // - Se 16:9 (Horizontal): Gira o celular para paisagem (landscape)
+        // - Se 9:16 (Vertical): NUNCA gira para paisagem! Abre o Reels/Corte em pé preenchendo a tela do celular
         try {
           if (screen.orientation && typeof (screen.orientation as any).lock === "function") {
-            await (screen.orientation as any).lock("landscape").catch(() => {});
+            if (isCurrentVideoVertical) {
+              await (screen.orientation as any).lock("portrait").catch(() => {
+                try {
+                  if (typeof (screen.orientation as any).unlock === "function") {
+                    (screen.orientation as any).unlock();
+                  }
+                } catch {}
+              });
+            } else {
+              await (screen.orientation as any).lock("landscape").catch(() => {});
+            }
           }
         } catch {}
         setIsFullscreen(true);
@@ -930,8 +991,6 @@ function TvOnlineHubContent() {
     window.open(`https://wa.me/5543999809454?text=${text}`, "_blank");
   };
 
-  const isCurrentVideoVertical = currentVodVideo?.video_format === "9:16";
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-red-600 selection:text-white">
       {/* ========================================================================= */}
@@ -1058,12 +1117,24 @@ function TvOnlineHubContent() {
 
             {/* Espaço reservado (Placeholder) para manter o layout estável quando o Mini-Player estiver flutuando */}
             {isFloating && (
-              <div className="w-full aspect-video rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col items-center justify-center text-center p-4">
-                <div className="w-12 h-12 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-2 animate-pulse">
-                  <Tv className="w-6 h-6" />
+              <div
+                className={
+                  isCurrentVideoVertical
+                    ? "w-full max-w-[400px] sm:max-w-none aspect-[9/16] sm:aspect-auto sm:h-[560px] mx-auto rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col items-center justify-center text-center p-4"
+                    : "w-full aspect-video rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col items-center justify-center text-center p-4"
+                }
+              >
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 animate-pulse ${
+                    isCurrentVideoVertical ? "bg-pink-600/20 text-pink-500" : "bg-red-600/20 text-red-500"
+                  }`}
+                >
+                  {isCurrentVideoVertical ? <Smartphone className="w-6 h-6" /> : <Tv className="w-6 h-6" />}
                 </div>
                 <p className="text-xs sm:text-sm font-bold text-slate-200">
-                  A transmissão está em reprodução na Janela Flutuante
+                  {isCurrentVideoVertical
+                    ? "O corte 9:16 está em reprodução na Janela Flutuante"
+                    : "A transmissão está em reprodução na Janela Flutuante"}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Você pode continuar assistindo enquanto navega pelo catálogo e notícias abaixo.
@@ -1075,7 +1146,9 @@ function TvOnlineHubContent() {
                     userDismissedFloatingRef.current = false;
                     playerContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
-                  className="mt-3 px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                  className={`mt-3 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer ${
+                    isCurrentVideoVertical ? "bg-pink-600 hover:bg-pink-500" : "bg-red-600 hover:bg-red-500"
+                  }`}
                 >
                   <span>⬆️ Voltar ao Tamanho Normal</span>
                 </button>
@@ -1092,7 +1165,11 @@ function TvOnlineHubContent() {
               }
               className={
                 isFloating
-                  ? "fixed z-50 w-72 sm:w-96 aspect-video rounded-xl shadow-2xl border-2 border-red-600 bg-black overflow-hidden select-none touch-none animate-in fade-in"
+                  ? isCurrentVideoVertical
+                    ? "fixed z-50 w-40 sm:w-48 aspect-[9/16] rounded-xl shadow-2xl border-2 border-pink-500 bg-black overflow-hidden select-none touch-none animate-in fade-in"
+                    : "fixed z-50 w-72 sm:w-96 aspect-video rounded-xl shadow-2xl border-2 border-red-600 bg-black overflow-hidden select-none touch-none animate-in fade-in"
+                  : isCurrentVideoVertical
+                  ? "relative w-full max-w-[400px] sm:max-w-none aspect-[9/16] sm:aspect-auto sm:h-[560px] mx-auto rounded-2xl bg-black overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300 flex items-center justify-center"
                   : "relative w-full aspect-video rounded-2xl bg-black overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300"
               }
             >
@@ -1106,8 +1183,14 @@ function TvOnlineHubContent() {
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-slate-400 font-mono tracking-tighter text-sm">⠿</span>
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
-                    <span className="truncate text-[11px] font-black text-white">TV Rede Apucarana</span>
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isCurrentVideoVertical ? "bg-pink-500 animate-ping" : "bg-red-500 animate-ping"
+                      } shrink-0`}
+                    />
+                    <span className="truncate text-[11px] font-black text-white">
+                      {isCurrentVideoVertical ? "Corte 9:16" : "TV Rede Apucarana"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 pointer-events-auto">
                     {/* Botão de Som rápido no Mini-Player */}
@@ -1191,16 +1274,16 @@ function TvOnlineHubContent() {
                   />
                 )
               ) : isCurrentVideoVertical ? (
-                // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur + Player Centralizado
-                <div className="relative w-full h-full aspect-video bg-slate-950 flex items-center justify-center">
-                  {/* Fundo Ambient com Blur */}
-                  <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+                // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur no Desktop + Moldura Vertical Responsiva
+                <div className="relative w-full h-full bg-slate-950 flex items-center justify-center overflow-hidden">
+                  {/* Fundo Ambient com Blur para Computador (Desktop) */}
+                  <div className="hidden sm:block absolute inset-0 pointer-events-none overflow-hidden select-none">
                     <img
                       src={currentVodVideo?.thumbnail_url}
                       alt=""
-                      className="w-full h-full object-cover filter blur-3xl opacity-40 scale-125"
+                      className="w-full h-full object-cover filter blur-2xl opacity-40 scale-110"
                     />
-                    <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
+                    <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" />
                   </div>
 
                   {/* Barra Superior com Botão de Voltar para a TV */}
@@ -1219,6 +1302,7 @@ function TvOnlineHubContent() {
                       type="button"
                       onClick={handleReturnToLive}
                       className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                      title="Voltar para a TV Ao Vivo"
                     >
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
@@ -1228,15 +1312,27 @@ function TvOnlineHubContent() {
                     </button>
                   </div>
 
-                  {/* Moldura Centralizada 9:16 */}
-                  <div className="relative h-full max-h-[96%] aspect-[9/16] rounded-xl overflow-hidden shadow-2xl border border-slate-700/80 z-10 bg-black flex items-center justify-center my-auto">
+                  {/* Moldura Centralizada 9:16 (No celular ocupa 100% da tela em pé; no computador mantém h-[520px] aspect-[9/16]) */}
+                  <div
+                    className={`relative aspect-[9/16] ${
+                      isFullscreen
+                        ? "h-full max-h-[100dvh] w-auto max-w-[100vw] mx-auto rounded-none"
+                        : "w-full h-full sm:w-auto sm:h-[520px] rounded-none sm:rounded-xl sm:border sm:border-slate-700/80"
+                    } overflow-hidden shadow-2xl z-10 bg-black flex items-center justify-center my-auto`}
+                  >
                     {currentVodVideo?.video_type === "mp4" ? (
                       <video
                         src={currentVodVideo.video_url}
                         controls
                         autoPlay
                         playsInline
-                        className="w-full h-full object-contain"
+                        onLoadedMetadata={(e) => {
+                          const v = e.currentTarget;
+                          if (v.videoWidth && v.videoHeight) {
+                            setMp4IsVertical(v.videoHeight > v.videoWidth);
+                          }
+                        }}
+                        className="w-full h-full object-cover sm:object-contain bg-black"
                       />
                     ) : currentVodVideo?.youtube_id ? (
                       <iframe
@@ -1297,6 +1393,12 @@ function TvOnlineHubContent() {
                       controls
                       autoPlay
                       playsInline
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        if (v.videoWidth && v.videoHeight) {
+                          setMp4IsVertical(v.videoHeight > v.videoWidth);
+                        }
+                      }}
                       className="w-full h-full object-contain bg-black"
                     />
                   ) : currentVodVideo?.youtube_id ? (
@@ -1372,9 +1474,14 @@ function TvOnlineHubContent() {
                         Grade 24h Contínua
                       </span>
                     )
-                  ) : (
+                  ) : isCurrentVideoVertical ? (
                     <span className="flex items-center gap-1.5 text-pink-400 font-bold text-[11px]">
-                      <span>▶️</span> Vídeo Sob Demanda
+                      <Smartphone className="w-3.5 h-3.5" />
+                      Corte Vertical 9:16
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-indigo-400 font-bold text-[11px]">
+                      <span>▶️</span> Vídeo Sob Demanda (16:9)
                     </span>
                   )}
                 </div>
@@ -1455,12 +1562,18 @@ function TvOnlineHubContent() {
                   <span>Teatro</span>
                 </button>
 
-                {/* Botão Tela Cheia (Maximizar com auto-rotate paisagem no smartphone) */}
+                {/* Botão Tela Cheia (Respeita 16:9 Landscape vs 9:16 Portrait no smartphone) */}
                 <button
                   type="button"
                   onClick={handleFullscreenToggle}
                   className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
-                  title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia (Girar Celular)"}
+                  title={
+                    isFullscreen
+                      ? "Sair da Tela Cheia"
+                      : isCurrentVideoVertical
+                      ? "Tela Cheia Vertical (Sem Girar Celular)"
+                      : "Tela Cheia (Girar Celular em Paisagem)"
+                  }
                 >
                   {isFullscreen ? (
                     <>
@@ -1470,7 +1583,9 @@ function TvOnlineHubContent() {
                   ) : (
                     <>
                       <Maximize2 className="w-4 h-4 text-emerald-400" />
-                      <span className="hidden xs:inline">Tela Cheia</span>
+                      <span className="hidden xs:inline">
+                        {isCurrentVideoVertical ? "Tela Cheia 9:16" : "Tela Cheia"}
+                      </span>
                     </>
                   )}
                 </button>
