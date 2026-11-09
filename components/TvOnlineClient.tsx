@@ -25,6 +25,7 @@ import {
   Mic,
   Video as VideoIcon,
   Smartphone,
+  VolumeX,
 } from "lucide-react";
 import LiveTvPlayer from "./LiveTvPlayer";
 import {
@@ -34,97 +35,78 @@ import {
   MOCK_PORTAL_VIDEOS,
   getYouTubeThumbnail,
 } from "@/lib/tv-videos-data";
-
-interface ProgramBlock {
-  inicio: string;
-  fim: string;
-  titulo: string;
-  subtitulo: string;
-  categoria: string;
-  destaque?: boolean;
-}
-
-const GRADE_PROGRAMACAO: ProgramBlock[] = [
-  {
-    inicio: "06:00",
-    fim: "08:30",
-    titulo: "Despertar do Vale & Agro",
-    subtitulo: "Cotações agrícolas, previsão do tempo e primeiras notícias da manhã.",
-    categoria: "Jornalismo",
-  },
-  {
-    inicio: "08:30",
-    fim: "11:30",
-    titulo: "Giro de Notícias do Vale & Plantão",
-    subtitulo: "Cobertura regional das 27 cidades, trânsito e utilidade pública.",
-    categoria: "Notícias",
-    destaque: true,
-  },
-  {
-    inicio: "11:30",
-    fim: "13:30",
-    titulo: "Jornal da Tarde • Rede Apucarana",
-    subtitulo: "O resumo completo dos principais acontecimentos do dia no Vale do Ivaí.",
-    categoria: "Ao Vivo",
-    destaque: true,
-  },
-  {
-    inicio: "13:30",
-    fim: "16:00",
-    titulo: "Clipes, Sertanejo & Cultura Paranaense",
-    subtitulo: "Os maiores sucessos da música, artistas locais e agenda cultural.",
-    categoria: "Entretenimento",
-  },
-  {
-    inicio: "16:00",
-    fim: "18:00",
-    titulo: "RedeCast • Entrevistas & Debates",
-    subtitulo: "Grandes personalidades, líderes comunitários, política e empreendedorismo.",
-    categoria: "Talk Show",
-    destaque: true,
-  },
-  {
-    inicio: "18:00",
-    fim: "19:30",
-    titulo: "Plantão Policial & Ronda da Noite",
-    subtitulo: "Ocorrências policiais, segurança pública e informações em tempo real.",
-    categoria: "Policial",
-  },
-  {
-    inicio: "19:30",
-    fim: "22:00",
-    titulo: "Noite Viva & Especial Musical",
-    subtitulo: "Séries especiais, documentários regionais e apresentações exclusivas.",
-    categoria: "Variedades",
-  },
-  {
-    inicio: "22:00",
-    fim: "06:00",
-    titulo: "Madrugada AutoVJ 24h • Melhores Momentos",
-    subtitulo: "Programação contínua de clipes, reprises do RedeCast e giros noturnos.",
-    categoria: "AutoVJ 24h",
-  },
-];
+import {
+  TvSettings,
+  TvPlaylistItem,
+  DEFAULT_TV_SETTINGS,
+  INITIAL_TV_PLAYLIST,
+  formatDurationSeconds,
+  formatClockTime,
+  getPlaylistItemTypeMeta,
+  calculateTvProgramAtTime,
+} from "@/lib/tv-channel-data";
 
 function TvOnlineHubContent() {
   const searchParams = useSearchParams();
   const videoParam = searchParams.get("v");
 
+  // Modo do Player: "live" (Transmissão contínua da TV) | "vod" (Vídeo sob demanda específico)
   const [playerMode, setPlayerMode] = useState<"live" | "vod">("live");
   const [currentVodVideo, setCurrentVodVideo] = useState<PortalVideoItem | null>(null);
   const [isTheater, setIsTheater] = useState(false);
   const [activeTabSidebar, setActiveTabSidebar] = useState<"redecast" | "tvapucarana" | "grade">("redecast");
   const [filtroCanalCatalogo, setFiltroCanalCatalogo] = useState<"todos" | "TV Apucarana" | "RedeCast">("todos");
 
+  // =========================================================================
+  // ESTADO DO FAST CHANNEL 24H (SINAL OBS vs. GRADE YOUTUBE LOOP)
+  // =========================================================================
+  const [tvSettings, setTvSettings] = useState<TvSettings>(DEFAULT_TV_SETTINGS);
+  const [tvPlaylist, setTvPlaylist] = useState<TvPlaylistItem[]>(INITIAL_TV_PLAYLIST);
+  const [m3u8HasError, setM3u8HasError] = useState(false);
+  const [currentClockSeconds, setCurrentClockSeconds] = useState(() => Math.floor(Date.now() / 1000));
+  const [gridIframeSrc, setGridIframeSrc] = useState<string>("");
+  const lastLoadedGridItemIdRef = useRef<string | null>(null);
+
+  // Catálogo de Vídeos Sob Demanda
   const [videos, setVideos] = useState<PortalVideoItem[]>(MOCK_PORTAL_VIDEOS);
   const [loadingVideos, setLoadingVideos] = useState(false);
-  const [horaAtual, setHoraAtual] = useState("");
-  const [programaNoAr, setProgramaNoAr] = useState<ProgramBlock>(GRADE_PROGRAMACAO[1]);
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const hasAppliedParam = useRef<string | null>(null);
 
-  // Carrega vídeos da API
+  // Relógio sincronizado a cada 1 segundo (usado para calcular o vídeo no ar e contagens regressivas)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentClockSeconds(Math.floor(Date.now() / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 1. Carrega configurações do Canal 24h e Playlist da Grade
+  useEffect(() => {
+    let cancel = false;
+    const fetchTvChannel = async () => {
+      try {
+        const res = await fetch("/api/tv-channel", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancel && json.success) {
+          if (json.settings) setTvSettings(json.settings);
+          if (Array.isArray(json.playlist) && json.playlist.length > 0) {
+            setTvPlaylist(json.playlist);
+          }
+        }
+      } catch (err) {
+        console.warn("[TvOnlineClient] Falha ao carregar canal da TV:", err);
+      }
+    };
+
+    fetchTvChannel();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  // 2. Carrega catálogo de vídeos da API
   useEffect(() => {
     let cancel = false;
     const fetchVideos = async () => {
@@ -148,7 +130,7 @@ function TvOnlineHubContent() {
     };
   }, []);
 
-  // Deep linking: se houver ?v={id} na URL, sintoniza direto o vídeo compartilhado
+  // 3. Deep linking: se houver ?v={id} na URL, sintoniza direto o vídeo compartilhado
   useEffect(() => {
     if (!videoParam || hasAppliedParam.current === videoParam) return;
 
@@ -169,39 +151,46 @@ function TvOnlineHubContent() {
     }
   }, [videoParam, videos]);
 
-  // Monitora horário e programa no ar
+  // 4. Cálculo do programa no ar na Grade 24h com base no relógio real sincronizado
+  const currentTvSchedule = useMemo(() => {
+    return calculateTvProgramAtTime(tvPlaylist, currentClockSeconds);
+  }, [tvPlaylist, currentClockSeconds]);
+
+  // Determina se o sinal ao vivo do OBS (SamCast) está ativo
+  // Modo 'force_live_m3u8' -> sempre OBS
+  // Modo 'force_youtube_grid' -> sempre Grade YouTube
+  // Modo 'auto' -> OBS se não houver erro, caso contrário fallback para Grade YouTube
+  const isObsLiveActive = useMemo(() => {
+    if (tvSettings.mode === "force_live_m3u8") return true;
+    if (tvSettings.mode === "force_youtube_grid") return false;
+    return !m3u8HasError; // modo auto com fallback inteligente
+  }, [tvSettings.mode, m3u8HasError]);
+
+  // 5. Motor de Transição Contínua do Loop YouTube 24h
+  // Atualiza o src do iframe apenas quando o item muda (evita reiniciar o player a cada segundo)
   useEffect(() => {
-    const atualizarHorario = () => {
-      const now = new Date();
-      const horas = String(now.getHours()).padStart(2, "0");
-      const minutos = String(now.getMinutes()).padStart(2, "0");
-      const horaStr = `${horas}:${minutos}`;
-      setHoraAtual(horaStr);
+    if (playerMode !== "live" || isObsLiveActive) {
+      lastLoadedGridItemIdRef.current = null;
+      return;
+    }
 
-      const blocoAtual = GRADE_PROGRAMACAO.find((item) => {
-        if (item.inicio <= item.fim) {
-          return horaStr >= item.inicio && horaStr < item.fim;
-        } else {
-          return horaStr >= item.inicio || horaStr < item.fim;
-        }
-      });
+    if (!currentTvSchedule || !currentTvSchedule.currentItem) return;
 
-      if (blocoAtual) {
-        setProgramaNoAr(blocoAtual);
-      }
-    };
+    const currentItem = currentTvSchedule.currentItem;
 
-    atualizarHorario();
-    const interval = setInterval(atualizarHorario, 30_000);
-    return () => clearInterval(interval);
-  }, []);
+    if (lastLoadedGridItemIdRef.current !== currentItem.id) {
+      lastLoadedGridItemIdRef.current = currentItem.id;
+      const startSec = Math.floor(currentTvSchedule.offsetInCurrentVideo);
+      const url = `https://www.youtube-nocookie.com/embed/${currentItem.youtube_id}?autoplay=1&start=${startSec}&controls=0&disablekb=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1&iv_load_policy=3`;
+      setGridIframeSrc(url);
+    }
+  }, [playerMode, isObsLiveActive, currentTvSchedule?.currentItem?.id]);
 
   // Tocar vídeo On-Demand no player principal e atualizar a barra de endereço
   const handleSelectVod = (video: PortalVideoItem) => {
     setCurrentVodVideo(video);
     setPlayerMode("vod");
 
-    // Atualiza a URL sem recarregar para facilitar cópia direta
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("v", video.id);
@@ -213,10 +202,11 @@ function TvOnlineHubContent() {
     }
   };
 
-  // Voltar para a TV ao vivo
+  // Voltar para a programação contínua da TV (Ao Vivo OBS ou Grade 24h)
   const handleReturnToLive = () => {
     setPlayerMode("live");
     setCurrentVodVideo(null);
+    lastLoadedGridItemIdRef.current = null; // força recalcular o ponto exato da grade
 
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -276,9 +266,15 @@ function TvOnlineHubContent() {
   const handleShareCurrentPlayerWhatsApp = () => {
     if (playerMode === "vod" && currentVodVideo) {
       handleDirectShareWhatsApp(currentVodVideo);
-    } else {
+    } else if (isObsLiveActive) {
       const text = encodeURIComponent(
-        "📺 Assista à *TV Rede Apucarana Ao Vivo*: 👉 https://www.redeapucarana.com.br/tv-online"
+        `📺 Assista à *TV Rede Apucarana Ao Vivo*: 👉 https://www.redeapucarana.com.br/tv-online`
+      );
+      window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+    } else {
+      const progTitle = currentTvSchedule?.currentItem?.title || "Transmissão 24h";
+      const text = encodeURIComponent(
+        `📺 Assista à *TV Rede Apucarana 24h*: No ar agora *${progTitle}* 👉 https://www.redeapucarana.com.br/tv-online`
       );
       window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
     }
@@ -310,7 +306,7 @@ function TvOnlineHubContent() {
             </Link>
             <span className="text-slate-700 hidden sm:inline">|</span>
             <span className="text-slate-400 hidden sm:inline">
-              Hub Oficial de Streaming • TV Apucarana & RedeCast
+              Hub Oficial de Streaming • TV Apucarana & RedeCast 24h
             </span>
           </div>
 
@@ -324,10 +320,15 @@ function TvOnlineHubContent() {
                 <span>🔴</span>
                 <span>VOLTAR PARA A TV AO VIVO</span>
               </button>
-            ) : (
+            ) : isObsLiveActive ? (
               <span className="inline-flex items-center gap-1.5 text-red-400 font-bold text-[11px] bg-red-950/60 border border-red-800/60 px-2.5 py-0.5 rounded-full">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                SINAL DIGITAL AO VIVO 24H
+                SINAL DIGITAL OBS AO VIVO (SamCast)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-purple-400 font-bold text-[11px] bg-purple-950/60 border border-purple-800/60 px-2.5 py-0.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
+                GRADE PROGRAMADA 24H (AutoVJ)
               </span>
             )}
             <a
@@ -359,7 +360,7 @@ function TvOnlineHubContent() {
             <div className="border-l border-slate-800 pl-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-heading font-black text-lg sm:text-xl text-white tracking-tight">
-                  HUB DE STREAMING
+                  HUB DE STREAMING 24H
                 </span>
                 <span className="px-2 py-0.5 rounded-md bg-red-600/90 text-white font-extrabold text-[10px] uppercase tracking-wider flex items-center gap-1">
                   <Tv className="w-3 h-3" /> TV Apucarana
@@ -369,7 +370,7 @@ function TvOnlineHubContent() {
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                TV Digital ao vivo e catálogo completo com os 2 canais oficiais: TV Apucarana & RedeCast
+                FAST Channel Híbrido: Transmissões ao vivo do OBS e Grade Contínua 24 Horas
               </p>
             </div>
           </div>
@@ -398,7 +399,7 @@ function TvOnlineHubContent() {
       </header>
 
       {/* ========================================================================= */}
-      {/* 3. PALCO PRINCIPAL (HÍBRIDO AO VIVO <-> VOD MULTI-CANAL 16:9 & 9:16)      */}
+      {/* 3. PALCO PRINCIPAL (MOTOR HÍBRIDO OBS <-> LOOP YOUTUBE 24H <-> VOD)       */}
       {/* ========================================================================= */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
         <div
@@ -407,17 +408,68 @@ function TvOnlineHubContent() {
             isTheater ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-12"
           }`}
         >
-          {/* COLUNA ESQUERDA: PLAYER HÍBRIDO (8 COLUNAS) */}
+          {/* COLUNA ESQUERDA: PALCO PRINCIPAL DA TV (8 COLUNAS) */}
           <div className={`space-y-4 transition-all ${isTheater ? "w-full" : "lg:col-span-8"}`}>
             {/* CONTAINER ADAPTATIVO DO PLAYER */}
             <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex items-center justify-center">
               {playerMode === "live" ? (
-                // 1. ESTADO AO VIVO: Player HLS com M3U8
-                <LiveTvPlayer
-                  onTheaterToggle={() => setIsTheater(!isTheater)}
-                  isTheater={isTheater}
-                  streamUrl="https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8"
-                />
+                isObsLiveActive ? (
+                  // 1.1 ESTADO AO VIVO OBS (SamCast HLS M3U8)
+                  <LiveTvPlayer
+                    onTheaterToggle={() => setIsTheater(!isTheater)}
+                    isTheater={isTheater}
+                    streamUrl={tvSettings.live_m3u8_url}
+                    onStreamActive={() => setM3u8HasError(false)}
+                    onError={() => {
+                      // Se o modo for automático e o OBS cair/404, faz fallback suave para o YouTube 24h
+                      if (tvSettings.mode === "auto") {
+                        console.info("[LiveTvPlayer] Sinal M3U8 offline. Ativando Grade YouTube 24h.");
+                        setM3u8HasError(true);
+                      }
+                    }}
+                  />
+                ) : (
+                  // 1.2 ESTADO GRADE YOUTUBE 24H (LOOP SINCRONIZADO / AUTOVJ)
+                  <div className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center">
+                    {/* BARRA SUPERIOR SOBRE O VÍDEO DA GRADE */}
+                    <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/50 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="px-3 py-1 rounded-full bg-purple-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                          <Radio className="w-3.5 h-3.5 animate-pulse" />
+                          <span>TV 24H • GRADE PROGRAMADA</span>
+                        </span>
+                        {currentTvSchedule?.currentItem && (
+                          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-md bg-black/60 text-amber-300 font-bold text-[11px] border border-white/10 truncate max-w-xs backdrop-blur-xs">
+                            {getPlaylistItemTypeMeta(currentTvSchedule.currentItem.type).icon}{" "}
+                            {currentTvSchedule.currentItem.title}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-slate-300 font-bold bg-black/70 px-2 py-0.5 rounded border border-white/10 backdrop-blur-xs">
+                          {currentTvSchedule ? `Faltam ${formatClockTime(currentTvSchedule.remainingInCurrent)}` : "Sincronizado"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* IFRAME DO YOUTUBE SEM CONTROLES E COM AUTOPLAY SINCRONIZADO */}
+                    {gridIframeSrc ? (
+                      <iframe
+                        src={gridIframeSrc}
+                        title={currentTvSchedule?.currentItem?.title || "TV 24h Rede Apucarana"}
+                        className="w-full h-full border-0 pointer-events-auto"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400">
+                        <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-3" />
+                        <p className="text-xs font-bold">Sincronizando Grade 24h da TV Rede Apucarana...</p>
+                      </div>
+                    )}
+                  </div>
+                )
               ) : isCurrentVideoVertical ? (
                 // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur + Player Centralizado
                 <div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden">
@@ -431,7 +483,7 @@ function TvOnlineHubContent() {
                     <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" />
                   </div>
 
-                  {/* Barra Superior com Botão de Voltar para o Ao Vivo */}
+                  {/* Barra Superior com Botão de Voltar para a TV */}
                   <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
                     <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
                       <span className="px-3 py-1 rounded-full bg-pink-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
@@ -452,7 +504,7 @@ function TvOnlineHubContent() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
                       </span>
-                      <span>SINTONIZAR AO VIVO</span>
+                      <span>VOLTAR PARA A PROGRAMAÇÃO DA TV</span>
                     </button>
                   </div>
 
@@ -508,13 +560,13 @@ function TvOnlineHubContent() {
                       type="button"
                       onClick={handleReturnToLive}
                       className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                      title="Voltar para a transmissão ao vivo da TV"
+                      title="Voltar para a programação contínua da TV"
                     >
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
                       </span>
-                      <span>VOLTAR PARA A TV AO VIVO</span>
+                      <span>VOLTAR PARA A PROGRAMAÇÃO DA TV</span>
                     </button>
                   </div>
 
@@ -540,33 +592,80 @@ function TvOnlineHubContent() {
               )}
             </div>
 
-            {/* BARRA DE INFORMAÇÕES ABAIXO DO PLAYER */}
+            {/* ========================================================================= */}
+            {/* BARRA DE INFORMAÇÕES ABAIXO DO PLAYER (NO AR AGORA + A SEGUIR)            */}
+            {/* ========================================================================= */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1 min-w-0">
+              <div className="space-y-1.5 min-w-0">
                 {playerMode === "live" ? (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-2.5 w-2.5 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-                      </span>
-                      <span className="text-[11px] font-black uppercase tracking-wider text-red-400">
-                        NO AR AGORA • {programaNoAr.inicio} às {programaNoAr.fim}
-                      </span>
-                      <span className="text-slate-600">·</span>
-                      <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                        {programaNoAr.categoria}
-                      </span>
-                    </div>
+                  isObsLiveActive ? (
+                    // Informações do Sinal Ao Vivo OBS
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-2.5 w-2.5 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                        </span>
+                        <span className="text-[11px] font-black uppercase tracking-wider text-red-400">
+                          TRANSMISSÃO AO VIVO DO ESTÚDIO (OBS SAMCAST)
+                        </span>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          HD 1080p
+                        </span>
+                      </div>
 
-                    <h1 className="font-heading font-extrabold text-lg sm:text-xl text-white truncate">
-                      {programaNoAr.titulo}
-                    </h1>
-                    <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
-                      {programaNoAr.subtitulo}
-                    </p>
-                  </>
+                      <h1 className="font-heading font-extrabold text-lg sm:text-xl text-white truncate">
+                        {tvSettings.live_program_title || "TV Rede Apucarana Ao Vivo"}
+                      </h1>
+                      <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
+                        Sinal direto do estúdio com jornalismo regional, utilidade pública e entrevistas das 27 cidades do Vale do Ivaí.
+                      </p>
+                    </>
+                  ) : (
+                    // Informações da Grade 24h Automatizada (YouTube Loop)
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex h-2.5 w-2.5 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500" />
+                        </span>
+                        <span className="text-[11px] font-black uppercase tracking-wider text-purple-400">
+                          NO AR AGORA NA GRADE 24H
+                        </span>
+                        {currentTvSchedule?.currentItem && (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${getPlaylistItemTypeMeta(currentTvSchedule.currentItem.type).badgeBg}`}>
+                            {getPlaylistItemTypeMeta(currentTvSchedule.currentItem.type).icon} {getPlaylistItemTypeMeta(currentTvSchedule.currentItem.type).label}
+                          </span>
+                        )}
+                        <span className="text-slate-600">·</span>
+                        <span className="text-xs text-amber-300 font-mono font-bold">
+                          ⏱ Restam {currentTvSchedule ? formatClockTime(currentTvSchedule.remainingInCurrent) : "--:--"}
+                        </span>
+                      </div>
+
+                      <h1 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-snug truncate">
+                        {currentTvSchedule?.currentItem?.title || "Grade Contínua da TV"}
+                      </h1>
+
+                      {/* BLOCO "A SEGUIR NA GRADE" */}
+                      {currentTvSchedule?.nextItem && (
+                        <div className="text-xs text-slate-300 flex items-center gap-1.5 pt-1 truncate">
+                          <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                            ⏭ A Seguir:
+                          </span>
+                          <span className="font-bold text-slate-200 truncate">
+                            {currentTvSchedule.nextItem.title}
+                          </span>
+                          <span className="text-slate-500 font-mono text-[11px]">
+                            ({formatClockTime(currentTvSchedule.nextItem.duration_seconds)})
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )
                 ) : (
+                  // Informações de Vídeo Sob Demanda (VOD)
                   <>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
@@ -799,38 +898,37 @@ function TvOnlineHubContent() {
                 </div>
               )}
 
-              {/* CONTEÚDO DA ABA 3: GRADE DE PROGRAMAÇÃO DA TV AO VIVO */}
+              {/* CONTEÚDO DA ABA 3: GRADE DINÂMICA DA TV (PLAYLIST 24H) */}
               {activeTabSidebar === "grade" && (
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                   <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold px-1 pb-1">
-                    <span>Programação 24h</span>
-                    {horaAtual && (
-                      <span className="font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-                        {horaAtual}
-                      </span>
-                    )}
+                    <span>Grade 24h em Execução</span>
+                    <span className="font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
+                      {tvPlaylist.filter((i) => i.active).length} blocos
+                    </span>
                   </div>
 
-                  {GRADE_PROGRAMACAO.map((bloco, idx) => {
-                    const isCurrent = bloco.titulo === programaNoAr.titulo;
+                  {tvPlaylist.map((item, idx) => {
+                    const isCurrent = currentTvSchedule?.currentItem?.id === item.id;
+                    const meta = getPlaylistItemTypeMeta(item.type);
 
                     return (
                       <div
-                        key={idx}
+                        key={item.id}
                         onClick={handleReturnToLive}
                         className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
                           isCurrent
-                            ? "bg-red-950/40 border-red-700/80 shadow-md ring-1 ring-red-500/30"
+                            ? "bg-purple-950/50 border-purple-600 shadow-md ring-1 ring-purple-400"
                             : "bg-slate-950/40 border-slate-800/60 hover:border-slate-700"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <span
                             className={`font-mono text-[10px] font-bold ${
-                              isCurrent ? "text-red-400" : "text-slate-400"
+                              isCurrent ? "text-amber-400" : "text-slate-400"
                             }`}
                           >
-                            {bloco.inicio} - {bloco.fim}
+                            #{idx + 1} · {formatClockTime(item.duration_seconds)}
                           </span>
 
                           {isCurrent ? (
@@ -840,17 +938,17 @@ function TvOnlineHubContent() {
                             </span>
                           ) : (
                             <span className="text-[9px] text-slate-500 font-semibold">
-                              {bloco.categoria}
+                              {meta.icon} {meta.label}
                             </span>
                           )}
                         </div>
 
                         <h4
-                          className={`font-heading font-bold text-xs ${
+                          className={`font-heading font-bold text-xs truncate ${
                             isCurrent ? "text-white font-extrabold" : "text-slate-200"
                           }`}
                         >
-                          {bloco.titulo}
+                          {item.title}
                         </h4>
                       </div>
                     );
@@ -863,14 +961,14 @@ function TvOnlineHubContent() {
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/40 to-slate-900 border border-amber-500/30 flex items-center justify-between gap-3">
               <div>
                 <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
-                  Publicidade em Vídeo
+                  Publicidade em Vídeo 24h
                 </span>
                 <p className="text-xs font-bold text-white leading-tight mt-0.5">
-                  Anuncie sua marca na TV Apucarana & RedeCast
+                  Anuncie sua marca nos comerciais da TV Apucarana & RedeCast
                 </p>
               </div>
               <a
-                href="https://wa.me/5543999809454?text=Ol%C3%A1%2C%20gostaria%20de%20anunciar%20em%20v%C3%ADdeo%20na%20Rede%20Apucarana"
+                href="https://wa.me/5543999809454?text=Ol%C3%A1%2C%20gostaria%20de%20inserir%20um%20comercial%20na%20Grade%2024h%20da%20Rede%20Apucarana"
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] shrink-0 transition-transform active:scale-95"
@@ -1102,7 +1200,7 @@ function TvOnlineHubContent() {
               className="h-8 w-auto object-contain opacity-75"
             />
             <span>
-              © {new Date().getFullYear()} Hub de Streaming • TV Rede Apucarana & RedeCast
+              © {new Date().getFullYear()} Hub de Streaming 24h • TV Rede Apucarana & RedeCast
             </span>
           </div>
 
@@ -1325,7 +1423,7 @@ export default function TvOnlineClient() {
       fallback={
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white space-y-4">
           <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-bold text-slate-400">Carregando Hub de Streaming • TV Apucarana & RedeCast...</p>
+          <p className="text-sm font-bold text-slate-400">Carregando Hub de Streaming 24h • TV Apucarana & RedeCast...</p>
         </div>
       }
     >

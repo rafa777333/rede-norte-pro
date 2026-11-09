@@ -25,6 +25,8 @@ interface LiveTvPlayerProps {
   isTheater?: boolean;
   className?: string;
   showTheaterButton?: boolean;
+  onError?: (errorType?: string) => void;
+  onStreamActive?: () => void;
 }
 
 const DEFAULT_STREAM =
@@ -38,6 +40,8 @@ export default function LiveTvPlayer({
   isTheater = false,
   className = "",
   showTheaterButton = true,
+  onError,
+  onStreamActive,
 }: LiveTvPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,6 +115,7 @@ export default function LiveTvPlayer({
         hls.on(HlsModule.Events.MANIFEST_PARSED, () => {
           setIsLoading(false);
           setIsBuffering(false);
+          onStreamActive?.();
           if (autoPlay) {
             video.muted = true;
             setIsMuted(true);
@@ -133,6 +138,7 @@ export default function LiveTvPlayer({
         hls.on(HlsModule.Events.ERROR, (_event: any, data: any) => {
           if (data.fatal) {
             console.warn("[HLS Error Fatal]:", data.type, data.details);
+            onError?.(data?.details || data?.type || "hls_fatal_error");
             switch (data.type) {
               case HlsModule.ErrorTypes.NETWORK_ERROR:
                 setIsBuffering(true);
@@ -161,6 +167,7 @@ export default function LiveTvPlayer({
         video.addEventListener("loadedmetadata", () => {
           setIsLoading(false);
           setIsBuffering(false);
+          onStreamActive?.();
           if (autoPlay) {
             video.muted = true;
             setIsMuted(true);
@@ -175,10 +182,12 @@ export default function LiveTvPlayer({
         video.addEventListener("playing", () => {
           setIsBuffering(false);
           setIsPlaying(true);
+          onStreamActive?.();
         });
         video.addEventListener("error", () => {
           setHasError(true);
           setErrorMessage("Erro ao sintonizar transmissão nativa.");
+          onError?.("native_video_error");
         });
       } else {
         setHasError(true);
