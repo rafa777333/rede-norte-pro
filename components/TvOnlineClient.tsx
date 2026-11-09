@@ -30,6 +30,7 @@ import {
   Maximize2,
   Minimize2,
   Expand,
+  Settings,
 } from "lucide-react";
 import LiveTvPlayer from "./LiveTvPlayer";
 import {
@@ -69,7 +70,10 @@ export interface YouTubeFastGridPlayerHandle {
   toggleMute: () => void;
   unMute: () => void;
   mute: () => void;
+  setVolume: (val: number) => void;
   isMuted: () => boolean;
+  setQuality: (quality: string) => void;
+  getQuality: () => string;
 }
 
 interface YouTubeFastGridPlayerProps {
@@ -106,6 +110,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
     const [isMuted, setIsMuted] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
     const [remainingTime, setRemainingTime] = useState<number>(0);
+    const [selectedQuality, setSelectedQuality] = useState<string>("hd1080");
 
     const currentItem = activePlaylist[currentIndex] || activePlaylist[0];
     const nextIndex = (currentIndex + 1) % activePlaylist.length;
@@ -134,6 +139,9 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
               startSeconds: 0,
             });
             playerRef.current.playVideo();
+            if (selectedQuality && typeof playerRef.current.setPlaybackQuality === "function") {
+              playerRef.current.setPlaybackQuality(selectedQuality);
+            }
           } catch (e) {
             console.warn("[YouTubeFastGridPlayer] Falha ao avançar vídeo:", e);
           }
@@ -146,7 +154,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
       setTimeout(() => {
         isTransitioningRef.current = false;
       }, 2000);
-    }, [activePlaylist]);
+    }, [activePlaylist, selectedQuality]);
 
     // Controle de áudio desmutar / mutar
     const handleToggleMute = useCallback(() => {
@@ -195,9 +203,38 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
             } catch {}
           }
         },
+        setVolume: (val: number) => {
+          const p = playerRef.current;
+          if (p && typeof p.setVolume === "function") {
+            try {
+              p.setVolume(val);
+              if (val === 0) {
+                p.mute();
+                setIsMuted(true);
+                onMuteChange?.(true);
+              } else if (isMuted) {
+                p.unMute();
+                setIsMuted(false);
+                onMuteChange?.(false);
+              }
+            } catch {}
+          }
+        },
         isMuted: () => isMuted,
+        setQuality: (quality: string) => {
+          setSelectedQuality(quality);
+          const p = playerRef.current;
+          if (p && typeof p.setPlaybackQuality === "function") {
+            try {
+              p.setPlaybackQuality(quality);
+            } catch (e) {
+              console.warn("Erro ao definir qualidade:", e);
+            }
+          }
+        },
+        getQuality: () => selectedQuality,
       }),
-      [handleToggleMute, isMuted, onMuteChange]
+      [handleToggleMute, isMuted, onMuteChange, selectedQuality]
     );
 
     // Inicialização única da API oficial do YouTube IFrame (window.YT)
@@ -218,9 +255,9 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
             videoId: initialYtId,
             playerVars: {
               autoplay: 1,
-              controls: 1, // Libera engrenagem de resolução HD/1080p, volume e barra
-              disablekb: 0,
-              fs: 1, // Libera botão nativo de Fullscreen para rotação mobile
+              controls: 0, // TV REAL: SEM Barra de tempo do YouTube (impede avançar/voltar)
+              disablekb: 1, // TV REAL: Sem atalhos de teclado
+              fs: 0, // Sem botão nativo de Fullscreen do YouTube (usamos a barra da TV)
               iv_load_policy: 3,
               modestbranding: 1,
               rel: 0,
@@ -233,6 +270,11 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
                 if (cancel) return;
                 e.target.playVideo();
                 setIsPlaying(true);
+                if (typeof e.target.setPlaybackQuality === "function") {
+                  try {
+                    e.target.setPlaybackQuality("hd1080");
+                  } catch {}
+                }
 
                 // Garante atributos de permissão no iframe gerado para tela cheia e rotação mobile
                 try {
@@ -245,7 +287,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
                     iframe.setAttribute("allowfullscreen", "true");
                     iframe.setAttribute("webkitallowfullscreen", "true");
                     iframe.setAttribute("mozallowfullscreen", "true");
-                    iframe.className = "w-full h-full border-0";
+                    iframe.className = "w-full h-full border-0 pointer-events-none";
                   }
                 } catch {}
 
@@ -355,14 +397,17 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
           <div id="yt-fast-player-container" className="w-full h-full" />
         </div>
 
-        {/* Badge discreto no canto superior esquerdo (pointer-events-none para não bloquear cliques no vídeo) */}
+        {/* CAMADA TRANSPARENTE DE PROTEÇÃO (SHIELD): Impede hover/pausa/seek acidental no YouTube */}
+        <div className="absolute inset-0 z-10 pointer-events-auto" />
+
+        {/* Badge discreto no canto superior esquerdo */}
         <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none flex items-center gap-2">
           <span className="px-2.5 py-1 rounded-full bg-purple-600/95 text-white font-black text-[10px] uppercase tracking-wider shadow-md backdrop-blur-xs flex items-center gap-1.5 border border-purple-400/30">
             <Radio className="w-3 h-3 animate-pulse" />
             <span>GRADE 24H</span>
           </span>
           <span className="hidden sm:inline-flex px-2 py-0.5 rounded bg-black/70 text-amber-400 font-bold text-[10px] border border-amber-500/30 backdrop-blur-xs">
-            HD 1080p
+            {selectedQuality === "hd1080" ? "HD 1080p" : selectedQuality === "hd720" ? "HD 720p" : "HD Auto"}
           </span>
           <span className={`hidden md:inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border backdrop-blur-xs ${typeMeta.badgeBg}`}>
             {typeMeta.icon} {typeMeta.label}
@@ -422,6 +467,12 @@ function TvOnlineHubContent() {
   const [isFloating, setIsFloating] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGlobalMuted, setIsGlobalMuted] = useState(true);
+  const [globalVolume, setGlobalVolume] = useState<number>(100);
+  const [tvQuality, setTvQuality] = useState<"hd1080" | "hd720" | "auto">("hd1080");
+  const [floatingPos, setFloatingPos] = useState<{ x: number; y: number } | null>(null);
+
+  const isDraggingRef = useRef(false);
+  const dragOffsetRef = useRef<{ offsetX: number; offsetY: number }>({ offsetX: 0, offsetY: 0 });
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerStageRef = useRef<HTMLDivElement>(null);
@@ -429,6 +480,17 @@ function TvOnlineHubContent() {
   const userDismissedFloatingRef = useRef(false);
   const ytPlayerHandleRef = useRef<YouTubeFastGridPlayerHandle | null>(null);
   const hasAppliedParam = useRef<string | null>(null);
+
+  // Inicializa posição padrão no canto inferior direito
+  const initFloatingPos = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const isMobile = window.innerWidth < 640;
+    const width = isMobile ? 288 : 384;
+    const height = Math.round((width * 9) / 16);
+    const defaultX = Math.max(12, window.innerWidth - width - 16);
+    const defaultY = Math.max(12, window.innerHeight - height - 16);
+    setFloatingPos({ x: defaultX, y: defaultY });
+  }, []);
 
   // 1. Carrega configurações do Canal 24h e Playlist da Grade
   useEffect(() => {
@@ -529,13 +591,14 @@ function TvOnlineHubContent() {
   }, [videoParam, videos]);
 
   // 5. Determina se o sinal ao vivo do OBS (SamCast) está ativo
-  // Modo 'force_live_m3u8' -> sempre OBS
-  // Modo 'force_youtube_grid' -> sempre Grade YouTube
-  // Modo 'auto' -> OBS somente se o manifesto responder 200 OK com pacotes .ts (#EXTINF)
+  // Modo 'force_live_m3u8' -> OBS
+  // Modo 'force_youtube_grid' -> Grade YouTube
+  // Se houver erro ou watchdog no M3U8 -> cai IMEDIATAMENTE para a Grade YouTube
   const isObsLiveActive = useMemo(() => {
-    if (tvSettings.mode === "force_live_m3u8") return true;
+    if (m3u8HasError) return false;
     if (tvSettings.mode === "force_youtube_grid") return false;
-    return probeIsLive && !m3u8HasError;
+    if (tvSettings.mode === "force_live_m3u8") return true;
+    return probeIsLive;
   }, [tvSettings.mode, probeIsLive, m3u8HasError]);
 
   // Tocar vídeo On-Demand no player principal e atualizar a barra de endereço
@@ -568,12 +631,15 @@ function TvOnlineHubContent() {
 
   // 6. Alternar Áudio Global do Player
   const handleToggleGlobalMute = () => {
+    const nextMuted = !isGlobalMuted;
+    setIsGlobalMuted(nextMuted);
+
     if (playerMode === "live") {
       if (isObsLiveActive) {
         const video = playerStageRef.current?.querySelector("video");
         if (video) {
-          video.muted = !video.muted;
-          setIsGlobalMuted(video.muted);
+          video.muted = nextMuted;
+          if (!nextMuted) video.volume = globalVolume / 100;
         }
       } else {
         ytPlayerHandleRef.current?.toggleMute();
@@ -581,37 +647,124 @@ function TvOnlineHubContent() {
     } else {
       const video = playerStageRef.current?.querySelector("video");
       if (video) {
-        video.muted = !video.muted;
-        setIsGlobalMuted(video.muted);
+        video.muted = nextMuted;
+        if (!nextMuted) video.volume = globalVolume / 100;
       }
     }
   };
 
-  // 7. Alternar Janela Flutuante (Mini-Player Fixo + PiP)
-  const handleToggleFloating = async () => {
+  // Controle de Volume Numérico (0 a 100)
+  const handleVolumeChange = (newVol: number) => {
+    setGlobalVolume(newVol);
+    if (newVol === 0) {
+      setIsGlobalMuted(true);
+    } else if (isGlobalMuted) {
+      setIsGlobalMuted(false);
+    }
+
+    if (playerMode === "live") {
+      if (isObsLiveActive) {
+        const video = playerStageRef.current?.querySelector("video");
+        if (video) {
+          video.volume = newVol / 100;
+          video.muted = newVol === 0;
+        }
+      } else {
+        ytPlayerHandleRef.current?.setVolume(newVol);
+      }
+    } else {
+      const video = playerStageRef.current?.querySelector("video");
+      if (video) {
+        video.volume = newVol / 100;
+        video.muted = newVol === 0;
+      }
+    }
+  };
+
+  // Seletor de Qualidade do Player (1080p, 720p, Auto)
+  const handleQualityChange = (q: "hd1080" | "hd720" | "auto") => {
+    setTvQuality(q);
+    if (!isObsLiveActive && playerMode === "live") {
+      ytPlayerHandleRef.current?.setQuality(q);
+    }
+  };
+
+  // 7. Alternar Janela Flutuante Arrastável (Draggable PiP Universal)
+  const handleToggleFloating = () => {
     if (isFloating) {
       setIsFloating(false);
       userDismissedFloatingRef.current = false;
       return;
     }
-
-    // Se estiver no sinal OBS e o navegador suportar Picture-in-Picture nativo no elemento de vídeo
-    if (playerMode === "live" && isObsLiveActive) {
-      const video = playerStageRef.current?.querySelector("video");
-      if (document.pictureInPictureEnabled && video && !document.pictureInPictureElement) {
-        try {
-          await video.requestPictureInPicture();
-          return;
-        } catch (err) {
-          console.info("[TvOnlineClient] Fallback para Mini-Player Universal:", err);
-        }
-      }
-    }
-
-    // Modo Universal: funciona perfeitamente para YouTube, VOD e fallback M3U8
     userDismissedFloatingRef.current = false;
+    if (!floatingPos) {
+      initFloatingPos();
+    }
     setIsFloating(true);
   };
+
+  // Início do arrasto da Janela Flutuante (Mouse ou Toque na barra superior)
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+
+    isDraggingRef.current = true;
+    const clientX = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
+    const el = playerStageRef.current;
+    const rect = el ? el.getBoundingClientRect() : { left: floatingPos?.x ?? 20, top: floatingPos?.y ?? 20 };
+
+    dragOffsetRef.current = {
+      offsetX: clientX - rect.left,
+      offsetY: clientY - rect.top,
+    };
+  };
+
+  // Movimentação livre (Mouse & Touch) do Mini-Player Flutuante pela tela
+  useEffect(() => {
+    if (!isFloating) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDraggingRef.current) return;
+      if ("touches" in e) {
+        if (e.cancelable) e.preventDefault();
+      }
+
+      const clientX = "touches" in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+      const clientY = "touches" in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+      const el = playerStageRef.current;
+      const width = el?.offsetWidth || 320;
+      const height = el?.offsetHeight || 180;
+
+      let newX = clientX - dragOffsetRef.current.offsetX;
+      let newY = clientY - dragOffsetRef.current.offsetY;
+
+      const maxX = Math.max(8, window.innerWidth - width - 8);
+      const maxY = Math.max(8, window.innerHeight - height - 8);
+
+      newX = Math.min(Math.max(8, newX), maxX);
+      newY = Math.min(Math.max(8, newY), maxY);
+
+      setFloatingPos({ x: newX, y: newY });
+    };
+
+    const handleEnd = () => {
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener("mousemove", handleMove, { passive: false });
+    window.addEventListener("mouseup", handleEnd);
+    window.addEventListener("touchmove", handleMove, { passive: false });
+    window.addEventListener("touchend", handleEnd);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleEnd);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleEnd);
+    };
+  }, [isFloating]);
 
   // 8. Tela Cheia com Auto-Rotate Paisagem no Smartphone
   const handleFullscreenToggle = async () => {
@@ -690,6 +843,7 @@ function TvOnlineHubContent() {
 
         if (scrolledPast && !entry.isIntersecting) {
           if (!userDismissedFloatingRef.current && !isFullscreen) {
+            if (!floatingPos) initFloatingPos();
             setIsFloating(true);
           }
         } else if (entry.isIntersecting) {
@@ -702,7 +856,7 @@ function TvOnlineHubContent() {
 
     observer.observe(anchor);
     return () => observer.disconnect();
-  }, [isFullscreen]);
+  }, [isFullscreen, floatingPos, initFloatingPos]);
 
   // Filtragem dos vídeos da barra lateral (Aba 1: RedeCast, Aba 2: TV Apucarana)
   const sidebarRedeCast = useMemo(() => {
@@ -928,26 +1082,56 @@ function TvOnlineHubContent() {
               </div>
             )}
 
-            {/* PALCO DO PLAYER (TRANSFORMA-SE EM MINI-PLAYER FLUTUANTE QUANDO isFloating = true) */}
+            {/* PALCO DO PLAYER (TRANSFORMA-SE EM MINI-PLAYER FLUTUANTE ARRASTÁVEL QUANDO isFloating = true) */}
             <div
               ref={playerStageRef}
+              style={
+                isFloating && floatingPos
+                  ? { left: `${floatingPos.x}px`, top: `${floatingPos.y}px` }
+                  : undefined
+              }
               className={
                 isFloating
-                  ? "fixed bottom-4 right-4 w-72 sm:w-96 aspect-video z-50 rounded-xl shadow-2xl border-2 border-red-600 bg-black overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-4"
+                  ? "fixed z-50 w-72 sm:w-96 aspect-video rounded-xl shadow-2xl border-2 border-red-600 bg-black overflow-hidden select-none touch-none animate-in fade-in"
                   : "relative w-full aspect-video rounded-2xl bg-black overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300"
               }
             >
-              {/* Barra Superior da Janela Flutuante (apenas visível quando em modo flutuante) */}
+              {/* Barra Superior da Janela Flutuante Arrastável (apenas visível quando em modo flutuante) */}
               {isFloating && (
-                <div className="absolute top-0 inset-x-0 z-40 bg-gradient-to-b from-black/95 via-black/80 to-transparent p-2 sm:p-2.5 flex items-center justify-between text-white text-xs font-bold backdrop-blur-xs">
+                <div
+                  onMouseDown={handleDragStart}
+                  onTouchStart={handleDragStart}
+                  className="absolute top-0 inset-x-0 z-40 bg-gradient-to-b from-black/95 via-black/85 to-transparent p-2 sm:p-2.5 flex items-center justify-between text-white text-xs font-bold backdrop-blur-xs cursor-move select-none border-b border-white/10"
+                  title="⠿ Arraste para mover o player livremente pela tela"
+                >
                   <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-slate-400 font-mono tracking-tighter text-sm">⠿</span>
                     <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
-                    <span className="truncate text-[11px] font-black text-white">TV REDE APUCARANA</span>
+                    <span className="truncate text-[11px] font-black text-white">TV Rede Apucarana</span>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0 pointer-events-auto">
+                    {/* Botão de Som rápido no Mini-Player */}
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleGlobalMute();
+                      }}
+                      className="w-6 h-6 rounded bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition cursor-pointer"
+                      title={isGlobalMuted ? "Ativar som" : "Mutar som"}
+                    >
+                      {isGlobalMuted ? (
+                        <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                    </button>
+
+                    {/* Botão de Expandir de volta */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setIsFloating(false);
                         userDismissedFloatingRef.current = false;
                         playerContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -955,11 +1139,15 @@ function TvOnlineHubContent() {
                       className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
                       title="Voltar ao Tamanho Normal"
                     >
-                      <span>⬆️ Voltar</span>
+                      <span>⬆️</span>
+                      <span className="hidden xs:inline">Expandir</span>
                     </button>
+
+                    {/* Botão Fechar */}
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setIsFloating(false);
                         userDismissedFloatingRef.current = true;
                       }}
@@ -975,23 +1163,22 @@ function TvOnlineHubContent() {
               {/* CONTEÚDO ATIVO DO PLAYER */}
               {playerMode === "live" ? (
                 isObsLiveActive ? (
-                  // 1.1 ESTADO AO VIVO OBS (SamCast HLS M3U8)
+                  // 1.1 ESTADO AO VIVO OBS (SamCast HLS M3U8 com Watchdog de 4 segundos)
                   <div className="relative w-full h-full aspect-video bg-black flex items-center justify-center">
                     <LiveTvPlayer
                       onTheaterToggle={() => setIsTheater(!isTheater)}
                       isTheater={isTheater}
                       streamUrl={tvSettings.live_m3u8_url}
                       onStreamActive={() => setM3u8HasError(false)}
-                      onError={() => {
-                        if (tvSettings.mode === "auto") {
-                          console.info("[LiveTvPlayer] Sinal M3U8 offline. Ativando Grade YouTube 24h.");
-                          setM3u8HasError(true);
-                        }
+                      onError={(err) => {
+                        console.info("[LiveTvPlayer] Sinal M3U8 caiu/desconectado:", err);
+                        setM3u8HasError(true);
+                        setProbeIsLive(false);
                       }}
                     />
                   </div>
                 ) : (
-                  // 1.2 ESTADO GRADE YOUTUBE 24H (Enquadramento 100% Original, Controles HD/FS liberados e Zero Cliques)
+                  // 1.2 ESTADO GRADE YOUTUBE 24H (TV REAL: SEM barra de tempo/seek, Enquadramento 100% Original e Zero Cliques)
                   <YouTubeFastGridPlayer
                     ref={ytPlayerHandleRef}
                     playlist={tvPlaylist}
@@ -1126,11 +1313,12 @@ function TvOnlineHubContent() {
             </div>
 
             {/* ========================================================================= */}
-            {/* BARRA DE CONTROLE MODERNA DO PLAYER (SOM, MINI-PLAYER, TEATRO, FS)        */}
+            {/* BARRA DE CONTROLE MODERNA DO PLAYER (SOM, VOLUME, QUALIDADE, FLUTUANTE, FS) */}
             {/* ========================================================================= */}
             <div className="bg-slate-900/95 border border-slate-800 rounded-xl px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
-              {/* Lado Esquerdo: Áudio & Status */}
+              {/* Lado Esquerdo: Áudio & Slider de Volume & Status */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {/* Botão Mute / Unmute */}
                 <button
                   type="button"
                   onClick={handleToggleGlobalMute}
@@ -1149,12 +1337,29 @@ function TvOnlineHubContent() {
                   ) : (
                     <>
                       <Volume2 className="w-4 h-4 text-emerald-400" />
-                      <span>Som Ligado</span>
+                      <span className="hidden sm:inline">Som Ligado</span>
                     </>
                   )}
                 </button>
 
-                <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 border-l border-slate-800 pl-3">
+                {/* Slider de Volume Funcional */}
+                <div className="hidden xs:flex items-center gap-1.5">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={isGlobalMuted ? 0 : globalVolume}
+                    onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                    className="w-16 sm:w-20 h-1.5 bg-slate-700 accent-red-500 rounded-lg cursor-pointer"
+                    title={`Volume: ${isGlobalMuted ? 0 : globalVolume}%`}
+                  />
+                  <span className="text-[10px] font-mono text-slate-400 w-7">
+                    {isGlobalMuted ? "0%" : `${globalVolume}%`}
+                  </span>
+                </div>
+
+                {/* Indicador de Transmissão */}
+                <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 border-l border-slate-800 pl-3">
                   {playerMode === "live" ? (
                     isObsLiveActive ? (
                       <span className="flex items-center gap-1.5 text-red-400 font-bold text-[11px]">
@@ -1175,9 +1380,52 @@ function TvOnlineHubContent() {
                 </div>
               </div>
 
-              {/* Lado Direito: Janela Flutuante, Teatro e Tela Cheia (Landscape Mobile) */}
+              {/* Lado Direito: Qualidade, Janela Flutuante, Teatro e Tela Cheia */}
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                {/* Botão Janela Flutuante (Mini-Player) */}
+                {/* Seletor de Qualidade do Player */}
+                <div className="relative group/qual">
+                  <button
+                    type="button"
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                    title="Qualidade do Vídeo"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      {tvQuality === "hd1080" ? "1080p" : tvQuality === "hd720" ? "720p" : "Auto"}
+                    </span>
+                  </button>
+                  <div className="absolute bottom-full right-0 mb-1 hidden group-hover/qual:flex flex-col bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 z-30 min-w-[120px]">
+                    <button
+                      type="button"
+                      onClick={() => handleQualityChange("hd1080")}
+                      className={`px-3 py-1.5 rounded text-left text-xs font-bold transition cursor-pointer ${
+                        tvQuality === "hd1080" ? "bg-red-600 text-white" : "hover:bg-slate-800 text-slate-300"
+                      }`}
+                    >
+                      1080p Full HD
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQualityChange("hd720")}
+                      className={`px-3 py-1.5 rounded text-left text-xs font-bold transition cursor-pointer ${
+                        tvQuality === "hd720" ? "bg-red-600 text-white" : "hover:bg-slate-800 text-slate-300"
+                      }`}
+                    >
+                      720p HD
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQualityChange("auto")}
+                      className={`px-3 py-1.5 rounded text-left text-xs font-bold transition cursor-pointer ${
+                        tvQuality === "auto" ? "bg-red-600 text-white" : "hover:bg-slate-800 text-slate-300"
+                      }`}
+                    >
+                      Automático
+                    </button>
+                  </div>
+                </div>
+
+                {/* Botão Janela Flutuante (Mini-Player Arrastável) */}
                 <button
                   type="button"
                   onClick={handleToggleFloating}
@@ -1186,7 +1434,7 @@ function TvOnlineHubContent() {
                       ? "bg-red-600 text-white border-red-500 shadow-md shadow-red-600/30"
                       : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 hover:text-white"
                   }`}
-                  title="Assistir em Janela Flutuante (Mini-Player) enquanto navega"
+                  title="Assistir em Janela Flutuante Arrastável enquanto navega pelo site"
                 >
                   <PictureInPicture className="w-4 h-4 text-amber-400" />
                   <span className="hidden xs:inline">Janela Flutuante</span>

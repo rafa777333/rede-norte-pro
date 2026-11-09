@@ -95,16 +95,16 @@ export default function LiveTvPlayer({
         const hls = new HlsModule({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 30,
-          maxBufferLength: 20,
-          maxMaxBufferLength: 40,
-          manifestLoadingTimeOut: 15000,
-          manifestLoadingMaxRetry: 6,
-          manifestLoadingRetryDelay: 1000,
-          levelLoadingTimeOut: 15000,
-          levelLoadingMaxRetry: 5,
-          fragLoadingTimeOut: 20000,
-          fragLoadingMaxRetry: 6,
+          backBufferLength: 10,
+          maxBufferLength: 10,
+          maxMaxBufferLength: 20,
+          manifestLoadingTimeOut: 4000,
+          manifestLoadingMaxRetry: 1,
+          manifestLoadingRetryDelay: 500,
+          levelLoadingTimeOut: 4000,
+          levelLoadingMaxRetry: 1,
+          fragLoadingTimeOut: 4000,
+          fragLoadingMaxRetry: 1,
         });
 
         hlsRef.current = hls;
@@ -136,29 +136,20 @@ export default function LiveTvPlayer({
         });
 
         hls.on(HlsModule.Events.ERROR, (_event: any, data: any) => {
-          if (data.fatal) {
-            console.warn("[HLS Error Fatal]:", data.type, data.details);
-            onError?.(data?.details || data?.type || "hls_fatal_error");
-            switch (data.type) {
-              case HlsModule.ErrorTypes.NETWORK_ERROR:
-                setIsBuffering(true);
-                hls.startLoad();
-                break;
-              case HlsModule.ErrorTypes.MEDIA_ERROR:
-                setIsBuffering(true);
-                hls.recoverMediaError();
-                break;
-              default:
-                setHasError(true);
-                setErrorMessage(
-                  "Sinal temporariamente indisponível. Reconectando..."
-                );
-                hls.destroy();
-                setTimeout(() => {
-                  setRetryCount((prev) => prev + 1);
-                }, 3000);
-                break;
+          // Em QUALQUER erro fatal ou de rede (quando o OBS cai/desliga), encerra imediatamente
+          // e chama onError para retornar instantaneamente à Grade 24h do YouTube sem ficar em loop
+          if (data.fatal || data.type === HlsModule.ErrorTypes.NETWORK_ERROR) {
+            console.warn("[HLS Error]: Stream OBS encerrado ou indisponível:", data.type, data.details);
+            if (hlsRef.current) {
+              try {
+                hlsRef.current.destroy();
+              } catch {}
+              hlsRef.current = null;
             }
+            setHasError(true);
+            setIsLoading(false);
+            setIsBuffering(false);
+            onError?.(data?.details || data?.type || "hls_stream_offline");
           }
         });
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -241,6 +232,87 @@ export default function LiveTvPlayer({
       video.removeEventListener("playing", onPlaying);
     };
   }, []);
+
+  // Watchdog de Congelamento (4 segundos): Detecta imediatamente quando o OBS é encerrado
+  useEffect(() => {
+    let lastTime = 0;
+    let frozenCount = 0;
+
+    const watchdogTimer = setInterval(() => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      // Se o player está rodando mas o currentTime não avança por 4 segundos
+      if (!video.paused && !video.ended) {
+        const curr = video.currentTime;
+        if (curr > 0 && Math.abs(curr - lastTime) < 0.05) {
+          frozenCount += 1;
+          if (frozenCount >= 4) {
+            console.warn("[Watchdog HLS] Vídeo congelado por 4s (OBS desligado). Retornando para Grade YouTube.");
+            if (hlsRef.current) {
+              try {
+                hlsRef.current.destroy();
+              } catch {}
+              hlsRef.current = null;
+            }
+            setHasError(true);
+            setIsLoading(false);
+            onError?.("watchdog_frozen_stream_stopped");
+          }
+        } else {
+          lastTime = curr;
+          frozenCount = 0;
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(watchdogTimer);
+  }, [onError]);
+
+  // Watchdog para evento stalled / waiting por mais de 4 segundos
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const triggerFreezeTimeout = () => {
+      if (!timeoutId) {
+        timeoutId = setTimeout(() => {
+          console.warn("[Watchdog HLS] Stream stalled por 4s (OBS desligado). Retornando para Grade YouTube.");
+          if (hlsRef.current) {
+            try {
+              hlsRef.current.destroy();
+            } catch {}
+            hlsRef.current = null;
+          }
+          setHasError(true);
+          setIsLoading(false);
+          onError?.("watchdog_stalled_stream_stopped");
+        }, 4000);
+      }
+    };
+
+    const clearFreezeTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    video.addEventListener("waiting", triggerFreezeTimeout);
+    video.addEventListener("stalled", triggerFreezeTimeout);
+    video.addEventListener("playing", clearFreezeTimeout);
+    video.addEventListener("timeupdate", clearFreezeTimeout);
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      video.removeEventListener("waiting", triggerFreezeTimeout);
+      video.removeEventListener("stalled", triggerFreezeTimeout);
+      video.removeEventListener("playing", clearFreezeTimeout);
+      video.removeEventListener("timeupdate", clearFreezeTimeout);
+    };
+  }, [onError]);
 
   // Monitoramento de Fullscreen
   useEffect(() => {
