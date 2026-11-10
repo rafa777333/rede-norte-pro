@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, useImperativeHandle, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Tv,
   Radio,
@@ -32,7 +32,7 @@ import {
   Expand,
   Settings,
 } from "lucide-react";
-import LiveTvPlayer from "./LiveTvPlayer";
+import LiveTvPlayer, { type LiveTvPlayerHandle } from "./LiveTvPlayer";
 import {
   PortalVideoItem,
   ChannelSource,
@@ -77,6 +77,8 @@ export interface YouTubeFastGridPlayerHandle {
   setQuality: (quality: string) => void;
   getQuality: () => string;
   resyncWithClock?: (videoId: string, elapsedSeconds: number) => void;
+  playVideo?: () => void;
+  pauseVideo?: () => void;
 }
 
 interface YouTubeFastGridPlayerProps {
@@ -236,6 +238,27 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
           }
         },
         getQuality: () => selectedQuality,
+        playVideo: () => {
+          const p = playerRef.current;
+          if (p && typeof p.playVideo === "function") {
+            try {
+              p.unMute();
+              p.setVolume(100);
+              p.playVideo();
+              setIsPlaying(true);
+              setIsMuted(false);
+            } catch {}
+          }
+        },
+        pauseVideo: () => {
+          const p = playerRef.current;
+          if (p && typeof p.pauseVideo === "function") {
+            try {
+              p.pauseVideo();
+              setIsPlaying(false);
+            } catch {}
+          }
+        },
         resyncWithClock: (videoId: string, elapsedSeconds: number) => {
           const p = playerRef.current;
           if (!p) return;
@@ -462,6 +485,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
  * =========================================================================
  */
 function TvOnlineHubContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const videoParam = searchParams.get("v");
 
@@ -496,15 +520,42 @@ function TvOnlineHubContent() {
   const [tvQuality, setTvQuality] = useState<"hd1080" | "hd720" | "auto">("hd1080");
   const [floatingPos, setFloatingPos] = useState<{ x: number; y: number } | null>(null);
 
+  // Fluxo Cinema Instantâneo Mobile (Tela cheia horizontal + desbloqueio de áudio)
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(true);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
+
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef<{ offsetX: number; offsetY: number }>({ offsetX: 0, offsetY: 0 });
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerStageRef = useRef<HTMLDivElement>(null);
+  const livePlayerRef = useRef<LiveTvPlayerHandle | null>(null);
   const playerScrollAnchorRef = useRef<HTMLDivElement>(null);
   const userDismissedFloatingRef = useRef(false);
   const ytPlayerHandleRef = useRef<YouTubeFastGridPlayerHandle | null>(null);
   const hasAppliedParam = useRef<string | null>(null);
+
+  // Detecção em tempo real de Smartphone (Mobile) e Orientação (Portrait vs Landscape)
+  useEffect(() => {
+    const handleScreenResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      const portrait =
+        window.screen?.orientation?.type
+          ? window.screen.orientation.type.includes("portrait")
+          : window.innerHeight > window.innerWidth;
+      setIsPortrait(portrait);
+    };
+
+    handleScreenResize();
+    window.addEventListener("resize", handleScreenResize);
+    window.addEventListener("orientationchange", handleScreenResize);
+    return () => {
+      window.removeEventListener("resize", handleScreenResize);
+      window.removeEventListener("orientationchange", handleScreenResize);
+    };
+  }, []);
 
   // Blindagem definitiva contra Stream Congelado / Fantasma do SamCast (Fim do Loop):
   const lastSeenSegmentRef = useRef<string | null>(null);
@@ -520,6 +571,11 @@ function TvOnlineHubContent() {
     if (!currentVodVideo) return false;
     return isVideoVerticalFormat(currentVodVideo, mp4IsVertical);
   }, [playerMode, currentVodVideo, mp4IsVertical]);
+
+  // Modo Cinema Mobile: força rotação horizontal de 90° via CSS quando o smartphone estiver em pé (portrait)
+  // e o vídeo for no formato widescreen 16:9 (TV Ao Vivo ou VOD horizontal)
+  const shouldRotateHorizontal =
+    isMobile && isPortrait && !isCurrentVideoVertical;
 
   // Inicializa posição padrão no canto inferior direito respeitando proporção horizontal vs vertical
   const initFloatingPos = useCallback(() => {
@@ -830,6 +886,98 @@ function TvOnlineHubContent() {
     if (m3u8HasError) return false;
     return probeIsLive;
   }, [tvSettings.mode, probeIsLive, m3u8HasError]);
+
+  // Desbloqueio Instantâneo de Áudio por Gesto + Play + Fullscreen + Orientação Paisagem
+  const handleUnlockCinemaAudio = useCallback(async () => {
+    setIsAudioUnlocked(true);
+    setIsGlobalMuted(false);
+
+    // 1. Sinal HLS do OBS (LiveTvPlayer)
+    if (playerMode === "live" && isObsLiveActive) {
+      if (livePlayerRef.current) {
+        try {
+          livePlayerRef.current.unMute();
+          await livePlayerRef.current.play();
+        } catch (err) {
+          console.warn("[Cinema Mobile] Erro ao iniciar HLS unmuted:", err);
+        }
+      }
+    }
+
+    // 2. Grade 24h contínua do YouTube (YouTubeFastGridPlayer)
+    if (playerMode === "live" && !isObsLiveActive) {
+      if (ytPlayerHandleRef.current) {
+        try {
+          ytPlayerHandleRef.current.unMute();
+          ytPlayerHandleRef.current.setVolume(100);
+          ytPlayerHandleRef.current.playVideo?.();
+        } catch (err) {
+          console.warn("[Cinema Mobile] Erro ao iniciar YouTube unmuted:", err);
+        }
+      }
+    }
+
+    // 3. Vídeo Sob Demanda (VOD)
+    if (playerMode === "vod") {
+      const vodVideo = playerStageRef.current?.querySelector("video");
+      if (vodVideo) {
+        vodVideo.muted = false;
+        vodVideo.volume = 1;
+        vodVideo.play().catch(() => {});
+      }
+    }
+
+    // 4. Solicitação de Tela Cheia nativa do navegador
+    const stage = playerStageRef.current;
+    if (stage) {
+      try {
+        if (stage.requestFullscreen) {
+          await stage.requestFullscreen();
+        } else if ((stage as any).webkitRequestFullscreen) {
+          await (stage as any).webkitRequestFullscreen();
+        }
+      } catch (err) {
+        console.warn("[Cinema Mobile] requestFullscreen:", err);
+      }
+    }
+
+    // 5. Força orientação horizontal em dispositivos Android compatíveis
+    if (typeof window !== "undefined" && window.screen?.orientation && (window.screen.orientation as any).lock) {
+      try {
+        await (window.screen.orientation as any).lock("landscape");
+      } catch {}
+    }
+  }, [playerMode, isObsLiveActive]);
+
+  // Ação ao clicar no botão gigante "VOLTAR AO MENU" (Anti-travamento para idosos)
+  const handleExitCinema = useCallback(() => {
+    // 1. Pausa imediatamente o vídeo ativo
+    try {
+      livePlayerRef.current?.pause();
+    } catch {}
+    try {
+      ytPlayerHandleRef.current?.pauseVideo?.();
+    } catch {}
+    try {
+      const vodVideo = playerStageRef.current?.querySelector("video");
+      vodVideo?.pause();
+    } catch {}
+
+    // 2. Sai do modo tela cheia se ativo
+    if (typeof document !== "undefined" && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    // 3. Destrava a orientação da tela do smartphone
+    if (typeof window !== "undefined" && window.screen?.orientation && (window.screen.orientation as any).unlock) {
+      try {
+        (window.screen.orientation as any).unlock();
+      } catch {}
+    }
+
+    // 4. Retorna imediatamente à Home dos botões gigantes
+    router.push("/");
+  }, [router]);
 
   // Tocar vídeo On-Demand no player principal e atualizar a barra de endereço
   const handleSelectVod = (video: PortalVideoItem) => {
@@ -1187,9 +1335,9 @@ function TvOnlineHubContent() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-red-600 selection:text-white">
       {/* ========================================================================= */}
-      {/* 1. TOPLINE ESCURA COM LINKS RÁPIDOS E RETORNO                             */}
+      {/* 1. TOPLINE ESCURA COM LINKS RÁPIDOS E RETORNO (Apenas Desktop)            */}
       {/* ========================================================================= */}
-      <div className="bg-black/95 border-b border-slate-800/80 text-xs py-2.5 px-4 sticky top-0 z-50 backdrop-blur-md">
+      <div className="hidden md:block bg-black/95 border-b border-slate-800/80 text-xs py-2.5 px-4 sticky top-0 z-50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
@@ -1239,9 +1387,9 @@ function TvOnlineHubContent() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. CABEÇALHO DO HUB DE STREAMING (TV APUCARANA + REDECAST)               */}
+      {/* 2. CABEÇALHO DO HUB DE STREAMING (Apenas Desktop)                         */}
       {/* ========================================================================= */}
-      <header className="bg-slate-900/60 border-b border-slate-800/90 py-4 px-4 sm:px-6 lg:px-8">
+      <header className="hidden md:block bg-slate-900/60 border-b border-slate-800/90 py-4 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/" className="shrink-0 group flex items-center gap-3">
@@ -1296,15 +1444,15 @@ function TvOnlineHubContent() {
       {/* ========================================================================= */}
       {/* 3. PALCO PRINCIPAL (MOTOR HÍBRIDO OBS <-> LOOP YOUTUBE 24H <-> VOD)       */}
       {/* ========================================================================= */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full p-0 md:px-6 lg:px-8 md:py-6 space-y-0 md:space-y-10">
         <div
           ref={playerContainerRef}
-          className={`grid gap-8 transition-all duration-300 ${
+          className={`grid gap-0 md:gap-8 transition-all duration-300 ${
             isTheater ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-12"
           }`}
         >
           {/* COLUNA ESQUERDA: PALCO PRINCIPAL DA TV (8 COLUNAS) */}
-          <div className={`space-y-4 transition-all ${isTheater ? "w-full" : "lg:col-span-8"}`}>
+          <div className={`space-y-0 md:space-y-4 transition-all ${isTheater ? "w-full" : "lg:col-span-8"}`}>
             {/* Âncora invisível para detecção de scroll do player */}
             <div ref={playerScrollAnchorRef} className="h-0 w-full pointer-events-none" />
 
@@ -1362,8 +1510,8 @@ function TvOnlineHubContent() {
                     ? "fixed z-50 w-40 sm:w-48 aspect-[9/16] rounded-xl shadow-2xl border-2 border-pink-500 bg-black overflow-hidden select-none touch-none animate-in fade-in"
                     : "fixed z-50 w-72 sm:w-96 aspect-video rounded-xl shadow-2xl border-2 border-red-600 bg-black overflow-hidden select-none touch-none animate-in fade-in"
                   : isCurrentVideoVertical
-                  ? "relative w-full max-w-[400px] sm:max-w-none aspect-[9/16] sm:aspect-auto sm:h-[560px] mx-auto rounded-2xl bg-black overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300 flex items-center justify-center"
-                  : "relative w-full aspect-video rounded-2xl bg-black overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300"
+                  ? "fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden md:relative md:inset-auto md:z-auto md:w-full md:max-w-[400px] md:sm:max-w-none md:aspect-[9/16] md:sm:aspect-auto md:sm:h-[560px] md:mx-auto md:rounded-2xl md:bg-black md:shadow-2xl md:border md:border-slate-800 md:transition-all md:duration-300 md:flex md:items-center md:justify-center"
+                  : "fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden md:relative md:inset-auto md:z-auto md:w-full md:aspect-video md:rounded-2xl md:bg-black md:shadow-2xl md:border md:border-slate-800 md:transition-all md:duration-300"
               }
             >
               {/* Barra Superior da Janela Flutuante Arrastável (apenas visível quando em modo flutuante) */}
@@ -1436,85 +1584,206 @@ function TvOnlineHubContent() {
                 </div>
               )}
 
-              {/* CONTEÚDO ATIVO DO PLAYER */}
-              {playerMode === "live" ? (
-                isObsLiveActive ? (
-                  // 1.1 ESTADO AO VIVO OBS (SamCast HLS M3U8 com Watchdog de 4 segundos)
-                  <div className="relative w-full h-full aspect-video bg-black flex items-center justify-center">
-                    <LiveTvPlayer
-                      onTheaterToggle={() => setIsTheater(!isTheater)}
-                      isTheater={isTheater}
-                      streamUrl={tvSettings.live_m3u8_url}
-                      onStreamActive={() => {
-                        setM3u8HasError(false);
-                        cooldownUntilRef.current = 0;
-                      }}
-                      onError={(err) => {
-                        console.info("[LiveTvPlayer] Sinal M3U8 caiu/desconectado ou congelou:", err);
-                        triggerOfflineCooldown(lastSeenSegmentRef.current);
-                      }}
-                    />
-                  </div>
-                ) : (
-                  // 1.2 ESTADO GRADE YOUTUBE 24H (TV REAL: SEM barra de tempo/seek, Enquadramento 100% Original e Zero Cliques)
-                  <YouTubeFastGridPlayer
-                    ref={ytPlayerHandleRef}
-                    playlist={tvPlaylist}
-                    onCurrentItemChange={(curr, next, rem) => {
-                      setLiveCurrentItem(curr);
-                      setLiveNextItem(next);
-                      setLiveRemainingSeconds(rem);
-                    }}
-                    onMuteChange={(muted) => setIsGlobalMuted(muted)}
-                  />
-                )
-              ) : isCurrentVideoVertical ? (
-                // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur no Desktop + Moldura Vertical Responsiva
-                <div className="relative w-full h-full bg-slate-950 flex items-center justify-center overflow-hidden">
-                  {/* Fundo Ambient com Blur para Computador (Desktop) */}
-                  <div className="hidden sm:block absolute inset-0 pointer-events-none overflow-hidden select-none">
-                    <img
-                      src={currentVodVideo?.thumbnail_url}
-                      alt=""
-                      className="w-full h-full object-cover filter blur-2xl opacity-40 scale-110"
-                    />
-                    <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" />
-                  </div>
+              {/* ========================================================================= */}
+              {/* BOTÃO GIGANTE VOLTAR AO MENU (Exclusivo Mobile / Anti-Travamento Idosos)  */}
+              {/* ========================================================================= */}
+              <div className="block md:hidden">
+                <button
+                  type="button"
+                  onClick={handleExitCinema}
+                  className="fixed top-4 left-4 z-[90] px-5 py-3 rounded-full text-base sm:text-lg font-black text-white bg-red-600 hover:bg-red-500 active:scale-95 shadow-[0_4px_25px_rgba(0,0,0,0.8)] border-2 border-white/90 flex items-center gap-2 cursor-pointer select-none transition-all"
+                  title="Voltar ao Menu Principal"
+                  aria-label="Voltar ao menu inicial"
+                >
+                  <span className="text-xl leading-none font-black">⬅</span>
+                  <span>VOLTAR AO MENU</span>
+                </button>
+              </div>
 
-                  {/* Barra Superior com Botão de Voltar para a TV */}
-                  <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
-                    <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
-                      <span className="px-3 py-1 rounded-full bg-pink-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
-                        <Smartphone className="w-3.5 h-3.5" />
-                        <span>Corte 9:16</span>
-                      </span>
-                      <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
-                        {currentVodVideo?.title}
-                      </span>
+              {/* ========================================================================= */}
+              {/* BOTÃO GIGANTE DE DESBLOQUEIO DE ÁUDIO POR GESTO (Exclusivo Mobile)        */}
+              {/* ========================================================================= */}
+              {!isAudioUnlocked && (
+                <div
+                  onClick={handleUnlockCinemaAudio}
+                  className="block md:hidden fixed inset-0 z-[85] bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center cursor-pointer select-none"
+                >
+                  <button
+                    type="button"
+                    onClick={handleUnlockCinemaAudio}
+                    className="group px-6 py-4 sm:px-8 sm:py-5 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white font-black text-base sm:text-xl shadow-[0_0_40px_rgba(239,68,68,0.8)] border-3 border-white animate-pulse active:scale-95 hover:scale-105 transition-all flex items-center gap-3 cursor-pointer"
+                  >
+                    <span className="text-2xl sm:text-3xl animate-bounce">🔊</span>
+                    <span className="tracking-wide uppercase">
+                      TOCAR PARA ASSISTIR COM SOM (TELA CHEIA)
+                    </span>
+                  </button>
+                  <p className="text-white/80 text-xs sm:text-sm font-bold mt-4 drop-shadow">
+                    Toque para liberar o áudio e assistir em tela cheia horizontal
+                  </p>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* CONTAINER COM GIRO HORIZONTAL FORÇADO VIA CSS (90° em portrait no mobile)  */}
+              {/* ========================================================================= */}
+              <div
+                style={
+                  shouldRotateHorizontal
+                    ? { width: "100vh", height: "100vw" }
+                    : { width: "100%", height: "100%" }
+                }
+                className={`w-full h-full flex items-center justify-center overflow-hidden transition-all duration-300 ${
+                  shouldRotateHorizontal ? "rotate-90 origin-center shrink-0" : "rotate-0"
+                }`}
+              >
+                {/* CONTEÚDO ATIVO DO PLAYER */}
+                {playerMode === "live" ? (
+                  isObsLiveActive ? (
+                    // 1.1 ESTADO AO VIVO OBS (SamCast HLS M3U8 com Watchdog de 4 segundos)
+                    <div className="relative w-full h-full aspect-video bg-black flex items-center justify-center">
+                      <LiveTvPlayer
+                        ref={livePlayerRef}
+                        onTheaterToggle={() => setIsTheater(!isTheater)}
+                        isTheater={isTheater}
+                        streamUrl={tvSettings.live_m3u8_url}
+                        onStreamActive={() => {
+                          setM3u8HasError(false);
+                          cooldownUntilRef.current = 0;
+                        }}
+                        onError={(err) => {
+                          console.info("[LiveTvPlayer] Sinal M3U8 caiu/desconectado ou congelou:", err);
+                          triggerOfflineCooldown(lastSeenSegmentRef.current);
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    // 1.2 ESTADO GRADE YOUTUBE 24H (TV REAL: SEM barra de tempo/seek, Enquadramento 100% Original e Zero Cliques)
+                    <YouTubeFastGridPlayer
+                      ref={ytPlayerHandleRef}
+                      playlist={tvPlaylist}
+                      onCurrentItemChange={(curr, next, rem) => {
+                        setLiveCurrentItem(curr);
+                        setLiveNextItem(next);
+                        setLiveRemainingSeconds(rem);
+                      }}
+                      onMuteChange={(muted) => setIsGlobalMuted(muted)}
+                    />
+                  )
+                ) : isCurrentVideoVertical ? (
+                  // 2. ESTADO SOB DEMANDA VERTICAL (9:16): Fundo Ambient Blur no Desktop + Moldura Vertical Responsiva
+                  <div className="relative w-full h-full bg-slate-950 flex items-center justify-center overflow-hidden">
+                    {/* Fundo Ambient com Blur para Computador (Desktop) */}
+                    <div className="hidden sm:block absolute inset-0 pointer-events-none overflow-hidden select-none">
+                      <img
+                        src={currentVodVideo?.thumbnail_url}
+                        alt=""
+                        className="w-full h-full object-cover filter blur-2xl opacity-40 scale-110"
+                      />
+                      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleReturnToLive}
-                      className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                      title="Voltar para a TV Ao Vivo"
-                    >
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                      </span>
-                      <span>VOLTAR PARA A TV AO VIVO</span>
-                    </button>
-                  </div>
+                    {/* Barra Superior com Botão de Voltar para a TV */}
+                    <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
+                      <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
+                        <span className="px-3 py-1 rounded-full bg-pink-600 text-white font-black text-[10px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                          <Smartphone className="w-3.5 h-3.5" />
+                          <span>Corte 9:16</span>
+                        </span>
+                        <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
+                          {currentVodVideo?.title}
+                        </span>
+                      </div>
 
-                  {/* Moldura Centralizada 9:16 (No celular ocupa 100% da tela em pé; no computador mantém h-[520px] aspect-[9/16]) */}
-                  <div
-                    className={`relative aspect-[9/16] ${
-                      isFullscreen
-                        ? "h-full max-h-[100dvh] w-auto max-w-[100vw] mx-auto rounded-none"
-                        : "w-full h-full sm:w-auto sm:h-[520px] rounded-none sm:rounded-xl sm:border sm:border-slate-700/80"
-                    } overflow-hidden shadow-2xl z-10 bg-black flex items-center justify-center my-auto`}
-                  >
+                      <button
+                        type="button"
+                        onClick={handleReturnToLive}
+                        className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                        title="Voltar para a TV Ao Vivo"
+                      >
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                        </span>
+                        <span>VOLTAR PARA A TV AO VIVO</span>
+                      </button>
+                    </div>
+
+                    {/* Moldura Centralizada 9:16 (No celular ocupa 100% da tela em pé; no computador mantém h-[520px] aspect-[9/16]) */}
+                    <div
+                      className={`relative aspect-[9/16] ${
+                        isFullscreen
+                          ? "h-full max-h-[100dvh] w-auto max-w-[100vw] mx-auto rounded-none"
+                          : "w-full h-full sm:w-auto sm:h-[520px] rounded-none sm:rounded-xl sm:border sm:border-slate-700/80"
+                      } overflow-hidden shadow-2xl z-10 bg-black flex items-center justify-center my-auto`}
+                    >
+                      {currentVodVideo?.video_type === "mp4" ? (
+                        <video
+                          src={currentVodVideo.video_url}
+                          controls
+                          autoPlay
+                          playsInline
+                          onLoadedMetadata={(e) => {
+                            const v = e.currentTarget;
+                            if (v.videoWidth && v.videoHeight) {
+                              setMp4IsVertical(v.videoHeight > v.videoWidth);
+                            }
+                          }}
+                          className="w-full h-full object-cover sm:object-contain bg-black"
+                        />
+                      ) : currentVodVideo?.youtube_id ? (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1&controls=1&fs=1`}
+                          title={currentVodVideo.title}
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs text-center p-4">
+                          Pré-visualização do vídeo não disponível.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // 3. ESTADO SOB DEMANDA HORIZONTAL (16:9): Player Widescreen YouTube / MP4
+                  <div className="relative w-full h-full aspect-video bg-slate-950 flex flex-col">
+                    {/* Barra Superior do Palco VOD */}
+                    <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/70 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
+                      <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
+                        {currentVodVideo?.channel_source === "RedeCast" ? (
+                          <span className="px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                            <Mic className="w-3.5 h-3.5" />
+                            <span>Canal RedeCast</span>
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
+                            <Tv className="w-3.5 h-3.5" />
+                            <span>Canal TV Apucarana</span>
+                          </span>
+                        )}
+
+                        <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
+                          {currentVodVideo?.title}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleReturnToLive}
+                        className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                        title="Voltar para a programação contínua da TV"
+                      >
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                        </span>
+                        <span>VOLTAR PARA A TV AO VIVO</span>
+                      </button>
+                    </div>
+
+                    {/* Player Widescreen: MP4 Nativo ou YouTube */}
                     {currentVodVideo?.video_type === "mp4" ? (
                       <video
                         src={currentVodVideo.video_url}
@@ -1527,7 +1796,7 @@ function TvOnlineHubContent() {
                             setMp4IsVertical(v.videoHeight > v.videoWidth);
                           }
                         }}
-                        className="w-full h-full object-cover sm:object-contain bg-black"
+                        className="w-full h-full object-contain bg-black"
                       />
                     ) : currentVodVideo?.youtube_id ? (
                       <iframe
@@ -1537,82 +1806,16 @@ function TvOnlineHubContent() {
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         allowFullScreen
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs text-center p-4">
-                        Pré-visualização do vídeo não disponível.
-                      </div>
-                    )}
+                    ) : null}
                   </div>
-                </div>
-              ) : (
-                // 3. ESTADO SOB DEMANDA HORIZONTAL (16:9): Player Widescreen YouTube / MP4
-                <div className="relative w-full h-full aspect-video bg-slate-950 flex flex-col">
-                  {/* Barra Superior do Palco VOD */}
-                  <div className="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/70 to-transparent p-3 sm:p-4 flex items-center justify-between gap-3 pointer-events-none">
-                    <div className="flex items-center gap-2 min-w-0 pointer-events-auto">
-                      {currentVodVideo?.channel_source === "RedeCast" ? (
-                        <span className="px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
-                          <Mic className="w-3.5 h-3.5" />
-                          <span>Canal RedeCast</span>
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 shrink-0">
-                          <Tv className="w-3.5 h-3.5" />
-                          <span>Canal TV Apucarana</span>
-                        </span>
-                      )}
-
-                      <span className="hidden sm:inline-block text-xs font-bold text-slate-200 truncate max-w-sm drop-shadow-md">
-                        {currentVodVideo?.title}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleReturnToLive}
-                      className="pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider shadow-2xl border border-white/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                      title="Voltar para a programação contínua da TV"
-                    >
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                      </span>
-                      <span>VOLTAR PARA A TV AO VIVO</span>
-                    </button>
-                  </div>
-
-                  {/* Player Widescreen: MP4 Nativo ou YouTube */}
-                  {currentVodVideo?.video_type === "mp4" ? (
-                    <video
-                      src={currentVodVideo.video_url}
-                      controls
-                      autoPlay
-                      playsInline
-                      onLoadedMetadata={(e) => {
-                        const v = e.currentTarget;
-                        if (v.videoWidth && v.videoHeight) {
-                          setMp4IsVertical(v.videoHeight > v.videoWidth);
-                        }
-                      }}
-                      className="w-full h-full object-contain bg-black"
-                    />
-                  ) : currentVodVideo?.youtube_id ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${currentVodVideo.youtube_id}?autoplay=1&rel=0&playsinline=1&controls=1&fs=1`}
-                      title={currentVodVideo.title}
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  ) : null}
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* ========================================================================= */}
-            {/* BARRA DE CONTROLE MODERNA DO PLAYER (SOM, VOLUME, QUALIDADE, FLUTUANTE, FS) */}
+            {/* BARRA DE CONTROLE MODERNA DO PLAYER (Apenas Desktop)                      */}
             {/* ========================================================================= */}
-            <div className="bg-slate-900/95 border border-slate-800 rounded-xl px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg">
+            <div className="hidden md:flex bg-slate-900/95 border border-slate-800 rounded-xl px-3 sm:px-4 py-2.5 items-center justify-between gap-3 shadow-lg">
               {/* Lado Esquerdo: Áudio & Slider de Volume & Status */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 {/* Botão Mute / Unmute */}
@@ -1788,9 +1991,9 @@ function TvOnlineHubContent() {
             </div>
 
             {/* ========================================================================= */}
-            {/* BARRA DE INFORMAÇÕES ABAIXO DO PLAYER (NO AR AGORA + A SEGUIR)            */}
+            {/* BARRA DE INFORMAÇÕES ABAIXO DO PLAYER (Apenas Desktop)                    */}
             {/* ========================================================================= */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="hidden md:flex bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1.5 min-w-0">
                 {playerMode === "live" ? (
                   isObsLiveActive ? (
@@ -1922,8 +2125,8 @@ function TvOnlineHubContent() {
             </div>
           </div>
 
-          {/* COLUNA DIREITA: DESTAQUES DOS CANAIS & GRADE COM 3 ABAS (4 COLUNAS) */}
-          <div className={`space-y-4 ${isTheater ? "w-full" : "lg:col-span-4"}`}>
+          {/* COLUNA DIREITA: DESTAQUES DOS CANAIS & GRADE COM 3 ABAS (Apenas Desktop) */}
+          <div className={`space-y-4 hidden md:block ${isTheater ? "w-full" : "lg:col-span-4"}`}>
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[480px]">
               {/* SELETOR DAS 3 ABAS */}
               <div className="grid grid-cols-3 gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-3 shrink-0">
@@ -2178,7 +2381,7 @@ function TvOnlineHubContent() {
         {/* 3.1 CARROSSEL EXCLUSIVO DE CORTES & REELS 9:16                            */}
         {/* ========================================================================= */}
         {videosCortes916.length > 0 && (
-          <section className="space-y-4 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-purple-950/20 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+          <section className="hidden md:block space-y-4 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-purple-950/20 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center font-black shadow-md text-sm">
@@ -2220,9 +2423,9 @@ function TvOnlineHubContent() {
         )}
 
         {/* ========================================================================= */}
-        {/* 4. PRATELEIRAS HORIZONTAIS 16:9 ESTILO NETFLIX COM FILTRO MULTI-CANAL     */}
+        {/* 4. PRATELEIRAS HORIZONTAIS 16:9 (Apenas Desktop)                          */}
         {/* ========================================================================= */}
-        <section className="space-y-8 pt-4">
+        <section className="hidden md:block space-y-8 pt-4">
           {/* BARRA SUPERIOR DO CATÁLOGO: SELETOR DE CANAL */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
             <div>
@@ -2384,9 +2587,9 @@ function TvOnlineHubContent() {
       </main>
 
       {/* ========================================================================= */}
-      {/* 5. FOOTER DA EMISSORA                                                    */}
+      {/* 5. FOOTER DA EMISSORA (Apenas Desktop)                                   */}
       {/* ========================================================================= */}
-      <footer className="bg-black border-t border-slate-900 py-6 px-4 sm:px-6 lg:px-8 mt-12 text-xs text-slate-400">
+      <footer className="hidden md:block bg-black border-t border-slate-900 py-6 px-4 sm:px-6 lg:px-8 mt-12 text-xs text-slate-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div className="flex items-center gap-3">
             <img

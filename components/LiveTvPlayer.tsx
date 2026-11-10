@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import {
   Play,
   Pause,
@@ -17,6 +24,15 @@ import {
   Sliders,
 } from "lucide-react";
 
+export interface LiveTvPlayerHandle {
+  play: () => Promise<void>;
+  pause: () => void;
+  unMute: () => void;
+  mute: () => void;
+  setVolume: (val: number) => void;
+  getVideoElement: () => HTMLVideoElement | null;
+}
+
 interface LiveTvPlayerProps {
   streamUrl?: string;
   poster?: string;
@@ -32,21 +48,82 @@ interface LiveTvPlayerProps {
 const DEFAULT_STREAM =
   "https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8";
 
-export default function LiveTvPlayer({
-  streamUrl = DEFAULT_STREAM,
-  poster = "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=1280&auto=format&fit=crop&q=80",
-  autoPlay = true,
-  onTheaterToggle,
-  isTheater = false,
-  className = "",
-  showTheaterButton = true,
-  onError,
-  onStreamActive,
-}: LiveTvPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const hlsRef = useRef<any>(null);
-  const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+const LiveTvPlayer = forwardRef<LiveTvPlayerHandle, LiveTvPlayerProps>(
+  function LiveTvPlayer(
+    {
+      streamUrl = DEFAULT_STREAM,
+      poster = "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=1280&auto=format&fit=crop&q=80",
+      autoPlay = true,
+      onTheaterToggle,
+      isTheater = false,
+      className = "",
+      showTheaterButton = true,
+      onError,
+      onStreamActive,
+    },
+    ref
+  ) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const hlsRef = useRef<any>(null);
+    const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    useImperativeHandle(ref, () => ({
+      play: async () => {
+        const v = videoRef.current;
+        if (v) {
+          v.muted = false;
+          v.volume = 1;
+          setIsMuted(false);
+          setIsAudioUnlocked(true);
+          try {
+            await v.play();
+            setIsPlaying(true);
+          } catch (e) {
+            console.warn("[LiveTvPlayer] play() impedido:", e);
+          }
+        }
+      },
+      pause: () => {
+        const v = videoRef.current;
+        if (v) {
+          v.pause();
+          setIsPlaying(false);
+        }
+      },
+      unMute: () => {
+        const v = videoRef.current;
+        if (v) {
+          v.muted = false;
+          v.volume = 1;
+          setIsMuted(false);
+          setIsAudioUnlocked(true);
+        }
+      },
+      mute: () => {
+        const v = videoRef.current;
+        if (v) {
+          v.muted = true;
+          setIsMuted(true);
+        }
+      },
+      setVolume: (val: number) => {
+        const v = videoRef.current;
+        if (v) {
+          v.volume = val;
+          setVolume(val);
+          if (val === 0) {
+            v.muted = true;
+            setIsMuted(true);
+          } else if (isMuted) {
+            v.muted = false;
+            setIsMuted(false);
+            setIsAudioUnlocked(true);
+          }
+        }
+      },
+      getVideoElement: () => videoRef.current,
+    }));
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
@@ -743,4 +820,6 @@ export default function LiveTvPlayer({
       </div>
     </div>
   );
-}
+});
+
+export default LiveTvPlayer;
