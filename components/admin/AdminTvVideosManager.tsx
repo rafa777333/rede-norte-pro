@@ -680,14 +680,14 @@ export default function AdminTvVideosManager() {
                     )}
                   </div>
                   <h4 className="font-black text-sm text-slate-900 group-hover:text-purple-700">
-                    RODAR GRADE YOUTUBE 24H (Padrão)
+                    RODAR GRADE YOUTUBE 24H (Soberana)
                   </h4>
                   <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    Executa o loop contínuo e sincronizado com os programas do RedeCast, reportagens e comerciais cadastrados abaixo.
+                    100% soberana na Grade YouTube 24h. O portal nem sequer consulta o SamCast (zero requisições de live, blindado contra loops e quedas).
                   </p>
                 </div>
                 <div className="mt-3 pt-2 border-t border-slate-200/60 text-[11px] font-bold text-purple-700">
-                  Transmissão contínua 24h →
+                  Transmissão contínua 24h sem piscar →
                 </div>
               </button>
 
@@ -744,14 +744,14 @@ export default function AdminTvVideosManager() {
                     )}
                   </div>
                   <h4 className="font-black text-sm text-slate-900 group-hover:text-emerald-700">
-                    MODO AUTOMÁTICO (Fallback Inteligente)
+                    MODO AUTOMÁTICO (OBS + YouTube com Anti-Loop)
                   </h4>
                   <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    Sintoniza o OBS sempre que houver sinal ao vivo transmitindo. Se o OBS desligar (stream 404), passa sozinho para a Grade 24h sem erros.
+                    Detecta pacotes .ts inéditos do OBS. Se o OBS for desligado e o SamCast congelar os mesmos fragmentos, detecta em 8s e volta firme para o YouTube com trava anti-ping-pong de 20s.
                   </p>
                 </div>
                 <div className="mt-3 pt-2 border-t border-slate-200/60 text-[11px] font-bold text-emerald-700">
-                  Transição suave sem quedas →
+                  Transição inteligente com detecção de stream congelado →
                 </div>
               </button>
             </div>

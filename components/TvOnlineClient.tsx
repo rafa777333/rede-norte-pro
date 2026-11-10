@@ -477,7 +477,7 @@ function TvOnlineHubContent() {
   const [tvSettings, setTvSettings] = useState<TvSettings>(DEFAULT_TV_SETTINGS);
   const [tvPlaylist, setTvPlaylist] = useState<TvPlaylistItem[]>(INITIAL_TV_PLAYLIST);
   const [m3u8HasError, setM3u8HasError] = useState(false);
-  const [probeIsLive, setProbeIsLive] = useState<boolean>(true);
+  const [probeIsLive, setProbeIsLive] = useState<boolean>(false);
 
   // Monitor do que está no ar na Grade 24h
   const [liveCurrentItem, setLiveCurrentItem] = useState<TvPlaylistItem | null>(null);
@@ -505,6 +505,13 @@ function TvOnlineHubContent() {
   const userDismissedFloatingRef = useRef(false);
   const ytPlayerHandleRef = useRef<YouTubeFastGridPlayerHandle | null>(null);
   const hasAppliedParam = useRef<string | null>(null);
+
+  // Blindagem definitiva contra Stream Congelado / Fantasma do SamCast (Fim do Loop):
+  const lastSeenSegmentRef = useRef<string | null>(null);
+  const lastSeenSequenceRef = useRef<number | null>(null);
+  const segmentLastChangedAtRef = useRef<number>(Date.now());
+  const cooldownUntilRef = useRef<number>(0);
+  const lastKnownFrozenSegmentRef = useRef<string | null>(null);
 
   // Detecção Inteligente de Formato 9:16 (Vertical) vs 16:9 (Horizontal)
   // A TV ao vivo e grade normal são sempre 16:9; VOD respeita tags, URLs (/shorts/) ou metadados de vídeo MP4
@@ -617,28 +624,131 @@ function TvOnlineHubContent() {
     return () => window.removeEventListener("resize", handleResize);
   }, [isFloating]);
 
-  // 2. Sonda Inteligente do Stream M3U8 (Detecta se o OBS está realmente transmitindo pacotes .ts)
+  // Trava Anti-Ping-Pong (Cooldown de 20s): Quando o OBS para, fixa na Grade YouTube e impede retornos espúrios
+  const triggerOfflineCooldown = useCallback((frozenSegment?: string | null) => {
+    console.info("[LiveTv] OBS encerrado ou sinal congelado. Ativando cooldown anti-ping-pong de 20s e retornando à Grade YouTube.");
+    setProbeIsLive(false);
+    setM3u8HasError(true);
+    cooldownUntilRef.current = Date.now() + 20_000;
+    if (frozenSegment) {
+      lastKnownFrozenSegmentRef.current = frozenSegment;
+    }
+  }, []);
+
+  // 2. Sonda Inteligente do Stream M3U8 com Detector de Stream Congelado / Fantasma (Fim do Loop)
   const checkLiveStream = useCallback(async () => {
+    // 2.1 CHAVE MANUAL SOBERANA: Se o admin marcou Grade YouTube 24h, nem sequer consulta o SamCast!
+    if (tvSettings.mode === "force_youtube_grid") {
+      setProbeIsLive(false);
+      setM3u8HasError(false);
+      return;
+    }
+
+    // Se o admin forçou entrada ao vivo (force_live_m3u8), mantém ativo
+    if (tvSettings.mode === "force_live_m3u8") {
+      setProbeIsLive(true);
+      return;
+    }
+
+    const now = Date.now();
+    const isUnderCooldown = now < cooldownUntilRef.current;
+
     try {
       const streamUrl = tvSettings.live_m3u8_url || DEFAULT_TV_SETTINGS.live_m3u8_url;
-      const res = await fetch(`/api/tv-channel/probe?url=${encodeURIComponent(streamUrl)}&t=${Date.now()}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/tv-channel/probe?url=${encodeURIComponent(streamUrl)}&t=${now}`,
+        { cache: "no-store" }
+      );
       const json = await res.json();
-      setProbeIsLive(Boolean(json.isLive));
-      if (!json.isLive) {
-        setM3u8HasError(true);
+
+      // Regra 1: Se a resposta HTTP falhou, ou tem #EXT-X-ENDLIST, ou não tem #EXTINF, ou isLive=false
+      if (!res.ok || !json.isLive || json.isFrozen || !json.lastSegment) {
+        if (probeIsLive) {
+          triggerOfflineCooldown(json.lastSegment || lastSeenSegmentRef.current);
+        } else {
+          setProbeIsLive(false);
+        }
+        return;
       }
-    } catch {
-      setProbeIsLive(false);
+
+      const currentSegment = String(json.lastSegment);
+      const currentSeq =
+        json.mediaSequence !== null && json.mediaSequence !== undefined
+          ? Number(json.mediaSequence)
+          : null;
+      const previousSegment = lastSeenSegmentRef.current;
+      const previousSeq = lastSeenSequenceRef.current;
+
+      // Regra 2: Verificação de Sequência Viva e Detecção de Stream Congelado no Cliente
+      if (!previousSegment) {
+        lastSeenSegmentRef.current = currentSegment;
+        lastSeenSequenceRef.current = currentSeq;
+        segmentLastChangedAtRef.current = now;
+
+        // Se não estamos sob cooldown e o segmento não é o mesmo congelado anteriormente
+        if (!isUnderCooldown && currentSegment !== lastKnownFrozenSegmentRef.current) {
+          setProbeIsLive(true);
+          setM3u8HasError(false);
+        }
+        return;
+      }
+
+      // Verifica se houve avanço real no stream (novo .ts ou incremento no MEDIA-SEQUENCE)
+      const hasAdvanced =
+        currentSegment !== previousSegment ||
+        (currentSeq !== null && previousSeq !== null && currentSeq > previousSeq);
+
+      if (hasAdvanced) {
+        // OBS está vivo e transmitindo ativamente pacotes inéditos!
+        lastSeenSegmentRef.current = currentSegment;
+        lastSeenSequenceRef.current = currentSeq;
+        segmentLastChangedAtRef.current = now;
+
+        // Limpa o segmento congelado anterior se recebemos um novo
+        if (currentSegment !== lastKnownFrozenSegmentRef.current) {
+          lastKnownFrozenSegmentRef.current = null;
+        }
+
+        // Só promove para live se o cooldown de 20s já tiver expirado
+        if (!isUnderCooldown) {
+          setProbeIsLive(true);
+          setM3u8HasError(false);
+        }
+      } else {
+        // O segmento é idêntico ao da verificação anterior
+        const timeUnchanged = now - segmentLastChangedAtRef.current;
+
+        // Se após 8 segundos o manifesto do SamCast continuar devolvendo exatamente o mesmo último arquivo .ts:
+        // (O OBS parou de enviar pacotes novos e o SamCast está repetindo cache antigo)
+        if (timeUnchanged >= 8_000) {
+          console.warn(
+            `[Probe OBS] Stream CONGELADO / FANTASMA detectado! Segmento '${currentSegment}' inalterado há ${(timeUnchanged / 1000).toFixed(1)}s. Marcando como OFFLINE imediatamente.`
+          );
+          triggerOfflineCooldown(currentSegment);
+        }
+      }
+    } catch (err) {
+      console.warn("[Probe OBS] Erro de rede ao consultar probe:", err);
+      if (probeIsLive) {
+        triggerOfflineCooldown(lastSeenSegmentRef.current);
+      } else {
+        setProbeIsLive(false);
+      }
     }
-  }, [tvSettings.live_m3u8_url]);
+  }, [tvSettings.mode, tvSettings.live_m3u8_url, probeIsLive, triggerOfflineCooldown]);
 
   useEffect(() => {
+    // Se o administrador selecionou Grade YouTube 24h, nem sequer consulta o SamCast!
+    if (tvSettings.mode === "force_youtube_grid") {
+      setProbeIsLive(false);
+      setM3u8HasError(false);
+      return;
+    }
+
     checkLiveStream();
-    const interval = setInterval(checkLiveStream, 20_000); // verifica a cada 20 segundos
+    const interval = setInterval(checkLiveStream, 8_000); // 8 segundos conforme especificação
     return () => clearInterval(interval);
-  }, [checkLiveStream]);
+  }, [tvSettings.mode, checkLiveStream]);
 
   // 2.1 Listener do evento customizado app:resync-tv (Auto-update PWA Mobile e retorno do background)
   useEffect(() => {
@@ -709,13 +819,15 @@ function TvOnlineHubContent() {
   }, [videoParam, videos]);
 
   // 5. Determina se o sinal ao vivo do OBS (SamCast) está ativo
-  // Modo 'force_live_m3u8' -> OBS
-  // Modo 'force_youtube_grid' -> Grade YouTube
-  // Se houver erro ou watchdog no M3U8 -> cai IMEDIATAMENTE para a Grade YouTube
+  // Modo 'force_youtube_grid' -> 100% Grade YouTube (Zero consultas M3U8, sem loop)
+  // Modo 'force_live_m3u8' -> Força sinal OBS (com fallback se erro fatal)
+  // Modo 'auto' -> Entra se probeIsLive for true E sem erro/watchdog
   const isObsLiveActive = useMemo(() => {
-    if (m3u8HasError) return false;
     if (tvSettings.mode === "force_youtube_grid") return false;
-    if (tvSettings.mode === "force_live_m3u8") return true;
+    if (tvSettings.mode === "force_live_m3u8") {
+      return !m3u8HasError;
+    }
+    if (m3u8HasError) return false;
     return probeIsLive;
   }, [tvSettings.mode, probeIsLive, m3u8HasError]);
 
@@ -1333,11 +1445,13 @@ function TvOnlineHubContent() {
                       onTheaterToggle={() => setIsTheater(!isTheater)}
                       isTheater={isTheater}
                       streamUrl={tvSettings.live_m3u8_url}
-                      onStreamActive={() => setM3u8HasError(false)}
+                      onStreamActive={() => {
+                        setM3u8HasError(false);
+                        cooldownUntilRef.current = 0;
+                      }}
                       onError={(err) => {
-                        console.info("[LiveTvPlayer] Sinal M3U8 caiu/desconectado:", err);
-                        setM3u8HasError(true);
-                        setProbeIsLive(false);
+                        console.info("[LiveTvPlayer] Sinal M3U8 caiu/desconectado ou congelou:", err);
+                        triggerOfflineCooldown(lastSeenSegmentRef.current);
                       }}
                     />
                   </div>
