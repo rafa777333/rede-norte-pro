@@ -1,20 +1,22 @@
 import React from "react";
 import type { Metadata } from "next";
+import PortalClient from "./PortalClient";
 import SuperAppHome from "@/components/SuperAppHome";
+import { getInitialPortalData } from "@/lib/portal-data";
 
-export const revalidate = 60;
+export const revalidate = 60; // ISR - revalidação inteligente a cada 60 segundos
 
 export const metadata: Metadata = {
-  title: "Rede Apucarana de Comunicação | Super App • Notícias, Rádio, TV e Serviços",
+  title: "Rede Apucarana de Comunicação | Super App & Jornalismo Regional",
   description:
-    "Super App de Apucarana, Arapongas e Vale do Ivaí: Notícias em tempo real, TV Ao Vivo 24h, Compras e Vendas, Vagas de Emprego, Gastronomia e Ofertas.",
+    "Super-Portal e Super App de notícias de Apucarana, Arapongas e Vale do Ivaí. Jornalismo regional em tempo real, rádio ao vivo, web TV 24h, previsão do tempo e classificados.",
   alternates: {
     canonical: "https://www.redeapucarana.com.br",
   },
   openGraph: {
-    title: "Rede Apucarana de Comunicação | Super App Oficial",
+    title: "Rede Apucarana de Comunicação | Super App & Notícias do Paraná",
     description:
-      "Tudo sobre Apucarana e região em um só lugar com interface estilo Super App: Notícias, TV Ao Vivo, Compras e Vendas, Empregos e Rádio FM.",
+      "Tudo sobre Apucarana e região em tempo real com jornalismo, rádio ao vivo, TV 24h, empregos e utilidades.",
     url: "https://www.redeapucarana.com.br",
     siteName: "Rede Apucarana de Comunicação",
     locale: "pt_BR",
@@ -22,6 +24,27 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
-  return <SuperAppHome />;
+export default async function HomePage() {
+  const initialData = await getInitialPortalData("Geral");
+
+  return (
+    <div className="w-full min-h-screen">
+      {/* ========================================================================= */}
+      {/* 1. MODO MOBILE (Smartphones < 768px): Super App Nativo Exclusivo           */}
+      {/* ========================================================================= */}
+      <div className="block md:hidden w-full">
+        <SuperAppHome />
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. MODO DESKTOP (Computadores / Telas >= 768px): Portal Tradicional Completo */}
+      {/* ========================================================================= */}
+      <div className="hidden md:block w-full">
+        <PortalClient
+          initialCity="Geral"
+          initialData={initialData}
+        />
+      </div>
+    </div>
+  );
 }
