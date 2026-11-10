@@ -50,8 +50,9 @@ export default function AppVersionWatcher() {
       navigator.serviceWorker.addEventListener("controllerchange", () => {
         if (!refreshing) {
           refreshing = true;
-          // Notifica a aplicação sobre nova versão ativa
+          // Notifica a aplicação sobre nova versão ativa e recarrega automaticamente
           window.dispatchEvent(new CustomEvent("app:sw-updated"));
+          window.location.reload();
         }
       });
     }
