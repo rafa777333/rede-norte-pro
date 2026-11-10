@@ -107,97 +107,93 @@ export default function SuperAppHome() {
   }, []);
 
   return (
-    <div className="w-full min-h-screen bg-[#0b2249] flex flex-col justify-between selection:bg-red-500 selection:text-white font-sans antialiased">
-      {/* ========================================================================= */}
-      {/* 1. CABEÇALHO (TOPO AZUL MARINHO)                                          */}
-      {/* ========================================================================= */}
-      <header className="pt-6 pb-2 px-5 max-w-md mx-auto w-full flex items-center justify-between">
-        {/* Lado Esquerdo: Logo RA + Textos empilhados */}
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="shrink-0 transition-transform active:scale-95"
-            title="Rede Apucarana"
-          >
-            <img
-              src="/logo-rede-apucarana.png"
-              alt="Rede Apucarana"
-              className="w-13 h-13 sm:w-14 sm:h-14 object-contain drop-shadow-md rounded-2xl"
-            />
-          </Link>
-
-          <div className="flex flex-col">
-            <span className="text-white text-base sm:text-lg font-light tracking-[0.22em] leading-none uppercase">
-              REDE
-            </span>
-            <span className="text-white text-2xl sm:text-3xl font-black tracking-tight leading-none uppercase mt-0.5 font-heading">
-              APUCARANA
-            </span>
-            <span className="text-slate-300 text-[11px] font-medium text-right leading-none mt-1 mr-0.5 tracking-wide">
-              Vale do Ivaí
-            </span>
-          </div>
-        </div>
-
-        {/* Lado Direito: Ícone de engrenagem apontando para /admin */}
+    // 2. CONTAINER PRINCIPAL: Centralização estrita e controle de transbordamento horizontal
+    <div className="flex flex-col items-center justify-center w-full min-h-screen px-4 py-6 overflow-x-hidden bg-[#0b2249] selection:bg-red-500 selection:text-white font-sans antialiased">
+      {/* Barra de utilidades superior (link para /admin sutil) */}
+      <div className="w-full max-w-sm mx-auto flex items-center justify-between mb-2">
+        <span className="text-[10px] font-bold text-sky-200/80 uppercase tracking-widest">
+          Rede Apucarana
+        </span>
         <Link
           href="/admin"
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-colors active:scale-90"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-colors"
           title="Administração e Configurações"
           aria-label="Administração"
         >
-          <Settings className="w-7 h-7 stroke-[1.8]" />
+          <Settings className="w-4 h-4 stroke-[2]" />
         </Link>
-      </header>
+      </div>
 
-      {/* ========================================================================= */}
-      {/* 2. QUADRO BRANCO CENTRAL (CONTAINER DOS 6 BOTÕES GIGANTES)                */}
-      {/* ========================================================================= */}
-      <main className="flex-1 flex flex-col justify-center px-4 py-2 max-w-md mx-auto w-full">
-        <div className="bg-white rounded-3xl p-4 shadow-2xl flex-1 flex flex-col justify-center">
-          <div className="grid grid-cols-2 gap-3.5">
-            {SUPER_APP_BUTTONS.map((btn) => (
-              <Link
-                key={btn.id}
-                href={btn.href}
-                className="group relative block w-full aspect-square rounded-2xl overflow-hidden shadow-md hover:scale-[1.02] active:scale-95 transition-transform duration-200 cursor-pointer select-none bg-slate-100"
-                title={btn.title}
-              >
-                <img
-                  src={btn.imageSrc}
-                  alt={btn.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="eager"
-                  onError={(e) => {
-                    // Fallback para caso o arquivo esteja com extensão .png.jpeg
-                    const target = e.currentTarget;
-                    if (!target.src.endsWith(".png.jpeg")) {
-                      target.src = `${btn.imageSrc}.jpeg`;
-                    }
-                  }}
-                />
-              </Link>
-            ))}
+      {/* 1. LOGO PRINCIPAL TRAVADO: Contenção de tamanho estrita para Mobile */}
+      <div className="w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center">
+        <Link
+          href="/"
+          className="block transition-transform active:scale-95"
+          title="Rede Apucarana • Início"
+        >
+          <img
+            src="/logo-rede-apucarana.png"
+            alt="Rede Apucarana"
+            className="w-40 sm:w-48 h-auto object-contain mx-auto drop-shadow-xl"
+            loading="eager"
+          />
+        </Link>
+
+        {/* Tipografia empilhada sob o logo */}
+        <div className="flex flex-col items-center text-center mt-2 select-none">
+          <div className="flex items-center gap-1.5">
+            <span className="text-white text-xs sm:text-sm font-light tracking-[0.25em] leading-none uppercase">
+              REDE
+            </span>
+            <span className="text-white text-lg sm:text-xl font-black tracking-tight leading-none uppercase font-heading">
+              APUCARANA
+            </span>
           </div>
+          <span className="text-sky-300 text-[10px] font-medium tracking-widest uppercase mt-0.5">
+            Vale do Ivaí
+          </span>
         </div>
-      </main>
+      </div>
 
-      {/* ========================================================================= */}
-      {/* 3. RODAPÉ (PLAYER FUNCIONAL DA RÁDIO APUCARANA FM)                        */}
-      {/* ========================================================================= */}
-      <footer className="px-6 pt-2 pb-8 max-w-md mx-auto w-full flex items-center justify-between gap-4">
+      {/* 3. RESTAURAR GRID DOS 6 BOTÕES: Largura central exata com w-full max-w-sm mx-auto grid grid-cols-2 gap-4 mt-8 */}
+      <div className="w-full max-w-sm mx-auto grid grid-cols-2 gap-4 mt-8 bg-white p-3.5 sm:p-4 rounded-3xl shadow-2xl">
+        {SUPER_APP_BUTTONS.map((btn) => (
+          <Link
+            key={btn.id}
+            href={btn.href}
+            className="group relative block w-full aspect-square rounded-2xl overflow-hidden shadow-md hover:scale-[1.02] active:scale-95 transition-transform duration-200 cursor-pointer select-none bg-slate-100"
+            title={btn.title}
+          >
+            <img
+              src={btn.imageSrc}
+              alt={btn.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="eager"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.endsWith(".png.jpeg")) {
+                  target.src = `${btn.imageSrc}.jpeg`;
+                }
+              }}
+            />
+          </Link>
+        ))}
+      </div>
+
+      {/* 4. PLAYER FUNCIONAL DA RÁDIO APUCARANA FM */}
+      <div className="w-full max-w-sm mx-auto mt-6 flex items-center justify-between gap-3 px-1">
         {/* Lado Esquerdo: Título, Tag de Status e Botão Play/Pause Branco */}
-        <div className="flex flex-col items-start gap-1.5">
-          <h3 className="font-heading font-black text-sm tracking-wider text-white uppercase leading-none">
+        <div className="flex flex-col items-start gap-1">
+          <h3 className="font-heading font-black text-xs sm:text-sm tracking-wider text-white uppercase leading-none">
             RÁDIO APUCARANA FM
           </h3>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 my-0.5">
             <span
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
+              className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
                 isPlaying
-                  ? "bg-red-600/90 text-white animate-pulse"
-                  : "bg-blue-900/60 text-sky-200 border border-sky-400/30"
+                  ? "bg-red-600 text-white animate-pulse"
+                  : "bg-blue-950/80 text-sky-200 border border-sky-400/30"
               }`}
             >
               <span
@@ -212,7 +208,7 @@ export default function SuperAppHome() {
           <button
             type="button"
             onClick={toggleRadio}
-            className="bg-white text-[#0b2249] font-black text-sm px-7 py-2 rounded-full flex items-center gap-2 shadow-xl hover:bg-slate-100 active:scale-95 transition-all cursor-pointer mt-0.5"
+            className="bg-white text-[#0b2249] font-black text-xs sm:text-sm px-6 py-2 rounded-full flex items-center gap-2 shadow-xl hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
             title={isPlaying ? "Pausar rádio" : "Ouvir rádio ao vivo"}
           >
             {isLoadingAudio ? (
@@ -233,7 +229,7 @@ export default function SuperAppHome() {
 
         {/* Lado Direito: Gráfico de Ondas Sonoras / Equalizador Azul Claro */}
         <div
-          className="flex items-center gap-[3px] h-14 shrink-0 select-none pr-1"
+          className="flex items-center gap-[3px] h-12 shrink-0 select-none pr-1"
           title={isPlaying ? "Rádio transmitindo áudio" : "Rádio pausada"}
           aria-hidden="true"
         >
@@ -245,8 +241,8 @@ export default function SuperAppHome() {
               }`}
               style={{
                 height: isPlaying
-                  ? `${Math.max(6, h * (0.55 + ((i % 4) * 0.15)))}px`
-                  : `${h}px`,
+                  ? `${Math.max(6, (h * 0.85) * (0.55 + ((i % 4) * 0.15)))}px`
+                  : `${h * 0.85}px`,
                 animationDuration: `${0.35 + (i % 5) * 0.12}s`,
                 animationDelay: `${(i % 4) * 0.08}s`,
               }}
@@ -256,7 +252,7 @@ export default function SuperAppHome() {
 
         {/* Elemento de áudio nativo da Rádio */}
         <audio ref={audioRef} src={RADIO_STREAM_URL} preload="none" />
-      </footer>
+      </div>
     </div>
   );
 }
