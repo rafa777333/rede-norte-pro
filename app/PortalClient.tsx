@@ -21,7 +21,6 @@ import FutebolWidget from "../components/FutebolWidget";
 import Badge from "../components/Badge";
 import TopUtilityCockpit from "../components/TopUtilityCockpit";
 import MobileBottomNav from "../components/MobileBottomNav";
-import MobileSuperAppGrid from "../components/MobileSuperAppGrid";
 import InstallAppBanner from "../components/InstallAppBanner";
 import MobileNewsFeed from "../components/MobileNewsFeed";
 import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
@@ -1285,12 +1284,15 @@ export default function PortalClient({
       {/* Banner Inteligente de Instalação PWA Mobile */}
       <InstallAppBanner />
 
-      {/* Painel de Comando Rápido no Topo Mobile (Super-App Grid 3x2) */}
+      {/* Botão de Destaque: Cidades do Vale do Ivaí (Substitui os 6 botões antigos no mobile da página de Notícias) */}
       {aba === "noticias" && (
-        <MobileSuperAppGrid
-          onToggleRadio={alternarRadio}
-          radioTocando={radioTocando}
-        />
+        <div className="block md:hidden px-3.5 pt-3 sm:px-4">
+          <CitiesScrollTicker
+            currentCity={cidade}
+            onSelectCity={(selectedCity) => setCidade(selectedCity)}
+            variant="banner"
+          />
+        </div>
       )}
 
       {aba === "noticias" && <>

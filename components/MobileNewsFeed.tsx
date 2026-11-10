@@ -10,7 +10,6 @@ import {
   decodeHtmlEntities,
 } from "../lib/text-utils";
 import WhatsAppShareButton from "./WhatsAppShareButton";
-import CitiesScrollTicker from "./CitiesScrollTicker";
 import type { BentoNewsItem } from "./EditorialBentoGrid";
 
 interface MobileNewsFeedProps {
@@ -58,14 +57,6 @@ export default function MobileNewsFeed({
             Últimas Notícias
           </h2>
         </div>
-
-        {/* Seletor Compacto das 27 Cidades */}
-        {onSelectCity && (
-          <CitiesScrollTicker
-            currentCity={cidade}
-            onSelectCity={onSelectCity}
-          />
-        )}
       </div>
 
       {/* Se houver categorias, exibe pílulas horizontais com scroll suave */}
