@@ -255,7 +255,7 @@ export default function EmpregosHubClient({
   return (
     <div className="w-full">
       {/* 1. SELETOR DE ABAS DUPLAS NO TOPO (Grande, Moderno e Touch-Friendly) */}
-      <div className="max-w-4xl mx-auto px-4 mt-6">
+      <div className="max-w-7xl mx-auto px-4 mt-6">
         <div className="bg-slate-200/90 p-1.5 rounded-2xl flex items-center gap-1.5 shadow-inner">
           <button
             type="button"
@@ -296,7 +296,7 @@ export default function EmpregosHubClient({
       </div>
 
       {/* 2. BOTÕES DE AÇÃO EM DESTAQUE NO TOPO (Grandes e chamativos) */}
-      <div className="max-w-4xl mx-auto px-4 mt-4">
+      <div className="max-w-7xl mx-auto px-4 mt-4">
         {abaAtiva === "vagas" ? (
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
@@ -345,7 +345,7 @@ export default function EmpregosHubClient({
       </div>
 
       {/* 3. BARRA DE BUSCA E FILTROS */}
-      <div className="max-w-4xl mx-auto px-4 mt-6">
+      <div className="max-w-7xl mx-auto px-4 mt-6">
         <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col sm:flex-row items-center gap-3">
           {/* Campo de Busca */}
           <div className="relative flex-1 w-full">
@@ -402,13 +402,13 @@ export default function EmpregosHubClient({
       </div>
 
       {/* 5. LISTAGEM DO CONTEÚDO */}
-      <div className="max-w-4xl mx-auto px-4 my-6">
+      <div className="max-w-7xl mx-auto px-4 my-6">
         {abaAtiva === "vagas" ? (
           /* =========================================================================
              LISTA DE VAGAS DE EMPREGO
              ========================================================================= */
           vagasFiltradas.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {vagasFiltradas.map((v) => {
                 const zapNumber = (v.contato || "").replace(/\D/g, "");
                 const zapUrl = `https://wa.me/55${zapNumber}?text=${encodeURIComponent(
@@ -486,7 +486,7 @@ export default function EmpregosHubClient({
              LISTA DE PRESTADORES DE SERVIÇO & AUTÔNOMOS
              ========================================================================= */
           autonomosFiltrados.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {autonomosFiltrados.map((a) => {
                 const zapNumber = a.whatsapp.replace(/\D/g, "");
                 const zapUrl = `https://wa.me/55${zapNumber}?text=${encodeURIComponent(

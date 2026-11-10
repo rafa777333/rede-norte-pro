@@ -1246,19 +1246,17 @@ export default function PortalClient({
                 </span>
               </Link>
 
-              {/* 7. Empregos (Cápsula Suavizada) */}
-              <button
-                type="button"
-                onClick={() => trocarAba("empregos")}
-                className={`inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shrink-0 ${
-                  aba === "empregos"
-                    ? "bg-slate-200/80 border-slate-300 text-slate-900 font-bold"
-                    : "bg-slate-50/50 hover:bg-slate-100/70 border-slate-200/60 text-slate-700"
-                }`}
+              {/* 7. Empregos & Autônomos (Cápsula Suavizada) */}
+              <Link
+                href="/empregos"
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-blue-50/50 hover:bg-blue-50/90 border border-blue-200/50 text-blue-900 shrink-0"
               >
-                <Briefcase className="w-3.5 h-3.5 text-slate-600 shrink-0" strokeWidth={2} />
-                <span>Empregos</span>
-              </button>
+                <Briefcase className="w-3.5 h-3.5 text-blue-700 shrink-0" strokeWidth={2} />
+                <span>Empregos & Autônomos</span>
+                <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-blue-100/80 text-blue-900 border border-blue-200/40 leading-none">
+                  VAGAS
+                </span>
+              </Link>
 
               {/* 8. Compras & Vendas (Cápsula Suavizada) */}
               <Link
@@ -1576,7 +1574,31 @@ export default function PortalClient({
         </section>
       )}
 
-      {aba === "empregos" && <section className="container utility-page jobs-page"><span className="eyebrow">OPORTUNIDADES</span><h2>Vagas em {cidade}</h2><p className="jobs-intro">Empresas podem publicar oportunidades e pedidos de contratação. Todo envio passa pela revisão da equipe Rede Apucarana antes de aparecer no portal.</p><div className="jobs-layout"><form className="jobs-form" onSubmit={(event) => { event.preventDefault(); void enviarVaga(); }}><h3>Publicar uma vaga</h3><input required placeholder="Cargo ou função" value={jobForm.vaga} onChange={(e) => setJobForm({ ...jobForm, vaga: e.target.value })} /><input required placeholder="Empresa ou contratante" value={jobForm.empresa} onChange={(e) => setJobForm({ ...jobForm, empresa: e.target.value })} /><div className="form-row"><select value={jobForm.cidade} onChange={(e) => setJobForm({ ...jobForm, cidade: e.target.value })}>{cidades.filter((item) => item !== "Todas").map((item) => <option key={item}>{item}</option>)}</select><select value={jobForm.tipo} onChange={(e) => setJobForm({ ...jobForm, tipo: e.target.value })}>{["Precisa-se", "Contratação", "Estágio / Jovem Aprendiz"].map((item) => <option key={item}>{item}</option>)}</select></div><input required placeholder="WhatsApp ou telefone para candidatura" value={jobForm.contato} onChange={(e) => setJobForm({ ...jobForm, contato: e.target.value })} /><textarea required placeholder="Descreva requisitos, salário, horário e como se candidatar" value={jobForm.descricao} onChange={(e) => setJobForm({ ...jobForm, descricao: e.target.value })} /><button className="classified-submit" type="submit" disabled={enviandoJob}>{enviandoJob ? "Enviando..." : "Enviar vaga para análise"}</button>{jobEnviado && <p className="classified-success">Recebemos a vaga. Ela ficará visível depois da revisão da equipe.</p>}</form><div className="jobs-side-note"><strong>Você é autônomo?</strong><p>Para oferecer seu próprio serviço, anuncie em Compras e vendas. Essa área é ideal para profissionais, prestadores e autônomos.</p><button type="button" onClick={() => setAba("compras")}>Oferecer serviço em Compras e vendas →</button></div></div><div className="public-list-grid">{vagasAdmin.filter((v: any) => (cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase()).map((v: any) => <button className="public-list-card" key={v.id} onClick={() => setSel({ id: v.id, titulo: v.cargo, cidade: v.cidade, cat: "Emprego", sub: v.empresa, resumo: v.detalhes || "Confira os detalhes desta oportunidade.", texto: v.detalhes || "Confira os detalhes desta oportunidade.", img: v.img || "https://www.redeapucarana.com.br/vagas-padrao.svg", hora: "", autor: v.empresa || "Rede Apucarana", credit: "Capa padrão Rede Apucarana" })}><img src={v.img || "https://www.redeapucarana.com.br/vagas-padrao.svg"} alt={`Imagem da vaga: ${v.cargo}`} /><span><b>Emprego</b><strong>{v.cargo}</strong><small>{v.empresa} · {v.cidade}</small><small>{v.detalhes || "Clique para ver detalhes"}</small><a href={`https://wa.me/${(v.zap || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Chamar no WhatsApp</a></span></button>)}{!vagasAdmin.filter((v: any) => (cidade === "Geral" || cidade === "Todas") || v.cidade.toLowerCase() === cidade.toLowerCase()).length && <div className="empty-state">Em breve, oportunidades de trabalho em {cidade}.</div>}</div></section>}
+      {aba === "empregos" && (
+        <section className="container utility-page py-6">
+          <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white rounded-2xl p-6 sm:p-8 text-center my-4 border border-blue-500/30 shadow-xl">
+            <span className="text-4xl block mb-2">💼</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-blue-300">
+              Balcão Oficial do Vale do Ivaí
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black mt-1">
+              Vagas de Emprego & Profissionais Autônomos
+            </h2>
+            <p className="text-slate-300 max-w-2xl mx-auto mt-2 text-sm leading-relaxed">
+              O balcão de oportunidades da Rede Apucarana foi unificado! Encontre vagas de empresas da região ou contrate prestadores de serviços autônomos (pedreiros, eletricistas, diaristas, pintores, encanadores e fretes) com contato direto via WhatsApp.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/empregos"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm shadow-lg hover:shadow-blue-500/25 transition cursor-pointer"
+              >
+                <span>Acessar Balcão de Empregos & Autônomos Completo (/empregos)</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {aba === "compras" && (
         <section className="container utility-page py-6">

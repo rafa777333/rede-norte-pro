@@ -76,11 +76,18 @@ export async function GET() {
     // Ordena por sort_order
     playlist.sort((a, b) => a.sort_order - b.sort_order);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       settings,
       playlist,
     });
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    return response;
   } catch (error: any) {
     console.error("[API tv-channel GET Error]:", error);
     return NextResponse.json(

@@ -187,6 +187,20 @@ export default function AdminTvVideosManager() {
     carregarVideos();
   }, []);
 
+  // Notificação instantânea via Supabase Broadcast para todos os celulares e computadores abertos
+  const broadcastTvUpdate = () => {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        supabase.channel("tv_channel_realtime_sync").send({
+          type: "broadcast",
+          event: "tv_updated",
+          payload: { timestamp: Date.now() },
+        });
+      }
+    } catch {}
+  };
+
   // =========================================================================
   // AÇÕES DO BLOCO A — CHAVE MESTRA DO OBS
   // =========================================================================
@@ -202,6 +216,7 @@ export default function AdminTvVideosManager() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Erro ao salvar modo.");
+      broadcastTvUpdate();
       setMensagemSucesso(`Modo de transmissão alterado para: ${
         newMode === "force_youtube_grid"
           ? "GRADE YOUTUBE 24H"
@@ -228,6 +243,7 @@ export default function AdminTvVideosManager() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || "Erro ao salvar.");
+      broadcastTvUpdate();
       setMensagemSucesso("Configurações do canal da TV salvas com sucesso!");
       setTimeout(() => setMensagemSucesso(null), 3000);
     } catch (e: any) {
@@ -287,6 +303,7 @@ export default function AdminTvVideosManager() {
       setNewItemMinutes("15");
       setNewItemSeconds("00");
 
+      broadcastTvUpdate();
       setMensagemSucesso("Item adicionado com sucesso à Grade 24h!");
       await carregarTvChannel();
       setTimeout(() => setMensagemSucesso(null), 3500);
@@ -318,6 +335,7 @@ export default function AdminTvVideosManager() {
           newOrderIds: withSortOrder.map((i) => i.id),
         }),
       });
+      broadcastTvUpdate();
     } catch (e) {
       console.warn("Falha ao salvar nova ordem:", e);
     }
@@ -337,6 +355,7 @@ export default function AdminTvVideosManager() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
+      broadcastTvUpdate();
       setMensagemSucesso("Item removido da grade.");
       setTimeout(() => setMensagemSucesso(null), 2500);
     } catch (e: any) {
@@ -358,6 +377,7 @@ export default function AdminTvVideosManager() {
           item: { ...item, active: updated },
         }),
       });
+      broadcastTvUpdate();
     } catch (e) {
       console.warn("Falha ao alternar status do item:", e);
     }
@@ -376,6 +396,7 @@ export default function AdminTvVideosManager() {
       const json = await res.json();
       if (json.success) {
         setTvPlaylist(INITIAL_TV_PLAYLIST);
+        broadcastTvUpdate();
         setMensagemSucesso("Grade inicial restaurada com sucesso!");
         setTimeout(() => setMensagemSucesso(null), 3000);
       }

@@ -62,6 +62,14 @@ const nextConfig = {
         source: '/manifest.webmanifest',
         headers: noCacheHeaders,
       },
+      {
+        source: '/empregos',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/empregos/:path*',
+        headers: noCacheHeaders,
+      },
     ];
   },
   async redirects() {
@@ -74,6 +82,26 @@ const nextConfig = {
       {
         source: '/promocoes',
         destination: '/ofertas',
+        permanent: false,
+      },
+      {
+        source: '/servicos',
+        destination: '/empregos',
+        permanent: false,
+      },
+      {
+        source: '/servicos/:path*',
+        destination: '/empregos',
+        permanent: false,
+      },
+      {
+        source: '/autonomos',
+        destination: '/empregos',
+        permanent: false,
+      },
+      {
+        source: '/autonomos/:path*',
+        destination: '/empregos',
         permanent: false,
       },
       {

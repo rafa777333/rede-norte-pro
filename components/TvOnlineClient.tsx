@@ -51,6 +51,7 @@ import {
   getPlaylistItemTypeMeta,
   calculateTvProgramAtTime,
 } from "@/lib/tv-channel-data";
+import { getSupabase } from "@/lib/supabase";
 
 declare global {
   interface Window {
@@ -524,19 +525,49 @@ function TvOnlineHubContent() {
     setFloatingPos({ x: defaultX, y: defaultY });
   }, [isCurrentVideoVertical]);
 
-  // 1. Carrega configurações do Canal 24h e Playlist da Grade
+  // 1. Carrega configurações do Canal 24h e Playlist da Grade (Nuvem com failover direto no Supabase)
   const fetchTvChannel = useCallback(async () => {
     try {
-      const res = await fetch("/api/tv-channel", { cache: "no-store" });
+      // 1.1 Tenta API Route com cache-buster e sem cache
+      const res = await fetch(`/api/tv-channel?t=${Date.now()}`, { cache: "no-store" });
       const json = await res.json();
       if (json.success) {
         if (json.settings) setTvSettings(json.settings);
         if (Array.isArray(json.playlist) && json.playlist.length > 0) {
           setTvPlaylist(json.playlist);
+          return;
         }
       }
     } catch (err) {
-      console.warn("[TvOnlineClient] Falha ao carregar canal da TV:", err);
+      console.warn("[TvOnlineClient] API Route fallback para Supabase direto:", err);
+    }
+
+    // 1.2 Fallback Direto ao Supabase (site_settings)
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select("key, value")
+          .in("key", ["tv_channel_settings", "tv_channel_playlist"]);
+
+        if (!error && Array.isArray(data)) {
+          for (const item of data) {
+            if (item.key === "tv_channel_settings" && item.value) {
+              const parsed = typeof item.value === "string" ? JSON.parse(item.value) : item.value;
+              if (parsed) setTvSettings((prev) => ({ ...prev, ...parsed }));
+            }
+            if (item.key === "tv_channel_playlist" && item.value) {
+              const parsed = typeof item.value === "string" ? JSON.parse(item.value) : item.value;
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setTvPlaylist(parsed);
+              }
+            }
+          }
+        }
+      }
+    } catch (errSupabase) {
+      console.warn("[TvOnlineClient] Falha no Supabase direto:", errSupabase);
     }
   }, []);
 
@@ -544,11 +575,53 @@ function TvOnlineHubContent() {
     fetchTvChannel();
   }, [fetchTvChannel]);
 
+  // 1.1 Inscrição Realtime no Supabase (Atualização instantânea celular <-> desktop)
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel("tv_channel_realtime_sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "site_settings" },
+        () => {
+          fetchTvChannel();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "videos_portal" },
+        () => {
+          fetchVideos();
+        }
+      )
+      .on("broadcast", { event: "tv_updated" }, () => {
+        fetchTvChannel();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTvChannel]);
+
+  // 1.2 Desativa a janela flutuante se a tela for mobile (< 768px)
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined" && window.innerWidth < 768 && isFloating) {
+        setIsFloating(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isFloating]);
+
   // 2. Sonda Inteligente do Stream M3U8 (Detecta se o OBS está realmente transmitindo pacotes .ts)
   const checkLiveStream = useCallback(async () => {
     try {
       const streamUrl = tvSettings.live_m3u8_url || DEFAULT_TV_SETTINGS.live_m3u8_url;
-      const res = await fetch(`/api/tv-channel/probe?url=${encodeURIComponent(streamUrl)}`, {
+      const res = await fetch(`/api/tv-channel/probe?url=${encodeURIComponent(streamUrl)}&t=${Date.now()}`, {
         cache: "no-store",
       });
       const json = await res.json();
@@ -593,28 +666,24 @@ function TvOnlineHubContent() {
   }, [playerMode, tvPlaylist, checkLiveStream, fetchTvChannel]);
 
   // 3. Carrega catálogo de vídeos da API
-  useEffect(() => {
-    let cancel = false;
-    const fetchVideos = async () => {
-      try {
-        setLoadingVideos(true);
-        const res = await fetch("/api/videos", { cache: "no-store" });
-        const json = await res.json();
-        if (!cancel && json.success && Array.isArray(json.videos) && json.videos.length > 0) {
-          setVideos(json.videos);
-        }
-      } catch (err) {
-        console.warn("Falha ao buscar vídeos do hub:", err);
-      } finally {
-        if (!cancel) setLoadingVideos(false);
+  const fetchVideos = useCallback(async () => {
+    try {
+      setLoadingVideos(true);
+      const res = await fetch(`/api/videos?t=${Date.now()}`, { cache: "no-store" });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.videos) && json.videos.length > 0) {
+        setVideos(json.videos);
       }
-    };
-
-    fetchVideos();
-    return () => {
-      cancel = true;
-    };
+    } catch (err) {
+      console.warn("Falha ao buscar vídeos do hub:", err);
+    } finally {
+      setLoadingVideos(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchVideos();
+  }, [fetchVideos]);
 
   // 4. Deep linking: se houver ?v={id} na URL, sintoniza direto o vídeo compartilhado
   useEffect(() => {
@@ -630,7 +699,9 @@ function TvOnlineHubContent() {
       setPlayerMode("vod");
 
       setTimeout(() => {
-        if (playerContainerRef.current) {
+        if (typeof window !== "undefined" && window.innerWidth < 768) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (playerContainerRef.current) {
           playerContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }, 350);
@@ -658,10 +729,13 @@ function TvOnlineHubContent() {
       const url = new URL(window.location.href);
       url.searchParams.set("v", video.id);
       window.history.replaceState({}, "", url.toString());
-    }
 
-    if (playerContainerRef.current) {
-      playerContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      // No mobile (< 768px): rola suavemente ao topo para o player principal imediatamente
+      if (window.innerWidth < 768) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (playerContainerRef.current) {
+        playerContainerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
   };
 
@@ -738,8 +812,9 @@ function TvOnlineHubContent() {
     }
   };
 
-  // 7. Alternar Janela Flutuante Arrastável (Draggable PiP Universal)
+  // 7. Alternar Janela Flutuante Arrastável (Draggable PiP Universal - Bloqueado em Mobile < 768px)
   const handleToggleFloating = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) return;
     if (isFloating) {
       setIsFloating(false);
       userDismissedFloatingRef.current = false;
@@ -892,13 +967,19 @@ function TvOnlineHubContent() {
     };
   }, []);
 
-  // Monitora rolagem para acionar Mini-Player Flutuante automaticamente ao rolar além do player
+  // Monitora rolagem para acionar Mini-Player Flutuante automaticamente ao rolar além do player (Apenas Desktop >= 768px)
   useEffect(() => {
     const anchor = playerScrollAnchorRef.current;
     if (!anchor || typeof IntersectionObserver === "undefined") return;
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // No celular (< 768px): mini-player flutuante é completamente desativado
+        if (typeof window !== "undefined" && window.innerWidth < 768) {
+          if (isFloating) setIsFloating(false);
+          return;
+        }
+
         const entry = entries[0];
         const scrolledPast = entry.boundingClientRect.top < -100;
 
@@ -917,7 +998,7 @@ function TvOnlineHubContent() {
 
     observer.observe(anchor);
     return () => observer.disconnect();
-  }, [isFullscreen, floatingPos, initFloatingPos]);
+  }, [isFullscreen, floatingPos, initFloatingPos, isFloating]);
 
   // Filtragem dos vídeos da barra lateral (Aba 1: RedeCast, Aba 2: TV Apucarana)
   const sidebarRedeCast = useMemo(() => {
@@ -1532,11 +1613,11 @@ function TvOnlineHubContent() {
                   </div>
                 </div>
 
-                {/* Botão Janela Flutuante (Mini-Player Arrastável) */}
+                {/* Botão Janela Flutuante (Mini-Player Arrastável - Oculto em Telas Mobile < 768px) */}
                 <button
                   type="button"
                   onClick={handleToggleFloating}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  className={`hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all items-center gap-1.5 cursor-pointer border ${
                     isFloating
                       ? "bg-red-600 text-white border-red-500 shadow-md shadow-red-600/30"
                       : "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 hover:text-white"
@@ -1544,7 +1625,7 @@ function TvOnlineHubContent() {
                   title="Assistir em Janela Flutuante Arrastável enquanto navega pelo site"
                 >
                   <PictureInPicture className="w-4 h-4 text-amber-400" />
-                  <span className="hidden xs:inline">Janela Flutuante</span>
+                  <span>Janela Flutuante</span>
                 </button>
 
                 {/* Botão Modo Teatro (Expandir Largura) */}
