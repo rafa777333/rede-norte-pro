@@ -1,7 +1,7 @@
 // Service Worker Oficial - Portal Rede Apucarana de Comunicação
 // Garante auto-update instantâneo no Smartphone (PWA/Mobile) sem cache preso.
 
-const CACHE_NAME = "rede-apucarana-v3";
+const CACHE_NAME = "rede-apucarana-v4";
 
 // 1. Instalação: ativa imediatamente a nova versão sem aguardar fechar abas
 self.addEventListener("install", (event) => {
