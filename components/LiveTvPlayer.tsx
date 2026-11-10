@@ -586,6 +586,19 @@ const LiveTvPlayer = forwardRef<LiveTvPlayerHandle, LiveTvPlayerProps>(
         }`}
       />
 
+      {/* BOTÃO GIGANTE: SAIR DA TELA CHEIA (Fuga Fácil quando em Fullscreen) */}
+      {isFullscreen && (
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="absolute top-4 right-4 z-50 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-black/90 hover:bg-red-600 text-white font-black text-xs sm:text-sm border-2 border-white/80 shadow-[0_4px_25px_rgba(0,0,0,0.9)] backdrop-blur-md flex items-center gap-2 cursor-pointer transition-all active:scale-95 select-none pointer-events-auto"
+          title="Sair da Tela Cheia"
+        >
+          <span className="text-base font-black">✕</span>
+          <span>Sair da Tela Cheia</span>
+        </button>
+      )}
+
       {/* OVERLAY DE TRANSMISSÃO SUPERIOR (HUD BROADCAST) */}
       <div
         className={`absolute top-0 inset-x-0 p-3 sm:p-4 flex items-center justify-between pointer-events-none transition-opacity duration-300 z-20 ${
