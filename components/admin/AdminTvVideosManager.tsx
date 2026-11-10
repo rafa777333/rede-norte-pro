@@ -756,12 +756,17 @@ export default function AdminTvVideosManager() {
               </button>
             </div>
 
-            {/* AVISO IMPORTANTE SOBRE O AUTOVJ DO SAMCAST */}
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
-              <span className="text-base shrink-0">⚠️</span>
-              <p className="leading-relaxed">
-                <strong>Atenção para o Modo Automático com o OBS:</strong> Para que a transição ocorra de forma 100% automática ao ligar ou desligar o OBS, certifique-se de que o <u>AutoVJ interno do SamCast esteja pausado/desligado</u> no painel da SamCast. Caso o AutoVJ da SamCast fique rodando lá no servidor deles, o link M3U8 continuará emitindo pacotes 24h e o sistema considerará o sinal como ativo continuamente.
-              </p>
+            {/* AVISO IMPORTANTE SOBRE TRANSMISSÃO AO VIVO (LOCAL GRATUITO OU SAMCAST) */}
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs flex items-start gap-2.5">
+              <span className="text-base shrink-0">🚀</span>
+              <div className="leading-relaxed space-y-1">
+                <p>
+                  <strong>Servidor Local Gratuito (MediaMTX + Cloudflare Tunnel):</strong> Execute o arquivo <u>INICIAR-SERVIDOR-TV.bat</u> na pasta do projeto. Ele inicia seu servidor RTMP local (porta 1935), cria um túnel HTTPS seguro e atualiza o link M3U8 abaixo automaticamente sem que você precise digitar nada!
+                </p>
+                <p className="text-[11px] text-emerald-800">
+                  🎥 <strong>No OBS Studio:</strong> Servidor: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">rtmp://localhost:1935/live</code> · Chave: <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono font-bold">tvapucarana</code>
+                </p>
+              </div>
             </div>
 
             {/* Configurações Adicionais do Ao Vivo (Título e URL M3U8) */}
@@ -783,7 +788,7 @@ export default function AdminTvVideosManager() {
 
               <div>
                 <label className="block text-xs font-black text-slate-700 mb-1">
-                  URL do Stream HLS M3U8 do SamCast
+                  URL do Stream HLS M3U8 (Automático via Túnel ou SamCast)
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -792,7 +797,7 @@ export default function AdminTvVideosManager() {
                     onChange={(e) =>
                       setTvSettings({ ...tvSettings, live_m3u8_url: e.target.value })
                     }
-                    placeholder="https://.../playlist.m3u8"
+                    placeholder="https://.../index.m3u8"
                     className="flex-1 text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-red-600 font-mono"
                   />
                   <button

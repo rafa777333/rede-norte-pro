@@ -9,5 +9,12 @@ out/
 SUBIR_SITE_VERCEL.bat
 scratch/
 supabase/.temp/
+tv-server/*.exe
+tv-server/*.zip
+tv-server/*.tar.gz
+tv-server/*.crt
+tv-server/*.key
+*.crt
+*.key
 __pycache__/
 *.pyc
