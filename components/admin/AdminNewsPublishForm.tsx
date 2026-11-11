@@ -67,10 +67,14 @@ export default function AdminNewsPublishForm() {
   // Mídia
   const [mediaType, setMediaType] = useState<"upload" | "youtube">("youtube");
   const [videoUrl, setVideoUrl] = useState("");
+  const [videoFormat, setVideoFormat] = useState<"16:9" | "9:16">("16:9");
+  const [coverImage, setCoverImage] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadCoverProgress, setUploadCoverProgress] = useState(0);
 
   // Preview & Status
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
@@ -86,6 +90,50 @@ export default function AdminNewsPublishForm() {
     setTitle(val);
     if (!isCustomSlug) {
       setSlug(slugify(val));
+    }
+  };
+
+  // Atualiza URL do vídeo e detecta formato automaticamente se for Shorts/Reels
+  const handleVideoUrlChange = (url: string) => {
+    setVideoUrl(url);
+    if (url.includes("/shorts/") || url.includes("/reel/") || url.includes("tiktok.com/")) {
+      setVideoFormat("9:16");
+    }
+  };
+
+  // Upload dedicado para Foto de Capa (Thumbnail 16:9) no bucket media subpasta capas
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingCover(true);
+      setErrorMessage(null);
+      setUploadCoverProgress(20);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "capas");
+
+      setUploadCoverProgress(50);
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      setUploadCoverProgress(100);
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erro no upload da foto de capa.");
+      }
+
+      setCoverImage(data.url);
+    } catch (err: any) {
+      console.error("[Cover Upload Error]", err);
+      setErrorMessage(err?.message || "Não foi possível carregar a imagem de capa.");
+    } finally {
+      setUploadingCover(false);
     }
   };
 
@@ -169,7 +217,9 @@ export default function AdminNewsPublishForm() {
           seo_description: seoDescription.trim(),
           content: content.trim(),
           video_url: videoUrl.trim() || null,
-          imagem: imageUrl.trim() || null,
+          video_format: videoFormat,
+          cover_image: coverImage.trim() || imageUrl.trim() || null,
+          imagem: coverImage.trim() || imageUrl.trim() || null,
           categoria,
           cidade,
           autor,
@@ -200,6 +250,8 @@ export default function AdminNewsPublishForm() {
     setSeoDescription("");
     setContent("");
     setVideoUrl("");
+    setVideoFormat("16:9");
+    setCoverImage("");
     setImageUrl("");
     setUploadedFileName("");
     setPublishSuccess(null);
@@ -443,7 +495,7 @@ export default function AdminNewsPublishForm() {
                 <input
                   type="url"
                   value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
+                  onChange={(e) => handleVideoUrlChange(e.target.value)}
                   placeholder="Cole aqui o link do vídeo (YouTube, YouTube Shorts ou link .mp4)"
                   className="w-full pl-10 pr-4 py-2.5 text-sm text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden"
                 />
@@ -452,7 +504,9 @@ export default function AdminNewsPublishForm() {
 
               {/* Pré-visualização do YouTube */}
               {ytId && (
-                <div className="rounded-xl overflow-hidden border border-slate-200 aspect-video max-w-lg mx-auto bg-black shadow-md">
+                <div className={`rounded-xl overflow-hidden border border-slate-200 mx-auto bg-black shadow-md ${
+                  videoFormat === "9:16" ? "aspect-[9/16] max-w-[260px]" : "aspect-video max-w-lg"
+                }`}>
                   <iframe
                     src={`https://www.youtube.com/embed/${ytId}`}
                     title="Pré-visualização do Vídeo"
@@ -525,7 +579,9 @@ export default function AdminNewsPublishForm() {
 
               {/* Player do MP4 Local */}
               {videoUrl && videoUrl.endsWith(".mp4") && (
-                <div className="rounded-xl overflow-hidden border border-slate-200 aspect-video max-w-lg mx-auto bg-black shadow-md">
+                <div className={`rounded-xl overflow-hidden border border-slate-200 mx-auto bg-black shadow-md ${
+                  videoFormat === "9:16" ? "aspect-[9/16] max-w-[260px]" : "aspect-video max-w-lg"
+                }`}>
                   <video src={videoUrl} controls className="w-full h-full object-contain" />
                 </div>
               )}
@@ -538,6 +594,182 @@ export default function AdminNewsPublishForm() {
               )}
             </div>
           )}
+
+          {/* Seletor de Formato do Vídeo (16:9 vs 9:16) */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-700">
+              Formato de Exibição do Vídeo
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setVideoFormat("16:9")}
+                className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${
+                  videoFormat === "16:9"
+                    ? "border-red-600 bg-red-50/50 text-red-950 font-bold shadow-xs"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                <span className="text-xl">📺</span>
+                <div>
+                  <div className="text-xs font-bold">Vídeo Horizontal (16:9)</div>
+                  <div className="text-[11px] text-slate-500 font-normal">Padrão para matérias e reportagens de TV</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVideoFormat("9:16")}
+                className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${
+                  videoFormat === "9:16"
+                    ? "border-red-600 bg-red-50/50 text-red-950 font-bold shadow-xs"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                <span className="text-xl">📱</span>
+                <div>
+                  <div className="text-xs font-bold">Vídeo Vertical (9:16 - Shorts / Reels)</div>
+                  <div className="text-[11px] text-slate-500 font-normal">Gravado no celular em pé / cortes verticais</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* BLOCO 3.1: FOTO DE CAPA (THUMBNAIL DA HOME - 16:9)                       */}
+        {/* ========================================================================= */}
+        <div className={`p-5 sm:p-6 rounded-2xl border shadow-xs space-y-4 transition-all ${
+          videoFormat === "9:16" ? "bg-amber-50/40 border-amber-300" : "bg-white border-slate-200"
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-900">
+                  Foto de Capa (Thumbnail da Home) • Proporção 16:9
+                </label>
+                {videoFormat === "9:16" && (
+                  <span className="px-2 py-0.5 rounded bg-amber-500 text-white text-[10px] font-black uppercase">
+                    Altamente Recomendado
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                {videoFormat === "9:16"
+                  ? "Obrigatório quando o vídeo for vertical (Shorts/Reels 9:16). Essa imagem 16:9 será exibida na Home e no card de notícias para não quebrar o layout. Se não enviada, será exibido o logo oficial da Rede Apucarana."
+                  : "Imagem horizontal 16:9 para a manchete da Home e compartilhamentos no WhatsApp e redes sociais."}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="space-y-3">
+              {/* Botão de Upload de Capa */}
+              <div className="border-2 border-dashed border-slate-300 hover:border-red-500 rounded-xl p-4 text-center transition-colors bg-white">
+                <input
+                  type="file"
+                  id="cover-file-upload"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  onChange={handleCoverUpload}
+                  className="hidden"
+                  disabled={uploadingCover}
+                />
+                <label
+                  htmlFor="cover-file-upload"
+                  className="cursor-pointer flex flex-col items-center justify-center gap-1.5"
+                >
+                  <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shadow-xs">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 hover:underline">
+                      Enviar foto de capa do computador
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      JPG, PNG ou WEBP em 16:9 (salvo no bucket `media/capas`)
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Progresso de Upload da Capa */}
+              {uploadingCover && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] font-semibold text-slate-600">
+                    <span>Enviando foto de capa...</span>
+                    <span>{uploadCoverProgress}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-red-600 transition-all duration-300"
+                      style={{ width: `${uploadCoverProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Ou informar URL externa da imagem */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Ou informe a URL direta da imagem:
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={coverImage}
+                    onChange={(e) => setCoverImage(e.target.value)}
+                    placeholder="https://... ou caminho da imagem"
+                    className="w-full pl-9 pr-3 py-2 text-xs text-slate-800 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-hidden bg-white"
+                  />
+                  <LinkIcon className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                </div>
+              </div>
+            </div>
+
+            {/* Pré-visualização da Capa 16:9 */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-600 block">
+                Prévia da Imagem na Home (16:9):
+              </span>
+              <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-300 bg-slate-900 flex items-center justify-center relative shadow-inner">
+                {coverImage || imageUrl ? (
+                  <img
+                    src={coverImage || imageUrl}
+                    alt="Prévia da Capa"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/logo-rede-apucarana.png";
+                      (e.currentTarget as HTMLImageElement).className = "w-20 h-20 object-contain";
+                    }}
+                  />
+                ) : ytId && videoFormat !== "9:16" ? (
+                  <img
+                    src={`https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`}
+                    alt="Thumbnail YouTube"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/logo-rede-apucarana.png";
+                      (e.currentTarget as HTMLImageElement).className = "w-20 h-20 object-contain";
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-400 p-4 text-center">
+                    <img
+                      src="/logo-rede-apucarana.png"
+                      alt="Logo Oficial"
+                      className="w-16 h-16 object-contain mb-2 opacity-80"
+                    />
+                    <span className="text-[11px] font-medium text-slate-300">
+                      Fallback Oficial: Logo da Rede Apucarana
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      (Nenhuma foto aleatória será exibida)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ========================================================================= */}

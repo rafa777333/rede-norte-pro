@@ -538,7 +538,7 @@ const salvar = async (table: string, record: any, image: string, folder: string,
         titulo: videoPortalForm.titulo.trim(),
         url_video: videoPortalForm.url_video.trim(),
         plataforma: videoPortalForm.plataforma,
-        thumbnail_url: finalThumb || "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80",
+        thumbnail_url: finalThumb || "/banner-rede-apucarana.png",
         status: videoPortalForm.status,
       };
 

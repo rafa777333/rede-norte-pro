@@ -64,7 +64,7 @@ export function getVideoThumbnail(video: { url_video?: string; videoUrl?: string
   if (ytId) {
     return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
   }
-  return "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80";
+  return "/banner-rede-apucarana.png";
 }
 
 const DEFAULT_VIDEOS: VideoPortalItem[] = [
@@ -73,7 +73,7 @@ const DEFAULT_VIDEOS: VideoPortalItem[] = [
     titulo: "Cortes & Entrevistas: Bastidores da Política Regional",
     url_video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     plataforma: "youtube",
-    thumbnail_url: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80",
+    thumbnail_url: "/banner-rede-apucarana.png",
     status: "publicado",
     created_at: new Date().toISOString(),
   },
@@ -82,7 +82,7 @@ const DEFAULT_VIDEOS: VideoPortalItem[] = [
     titulo: "Reportagem Especial: Obras e Infraestrutura no Vale do Ivaí",
     url_video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     plataforma: "youtube",
-    thumbnail_url: "https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600&auto=format&fit=crop&q=80",
+    thumbnail_url: "/banner-rede-apucarana.png",
     status: "publicado",
     created_at: new Date().toISOString(),
   },
@@ -91,7 +91,7 @@ const DEFAULT_VIDEOS: VideoPortalItem[] = [
     titulo: "Esportes em Ação: Melhores Lances da Rodada",
     url_video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     plataforma: "youtube",
-    thumbnail_url: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&auto=format&fit=crop&q=80",
+    thumbnail_url: "/banner-rede-apucarana.png",
     status: "publicado",
     created_at: new Date().toISOString(),
   },
@@ -100,7 +100,7 @@ const DEFAULT_VIDEOS: VideoPortalItem[] = [
     titulo: "Comunidade Viva: Eventos e Feiras Culturais",
     url_video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     plataforma: "youtube",
-    thumbnail_url: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop&q=80",
+    thumbnail_url: "/banner-rede-apucarana.png",
     status: "publicado",
     created_at: new Date().toISOString(),
   },
@@ -309,9 +309,9 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
           >
             {/* Imagem de Fundo de Estúdio / Broadcast */}
             <img
-              src="https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=600&auto=format&fit=crop&q=80"
+              src="/banner-rede-apucarana.png"
               alt="TV Rede Apucarana Ao Vivo"
-              className="w-full h-full object-cover object-center opacity-55 group-hover:scale-105 group-hover:opacity-75 transition-all duration-500 ease-out"
+              className="w-full h-full object-cover object-center opacity-65 group-hover:scale-105 group-hover:opacity-85 transition-all duration-500 ease-out"
               loading="lazy"
             />
 

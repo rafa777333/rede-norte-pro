@@ -154,6 +154,10 @@ export default function SportsSection({
                     alt={n.titulo}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/logo-rede-apucarana.png";
+                      (e.currentTarget as HTMLImageElement).className = "w-full h-full object-contain p-4 bg-slate-900";
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-slate-950 text-emerald-400 font-bold text-xs">

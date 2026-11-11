@@ -78,7 +78,7 @@ export function getYouTubeThumbnail(
   if (youtubeId && youtubeId.length === 11) {
     return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
   }
-  return "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=800&auto=format&fit=crop&q=80";
+  return "/banner-rede-apucarana.png";
 }
 
 /**

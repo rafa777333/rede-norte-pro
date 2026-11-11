@@ -108,6 +108,21 @@ function formatItem(item: any) {
   const finalContent = item.content || item.conteudo || "";
   const finalDesc = item.seo_description || item.resumo || "";
 
+  // Suporte a video extraído de fonte (ex: video:9:16:https://... ou video:https://...)
+  let video_url = item.video_url || null;
+  let video_format = item.video_format || "16:9";
+  if (!video_url && item.fonte && item.fonte.startsWith("video:")) {
+    const rawVideo = item.fonte.slice(6);
+    if (rawVideo.startsWith("9:16:") || rawVideo.startsWith("16:9:")) {
+      video_format = rawVideo.slice(0, 4);
+      video_url = rawVideo.slice(5);
+    } else {
+      video_url = rawVideo;
+    }
+  }
+
+  const cover_image = item.cover_image || item.imagem || "/logo-rede-apucarana.png";
+
   return {
     id: item.id,
     slug: item.slug || item.id,
@@ -115,8 +130,10 @@ function formatItem(item: any) {
     titulo: finalTitle,
     categoria: refineNewsCategory(item.categoria, finalTitle, finalContent || finalDesc),
     resumo: truncateWords(finalDesc || finalContent, 180),
-    imagem: item.imagem || null,
-    video_url: item.video_url || null,
+    imagem: cover_image,
+    cover_image: cover_image,
+    video_url: video_url,
+    video_format: video_format,
     cidade: item.cidade_slug || "apucarana",
     autor: item.autor || "Redação Rede Apucarana",
     data_publicacao: item.published_at || item.created_at,
@@ -131,7 +148,8 @@ export async function POST(request: Request) {
     const seo_description = (body.seo_description || body.resumo || "").trim().slice(0, 160);
     const content = (body.content || body.conteudo || "").trim();
     const video_url = (body.video_url || "").trim();
-    const imagem = (body.imagem || body.image || "").trim();
+    const rawCoverImage = (body.cover_image || body.imagem || body.image || "").trim();
+    const video_format = (body.video_format || "16:9").trim();
     const categoria = (body.categoria || body.category || "Cidade").trim();
     const cidade = (body.cidade || body.city || "Apucarana").trim();
     const autor = (body.autor || body.author || "Redação Rede Apucarana").trim();
@@ -148,6 +166,20 @@ export async function POST(request: Request) {
         { success: false, error: "O conteúdo da matéria é obrigatório." },
         { status: 400 }
       );
+    }
+
+    // Determina foto de capa de forma estrita:
+    // Se o usuário não enviou foto de capa e é um vídeo horizontal de YouTube, extrai o thumb do YouTube.
+    // Se for vídeo 9:16 sem capa ou sem imagem, NUNCA usa fotos aleatórias: usa /logo-rede-apucarana.png
+    let finalCoverImage = rawCoverImage;
+    if (!finalCoverImage && video_url && video_format !== "9:16") {
+      const ytMatch = video_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/i);
+      if (ytMatch && ytMatch[1]) {
+        finalCoverImage = `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
+      }
+    }
+    if (!finalCoverImage) {
+      finalCoverImage = "/logo-rede-apucarana.png";
     }
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -171,7 +203,7 @@ export async function POST(request: Request) {
     const newId = crypto.randomUUID();
 
     // 1. Tentar inserção completa com suporte nativo às colunas novas e clássicas
-    const payloadFull = {
+    const payloadFull: Record<string, any> = {
       id: newId,
       title: title,
       titulo: title,
@@ -181,7 +213,9 @@ export async function POST(request: Request) {
       content: content,
       conteudo: content,
       video_url: video_url || null,
-      imagem: imagem || (video_url && video_url.includes("youtube") ? `https://img.youtube.com/vi/${video_url.match(/[?&]v=([a-zA-Z0-9_-]+)/)?.[1] || "default"}/maxresdefault.jpg` : null),
+      video_format: video_format,
+      cover_image: finalCoverImage,
+      imagem: finalCoverImage,
       categoria: categoria,
       cidade_slug: cidadeSlug(cidade),
       autor: autor,
@@ -199,7 +233,14 @@ export async function POST(request: Request) {
       .single();
 
     // 2. Se falhar por ausência das novas colunas antes da migração SQL ser executada
-    if (insertError && (insertError.message.includes("title") || insertError.message.includes("video_url") || insertError.message.includes("content") || insertError.message.includes("seo_description"))) {
+    if (insertError && (
+      insertError.message.includes("title") ||
+      insertError.message.includes("video_url") ||
+      insertError.message.includes("video_format") ||
+      insertError.message.includes("cover_image") ||
+      insertError.message.includes("content") ||
+      insertError.message.includes("seo_description")
+    )) {
       console.warn("[Noticias POST] Fallback para colunas clássicas devido a:", insertError.message);
 
       const payloadFallback = {
@@ -208,11 +249,11 @@ export async function POST(request: Request) {
         slug: finalSlug,
         resumo: seo_description || content.slice(0, 160),
         conteudo: content,
-        imagem: imagem || null,
+        imagem: finalCoverImage,
         categoria: categoria,
         cidade_slug: cidadeSlug(cidade),
         autor: autor,
-        fonte: video_url ? `video:${video_url}` : "Rede Apucarana",
+        fonte: video_url ? `video:${video_format}:${video_url}` : "Rede Apucarana",
         status: "published",
         published_at: nowIso,
         created_at: nowIso,

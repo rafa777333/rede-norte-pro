@@ -19,7 +19,9 @@ type News = {
   conteudo: string | null;
   resumo: string | null;
   imagem: string | null;
+  cover_image?: string | null;
   video_url?: string | null;
+  video_format?: string | null;
   cidade_slug: string | null;
   autor: string | null;
   published_at: string | null;
@@ -50,10 +52,26 @@ async function getNews(slug: string): Promise<News | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  const extractVideo = (d: any) =>
-    d.video_url ||
-    (d.fonte?.startsWith("video:") ? d.fonte.slice(6) : null) ||
-    null;
+  const extractVideoInfo = (d: any) => {
+    let video_url = d.video_url || null;
+    let video_format = d.video_format || "16:9";
+
+    if (!video_url && d.fonte?.startsWith("video:")) {
+      const rawVideo = d.fonte.slice(6);
+      if (rawVideo.startsWith("9:16:") || rawVideo.startsWith("16:9:")) {
+        video_format = rawVideo.slice(0, 4);
+        video_url = rawVideo.slice(5);
+      } else {
+        video_url = rawVideo;
+      }
+    }
+
+    if (video_url && (video_url.includes("/shorts/") || video_url.includes("/reel/") || video_url.includes("tiktok.com/"))) {
+      video_format = "9:16";
+    }
+
+    return { video_url, video_format };
+  };
 
   const bySlug = await supabase
     .from("news")
@@ -66,6 +84,7 @@ async function getNews(slug: string): Promise<News | null> {
 
   if (bySlug.data) {
     const d: any = bySlug.data;
+    const { video_url, video_format } = extractVideoInfo(d);
     return {
       id: d.id,
       slug: d.slug,
@@ -73,8 +92,10 @@ async function getNews(slug: string): Promise<News | null> {
       categoria: d.categoria,
       conteudo: d.content || d.conteudo,
       resumo: d.seo_description || d.resumo,
-      imagem: d.imagem,
-      video_url: extractVideo(d),
+      imagem: d.cover_image || d.imagem,
+      cover_image: d.cover_image || d.imagem,
+      video_url,
+      video_format,
       cidade_slug: d.cidade_slug,
       autor: d.autor,
       published_at: d.published_at,
@@ -92,9 +113,11 @@ async function getNews(slug: string): Promise<News | null> {
     .maybeSingle();
   if (bySlugFb.data) {
     const d: any = bySlugFb.data;
+    const { video_url, video_format } = extractVideoInfo(d);
     return {
       ...d,
-      video_url: extractVideo(d),
+      video_url,
+      video_format,
     };
   }
 
@@ -108,9 +131,11 @@ async function getNews(slug: string): Promise<News | null> {
     .maybeSingle();
   if (byId.data) {
     const d: any = byId.data;
+    const { video_url, video_format } = extractVideoInfo(d);
     return {
       ...d,
-      video_url: extractVideo(d),
+      video_url,
+      video_format,
     };
   }
 
@@ -181,8 +206,9 @@ export async function generateMetadata({
   const categoria = news.categoria || "NOTÍCIA";
 
   // Extrator de Thumbnail em Alta Resolução do YouTube para OpenGraph / WhatsApp / Facebook
-  const ytThumb = getYoutubeThumbnail(news.video_url);
-  const fotoOriginal = ytThumb || news.imagem || "";
+  const is916 = news.video_format === "9:16";
+  const ytThumb = !is916 ? getYoutubeThumbnail(news.video_url) : null;
+  const fotoOriginal = news.cover_image || news.imagem || ytThumb || "";
 
   // Capa oficial de compartilhamento carimbada em 1200x630 (Link Preview Card Facebook)
   const ogImageUrl = ytThumb || (fotoOriginal
@@ -389,8 +415,13 @@ export default async function NewsPage({
         {news.video_url ? (
           (() => {
             const ytId = extractYoutubeId(news.video_url);
+            const isVertical = news.video_format === "9:16" || Boolean(news.video_url?.includes("/shorts/") || news.video_url?.includes("/reel/") || news.video_url?.includes("tiktok.com/"));
             return (
-              <div className="my-6 rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200 aspect-video">
+              <div className={`my-6 rounded-2xl overflow-hidden shadow-2xl bg-black border ${
+                isVertical
+                  ? "aspect-[9/16] w-full max-w-sm mx-auto border-slate-800"
+                  : "aspect-video w-full border-slate-200"
+              }`}>
                 {ytId ? (
                   <iframe
                     src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
@@ -405,15 +436,21 @@ export default async function NewsPage({
                     controls
                     playsInline
                     preload="metadata"
-                    className="w-full h-full object-contain"
+                    className={`w-full h-full ${isVertical ? "object-cover" : "object-contain"}`}
                   />
                 )}
               </div>
             );
           })()
-        ) : news.imagem ? (
+        ) : (news.cover_image || news.imagem) ? (
           <figure className="article-figure">
-            <img src={news.imagem} alt={news.titulo} />
+            <img
+              src={news.cover_image || news.imagem || "/logo-rede-apucarana.png"}
+              alt={news.titulo}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "/logo-rede-apucarana.png";
+              }}
+            />
             <figcaption>
               {news.autor ? `Foto / Crédito: ${news.autor} · Reprodução autorizada` : "Imagem da fonte original · Reprodução com indicação da fonte"}
             </figcaption>

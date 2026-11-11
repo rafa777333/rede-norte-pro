@@ -20,6 +20,8 @@ interface NormalizedNews {
   seo_description: string;
   content: string;
   video_url: string | null;
+  video_format?: string;
+  cover_image?: string | null;
   imagem: string | null;
   categoria: string;
   cidade: string;
@@ -69,10 +71,24 @@ async function getNewsBySlug(slug: string): Promise<NormalizedNews | null> {
 
   if (data) {
     const rawFonte = data.fonte || "";
-    const extractedVideo =
-      data.video_url ||
-      (rawFonte.startsWith("video:") ? rawFonte.slice(6) : null) ||
-      null;
+    let extractedVideo: string | null = data.video_url || null;
+    let extractedFormat = (data as any).video_format || "16:9";
+
+    if (!extractedVideo && rawFonte.startsWith("video:")) {
+      const rawVideo = rawFonte.slice(6);
+      if (rawVideo.startsWith("9:16:") || rawVideo.startsWith("16:9:")) {
+        extractedFormat = rawVideo.slice(0, 4);
+        extractedVideo = rawVideo.slice(5);
+      } else {
+        extractedVideo = rawVideo;
+      }
+    }
+
+    if (extractedVideo && (extractedVideo.includes("/shorts/") || extractedVideo.includes("/reel/") || extractedVideo.includes("tiktok.com/"))) {
+      extractedFormat = "9:16";
+    }
+
+    const cover_image = (data as any).cover_image || data.imagem || null;
 
     return {
       id: data.id,
@@ -84,7 +100,9 @@ async function getNewsBySlug(slug: string): Promise<NormalizedNews | null> {
         (data.content || data.conteudo || "").replace(/<[^>]+>/g, "").slice(0, 160),
       content: data.content || data.conteudo || "",
       video_url: extractedVideo,
-      imagem: data.imagem || null,
+      video_format: extractedFormat,
+      cover_image,
+      imagem: cover_image || data.imagem || null,
       categoria: data.categoria || "Geral",
       cidade: data.cidade_slug || "Apucarana",
       autor: data.autor || "Redação Rede Apucarana",
@@ -146,14 +164,15 @@ export async function generateMetadata({
     "Confira a reportagem completa com detalhes apurados na Rede Apucarana de Comunicação.";
 
   // Extrator de Thumbnail em Alta Resolução do YouTube para OpenGraph / WhatsApp / Facebook
-  const ytId = extractYoutubeId(news.video_url);
-  const ytThumb = ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : null;
-
   // Prioridade da imagem oficial de compartilhamento:
-  // 1. Thumbnail em Alta Resolução do YouTube (se houver vídeo)
-  // 2. Imagem da matéria enviada pelo jornalista
+  // 1. Capa oficial configurada (cover_image ou imagem)
+  // 2. Thumbnail em Alta Resolução do YouTube (se for vídeo horizontal 16:9)
   // 3. Logo oficial da Rede Apucarana
-  const primaryImageUrl = ytThumb || news.imagem || `${SITE_URL}/logo-rede-apucarana.png`;
+  const is916 = news.video_format === "9:16";
+  const ytId = extractYoutubeId(news.video_url);
+  const ytThumb = (!is916 && ytId) ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : null;
+
+  const primaryImageUrl = news.cover_image || news.imagem || ytThumb || `${SITE_URL}/logo-rede-apucarana.png`;
 
   const ogImages = [
     {
@@ -423,63 +442,100 @@ export default async function NoticiaDetailPage({
         {/* ========================================================================= */}
         {/* PLAYER DE VÍDEO EM DESTAQUE (YouTube ou .mp4 nativo)                     */}
         {/* ========================================================================= */}
-        {news.video_url && (
-          <section aria-label="Vídeo da Matéria" className="my-6 sm:my-8">
-            {ytId ? (
-              // Player do YouTube (16:9 responsivo)
-              <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200">
-                <iframe
-                  src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
-                  title={news.title}
-                  className="absolute inset-0 w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              </div>
-            ) : isDirectVideo ? (
-              // Player de Vídeo Nativo HTML5 (.mp4 do Supabase Storage)
-              <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200 flex items-center justify-center">
-                <video
-                  src={news.video_url}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="w-full h-full object-contain"
-                >
-                  Seu navegador não suporta a reprodução deste vídeo.
-                </video>
-              </div>
-            ) : (
-              // Fallback para outros tipos de link de vídeo
-              <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Play className="w-5 h-5 text-red-500" />
-                  <span className="text-xs font-bold">Assistir ao vídeo da matéria</span>
+        {news.video_url && (() => {
+          const isVertical = news.video_format === "9:16" || Boolean(news.video_url?.includes("/shorts/") || news.video_url?.includes("/reel/") || news.video_url?.includes("tiktok.com/"));
+          return (
+            <section aria-label="Vídeo da Matéria" className="my-6 sm:my-8">
+              {isVertical ? (
+                // Player Vertical Elegante (9:16 - Shorts / Reels / Celular)
+                <div className="relative w-full max-w-sm mx-auto aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-800">
+                  {ytId ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
+                      title={news.title}
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  ) : isDirectVideo ? (
+                    <video
+                      src={news.video_url}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover"
+                    >
+                      Seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                  ) : (
+                    <iframe
+                      src={news.video_url}
+                      title={news.title}
+                      className="absolute inset-0 w-full h-full"
+                      allowFullScreen
+                    />
+                  )}
                 </div>
-                <a
-                  href={news.video_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors"
-                >
-                  Abrir Vídeo Externo ↗
-                </a>
-              </div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-2 text-center">
-              ▶ Transmissão em vídeo • Rede Apucarana de Comunicação
-            </p>
-          </section>
-        )}
+              ) : ytId ? (
+                // Player do YouTube (16:9 responsivo)
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
+                    title={news.title}
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+              ) : isDirectVideo ? (
+                // Player de Vídeo Nativo HTML5 (.mp4 do Supabase Storage)
+                <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200 flex items-center justify-center">
+                  <video
+                    src={news.video_url}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-contain"
+                  >
+                    Seu navegador não suporta a reprodução deste vídeo.
+                  </video>
+                </div>
+              ) : (
+                // Fallback para outros tipos de link de vídeo
+                <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Play className="w-5 h-5 text-red-500" />
+                    <span className="text-xs font-bold">Assistir ao vídeo da matéria</span>
+                  </div>
+                  <a
+                    href={news.video_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors"
+                  >
+                    Abrir Vídeo Externo ↗
+                  </a>
+                </div>
+              )}
+              <p className="text-[11px] text-slate-400 mt-2 text-center">
+                ▶ Transmissão em vídeo • Rede Apucarana de Comunicação
+              </p>
+            </section>
+          );
+        })()}
 
         {/* Se NÃO houver vídeo, mas houver imagem de capa */}
-        {!news.video_url && news.imagem && (
-          <figure className="my-6 sm:my-8 rounded-2xl overflow-hidden shadow-md border border-slate-100">
+        {!news.video_url && (news.cover_image || news.imagem) && (
+          <figure className="my-6 sm:my-8 rounded-2xl overflow-hidden shadow-md border border-slate-100 bg-slate-900">
             <img
-              src={news.imagem}
+              src={news.cover_image || news.imagem || "/logo-rede-apucarana.png"}
               alt={news.title}
-              className="w-full h-auto max-h-[500px] object-cover"
+              className={`w-full ${(news.cover_image || news.imagem) === "/logo-rede-apucarana.png" ? "h-64 object-contain p-6" : "h-auto max-h-[500px] object-cover"}`}
               loading="eager"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "/logo-rede-apucarana.png";
+                (e.currentTarget as HTMLImageElement).className = "w-full h-64 object-contain p-6";
+              }}
             />
             <figcaption className="p-2.5 bg-slate-50 text-[11px] text-slate-500 text-center border-t border-slate-100">
               Foto: {news.autor} • Reprodução Jornalística Rede Apucarana

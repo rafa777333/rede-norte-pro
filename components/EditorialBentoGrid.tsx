@@ -21,6 +21,8 @@ export interface BentoNewsItem {
   sub?: string;
   resumo?: string;
   img?: string;
+  cover_image?: string;
+  video_format?: string;
   hora?: string;
   autor?: string;
   published_at?: string;
@@ -116,20 +118,45 @@ export default function EditorialBentoGrid({
           <article className="group bg-white rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-200">
             {/* Foto 16:9 com Prioridade de LCP */}
             <Link href={mainHref} className="block relative aspect-video w-full overflow-hidden bg-slate-900">
-              {finalPrincipal.img ? (
-                <img
-                  src={finalPrincipal.img}
-                  alt={finalPrincipal.titulo}
-                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                  // @ts-ignore - Next.js / HTML5 priority
-                  fetchPriority="high"
-                  loading="eager"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 text-white font-bold text-lg">
-                  Rede Apucarana
-                </div>
-              )}
+              {(() => {
+                const fotoPrincipal = finalPrincipal.cover_image || finalPrincipal.img;
+                const temFotoValida = Boolean(
+                  fotoPrincipal &&
+                  fotoPrincipal !== "/logo-rede-apucarana.png" &&
+                  !fotoPrincipal.includes("obama") &&
+                  !fotoPrincipal.includes("photo-1529107386315")
+                );
+
+                if (temFotoValida) {
+                  return (
+                    <img
+                      src={fotoPrincipal}
+                      alt={finalPrincipal.titulo}
+                      className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                      // @ts-ignore - Next.js / HTML5 priority
+                      fetchPriority="high"
+                      loading="eager"
+                      onError={(e) => {
+                        e.currentTarget.src = "/logo-rede-apucarana.png";
+                        e.currentTarget.className = "w-full h-full object-contain p-8 bg-slate-900";
+                      }}
+                    />
+                  );
+                }
+
+                return (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white p-6">
+                    <img
+                      src="/logo-rede-apucarana.png"
+                      alt="Rede Apucarana"
+                      className="w-24 h-24 object-contain drop-shadow-xl"
+                    />
+                    <span className="text-xs uppercase tracking-widest text-slate-400 mt-2 font-bold">
+                      Rede Apucarana de Comunicação
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Tags Flutuantes: Categoria + Geo-Tag + Selo de Vídeo */}
               <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -274,18 +301,40 @@ export default function EditorialBentoGrid({
                   href={href}
                   className="w-24 sm:w-28 h-20 sm:h-24 rounded-lg overflow-hidden shrink-0 bg-slate-900 block relative"
                 >
-                  {reg.img ? (
-                    <img
-                      src={reg.img}
-                      alt={reg.titulo}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold">
-                      RA
-                    </div>
-                  )}
+                  {(() => {
+                    const regFoto = reg.cover_image || reg.img;
+                    const temRegFoto = Boolean(
+                      regFoto &&
+                      regFoto !== "/logo-rede-apucarana.png" &&
+                      !regFoto.includes("obama") &&
+                      !regFoto.includes("photo-1529107386315")
+                    );
+
+                    if (temRegFoto) {
+                      return (
+                        <img
+                          src={regFoto}
+                          alt={reg.titulo}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = "/logo-rede-apucarana.png";
+                            e.currentTarget.className = "w-full h-full object-contain p-2 bg-slate-900";
+                          }}
+                        />
+                      );
+                    }
+
+                    return (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 p-2">
+                        <img
+                          src="/logo-rede-apucarana.png"
+                          alt="Rede Apucarana"
+                          className="w-10 h-10 object-contain drop-shadow"
+                        />
+                      </div>
+                    );
+                  })()}
 
                   {regHasVideo && (
                     <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">

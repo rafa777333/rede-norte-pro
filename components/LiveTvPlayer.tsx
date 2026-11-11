@@ -52,7 +52,7 @@ const LiveTvPlayer = forwardRef<LiveTvPlayerHandle, LiveTvPlayerProps>(
   function LiveTvPlayer(
     {
       streamUrl = DEFAULT_STREAM,
-      poster = "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=1280&auto=format&fit=crop&q=80",
+      poster = "/banner-rede-apucarana.png",
       autoPlay = true,
       onTheaterToggle,
       isTheater = false,

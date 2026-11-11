@@ -61,6 +61,8 @@ type Noticia = {
   resumo: string;
   texto: string;
   img: string;
+  cover_image?: string;
+  video_format?: string;
   hora?: string;
   autor?: string;
   credit?: string;
@@ -168,54 +170,54 @@ const noticiasFixas: Noticia[] = [
   {
     id: "1",
     cidade: "Apucarana",
-    cat: "Política",
-    titulo: "Datafolha aponta empate técnico entre Flávio Bolsonaro e Lula",
-    sub: "Pesquisa mostra Flávio com 51% e Lula com 49% dos votos válidos; rejeição aparece como fator decisivo.",
-    resumo: "Nova pesquisa mostra cenário acirrado entre os dois nomes e margem de diferença dentro do empate técnico.",
-    texto: "O Datafolha divulgou nesta quinta-feira (15) nova pesquisa mostrando Flávio Bolsonaro com 51% e Lula com 49% dos votos válidos, em empate técnico. A distância, que exclui brancos, nulos e indecisos, era de quatro pontos na semana passada.\n\nJosé Roberto de Toledo analisa que Lula não ganha votos que saem de Flávio, mas pode ser beneficiado pela rejeição. Segundo a pesquisa, Lula é rejeitado por 46% dos eleitores, e Flávio Bolsonaro por 44%.\n\nO governo Lula tem avaliação negativa de 41% e positiva de 35%, segundo o Datafolha. A pesquisa ouviu 2.000 eleitores em todo o país.",
-    img: "https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=1400&q=85",
-    hora: "09:10",
+    cat: "Cidade",
+    titulo: "Portal Rede Apucarana de Comunicação • Informação Regional em Tempo Real",
+    sub: "Acompanhe a cobertura completa de acontecimentos em Apucarana, Arapongas e Vale do Ivaí.",
+    resumo: "Cobertura jornalística regional com credibilidade e utilidade pública.",
+    texto: "A Rede Apucarana de Comunicação traz as principais atualizações e reportagens de toda a nossa região.",
+    img: "/logo-rede-apucarana.png",
+    hora: "09:00",
     autor: "Redação Rede Apucarana",
-    credit: "Imagem ilustrativa / Unsplash",
+    credit: "Rede Apucarana",
   },
   {
     id: "2",
     cidade: "Arapongas",
-    cat: "Cidade",
-    titulo: "Senado aprova maior limite de faturamento do MEI e perdão de dívidas",
-    sub: "Medida amplia espaço para microempreendedores e prevê condições especiais para regularização.",
-    resumo: "Projeto amplia limite de faturamento para microempreendedores.",
-    texto: "O Senado aprovou nesta quinta-feira novas regras para o Microempreendedor Individual. A proposta amplia o limite de faturamento e cria condições para a regularização de dívidas.",
-    img: "https://images.unsplash.com/photo-1560869713-7d0a29430803?w=1000&q=85",
-    hora: "08:42",
+    cat: "Economia",
+    titulo: "Desenvolvimento Regional e Oportunidades no Vale do Ivaí",
+    sub: "Setor produtivo e comércio local fortalecem a geração de empregos na região.",
+    resumo: "Panorama regional sobre empresas, comércio e oportunidades de trabalho.",
+    texto: "O setor de comércio e serviços segue como um dos pilares da economia regional.",
+    img: "/logo-rede-apucarana.png",
+    hora: "08:30",
     autor: "Redação Rede Apucarana",
-    credit: "Imagem ilustrativa / Unsplash",
+    credit: "Rede Apucarana",
   },
   {
     id: "3",
     cidade: "Apucarana",
-    cat: "Segurança",
-    titulo: "Alcolumbre desiste de votar hoje a PEC da Segurança",
-    sub: "Votação fica para a próxima semana após pedido de líderes do Senado.",
-    resumo: "Presidente do Senado adiou votação após pedido de líderes.",
-    texto: "O presidente do Senado, Davi Alcolumbre, desistiu de votar nesta quinta-feira a PEC da Segurança. A análise deve ser retomada na próxima semana.",
-    img: "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1000&q=85",
-    hora: "08:18",
+    cat: "Serviço",
+    titulo: "Serviços Públicos e Utilidade à Comunidade de Apucarana e Região",
+    sub: "Confira informações essenciais, telefones úteis e atendimento à população.",
+    resumo: "Guia de utilidade pública e informações para o cidadão.",
+    texto: "Informações atualizadas sobre serviços públicos e utilidades para o morador de Apucarana.",
+    img: "/logo-rede-apucarana.png",
+    hora: "08:00",
     autor: "Redação Rede Apucarana",
-    credit: "Imagem ilustrativa / Unsplash",
+    credit: "Rede Apucarana",
   },
   {
     id: "4",
     cidade: "Ivaiporã",
-    cat: "Mídia",
-    titulo: "Grupo Globo demite diretor-geral após vazamento de conversas com Vorcaro",
-    sub: "Demissão foi comunicada nesta quinta-feira; empresa informou que apura o caso.",
-    resumo: "Executivo foi desligado após áudios vazados nas redes sociais.",
-    texto: "O Grupo Globo demitiu o diretor-geral após o vazamento de conversas. A empresa informou que a decisão foi tomada nesta quinta-feira.",
-    img: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1000&q=85",
-    hora: "07:55",
+    cat: "Região",
+    titulo: "Vale do Ivaí: Acompanhe as Notícias dos 26 Municípios",
+    sub: "Giro regional com os principais fatos do dia apurados pela equipe de reportagem.",
+    resumo: "Resumo das principais notícias apuradas pelos municípios do Vale.",
+    texto: "Reportagens e notícias de interesse público cobrindo todo o Vale do Ivaí.",
+    img: "/logo-rede-apucarana.png",
+    hora: "07:30",
     autor: "Redação Rede Apucarana",
-    credit: "Imagem ilustrativa / Unsplash",
+    credit: "Rede Apucarana",
   },
 ];
 
@@ -255,10 +257,12 @@ function formatarNoticiasAdmin(items: any[]): Noticia[] {
       sub: resumoSeguro(conteudo, resumo),
       resumo: resumoSeguro(conteudo, resumo),
       texto: conteudo || resumo || "Confira os principais detalhes desta notícia.",
-      img: n.img || n.imagem || noticiasFixas[index % noticiasFixas.length].img,
+      img: n.cover_image || n.img || n.imagem || "/logo-rede-apucarana.png",
+      cover_image: n.cover_image || n.img || n.imagem || "/logo-rede-apucarana.png",
+      video_format: n.video_format || "16:9",
       hora,
       autor: n.autor || "Redação Rede Apucarana",
-      credit: n.credit || "Imagem ilustrativa",
+      credit: n.credit || "Rede Apucarana",
       published_at: n.published_at,
       video_url: n.video_url || n.videoUrl,
     };
@@ -273,22 +277,31 @@ function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: bo
   const temVideo = hasVideoContent(noticia);
   const horaFormatada = formatNewsTime(noticia.published_at, noticia.hora);
   const resumoFormatado = truncateWords(noticia.resumo || noticia.sub || "", compact ? 90 : 160);
+  const temFotoValida = Boolean(
+    noticia.img &&
+    noticia.img !== "/logo-rede-apucarana.png" &&
+    !noticia.img.includes("obama") &&
+    !noticia.img.includes("photo-1529107386315")
+  );
 
   return (
     <article className={`news-card group ${compact ? "news-card--compact" : ""}`}>
-      <Link href={href} className="block relative overflow-hidden">
-        {noticia.img ? (
+      <Link href={href} className="block relative overflow-hidden aspect-video bg-slate-900">
+        {temFotoValida ? (
           <img
             src={noticia.img}
             alt={`Imagem da notícia: ${noticia.titulo}`}
             loading="lazy"
-            className="transition-transform duration-500 ease-out group-hover:scale-105"
-            onError={(event) => { event.currentTarget.style.display = "none"; }}
+            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            onError={(event) => {
+              event.currentTarget.src = "/logo-rede-apucarana.png";
+              event.currentTarget.className = "w-full h-full object-contain p-4 bg-slate-900";
+            }}
           />
         ) : (
-          <div className="news-card-placeholder" aria-label="Imagem não fornecida pela fonte">
-            <span>RA</span>
-            <small>Rede Apucarana</small>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white p-4" aria-label="Rede Apucarana">
+            <img src="/logo-rede-apucarana.png" alt="Rede Apucarana" className="w-12 h-12 object-contain drop-shadow" />
+            <span className="text-[10px] uppercase tracking-widest text-slate-400 mt-1 font-bold">Rede Apucarana</span>
           </div>
         )}
 
@@ -341,21 +354,21 @@ const DEFAULT_SPONSORS: Sponsor[] = [
   {
     id: "demo-sponsor-1",
     titulo: "Sua Marca em Destaque Regional",
-    imagem: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&auto=format&fit=crop&q=80",
+    imagem: "/banner-rede-apucarana.png",
     linkUrl: "/admin",
     ordem: 0,
   },
   {
     id: "demo-sponsor-2",
     titulo: "Rede Apucarana de Comunicação",
-    imagem: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=800&auto=format&fit=crop&q=80",
+    imagem: "/banner-rede-apucarana.png",
     linkUrl: "/admin",
     ordem: 1,
   },
   {
     id: "demo-sponsor-3",
     titulo: "Anuncie no Maior Portal da Região",
-    imagem: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
+    imagem: "/banner-rede-apucarana.png",
     linkUrl: "/admin",
     ordem: 2,
   },
@@ -1433,10 +1446,21 @@ export default function PortalClient({
               <div className="headline-layout">
                 {destaque ? (
                   <a className="hero-story group" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>
-                    {destaque.img ? (
-                      <img className="hero-image" src={destaque.img} alt={`Imagem da notícia: ${destaque.titulo}`} onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                    {destaque.img && destaque.img !== "/logo-rede-apucarana.png" ? (
+                      <img
+                        className="hero-image"
+                        src={destaque.img}
+                        alt={`Imagem da notícia: ${destaque.titulo}`}
+                        onError={(event) => {
+                          event.currentTarget.src = "/logo-rede-apucarana.png";
+                          event.currentTarget.className = "hero-image bg-slate-900 object-contain p-6";
+                        }}
+                      />
                     ) : (
-                      <div className="hero-image hero-image--empty" aria-label="Imagem não fornecida pela fonte"><span>Imagem não fornecida pela fonte</span></div>
+                      <div className="hero-image bg-slate-900 flex flex-col items-center justify-center p-6" aria-label="Rede Apucarana">
+                        <img src="/logo-rede-apucarana.png" alt="Rede Apucarana" className="w-24 h-24 object-contain drop-shadow" />
+                        <span className="text-[10px] uppercase tracking-widest text-slate-400 mt-2 font-bold">Rede Apucarana</span>
+                      </div>
                     )}
                     <span className="hero-copy">
                       <span className="hero-featured-label">{cidade !== "Geral" ? `DESTAQUE EM ${cidade.toUpperCase()}` : "DESTAQUE DA REDAÇÃO"}</span>
@@ -1564,8 +1588,8 @@ export default function PortalClient({
           <h2>Cadastros e Serviços em {cidade}</h2>
           <div className="public-list-grid">
             {locaisAdmin.filter((l: any) => (cidade === "Geral" || cidade === "Todas") || l.cidade.toLowerCase() === cidade.toLowerCase()).map((l: any) => (
-              <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || noticiasFixas[1].img, hora: "", autor: "Guia Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}>
-                <img src={l.img || noticiasFixas[1].img} alt={`Imagem de ${l.nome}`} />
+              <button className="public-list-card" key={l.id} onClick={() => setSel({ id: l.id, titulo: l.nome, cidade: l.cidade, cat: l.cat, sub: l.end, resumo: l.detalhes || "Confira os detalhes deste local.", texto: l.detalhes || "Confira os detalhes deste local.", img: l.img || "/logo-rede-apucarana.png", hora: "", autor: "Guia Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}>
+                <img src={l.img || "/logo-rede-apucarana.png"} alt={`Imagem de ${l.nome}`} />
                 <span><b>{l.cat}</b><strong>{l.nome}</strong><small>{l.cidade} · {l.end}</small></span>
               </button>
             ))}
@@ -1643,8 +1667,8 @@ export default function PortalClient({
           <h2>Promoções em {cidade}</h2>
           <div className="public-list-grid">
             {promocoesAdmin.filter((p: any) => (cidade === "Geral" || cidade === "Todas") || p.cidade.toLowerCase() === cidade.toLowerCase()).map((p: any) => (
-              <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || noticiasFixas[3].img, hora: "", autor: "Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}>
-                <img src={p.img || noticiasFixas[3].img} alt={`Imagem da promoção: ${p.titulo}`} />
+              <button className="public-list-card" key={p.id} onClick={() => setSel({ id: p.id, titulo: p.titulo, cidade: p.cidade, cat: p.categoria, sub: p.validade, resumo: p.detalhes || "Confira os detalhes desta promoção.", texto: p.detalhes || "Confira os detalhes desta promoção.", img: p.img || "/logo-rede-apucarana.png", hora: "", autor: "Rede Apucarana", credit: "Imagem enviada pelo anunciante" })}>
+                <img src={p.img || "/logo-rede-apucarana.png"} alt={`Imagem da promoção: ${p.titulo}`} />
                 <span><b>{p.categoria}</b><strong>{p.titulo}</strong><small>{p.cidade} · {p.validade}</small></span>
               </button>
             ))}

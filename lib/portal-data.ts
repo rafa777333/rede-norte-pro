@@ -18,6 +18,8 @@ export interface PortalNews {
   resumo: string;
   texto: string;
   img: string;
+  cover_image?: string;
+  video_format?: string;
   hora: string;
   autor: string;
   credit?: string;
@@ -92,7 +94,9 @@ function formatNewsItem(n: any): PortalNews {
     sub: cleanResumo,
     resumo: cleanResumo,
     texto: n.conteudo || "",
-    img: n.imagem || "",
+    img: (n as any).cover_image || n.imagem || "/logo-rede-apucarana.png",
+    cover_image: (n as any).cover_image || n.imagem || "/logo-rede-apucarana.png",
+    video_format: (n as any).video_format || "16:9",
     hora,
     autor: n.autor || "Redação Rede Apucarana",
     published_at: n.published_at || undefined,
@@ -149,11 +153,11 @@ export async function getInitialPortalData(cidade: string = "Geral"): Promise<Po
     const poolPrioritario = [...regionais, ...outras];
 
     // 1. Manchete Principal: prioriza notícia regional com imagem válida (fallback: nacional com imagem)
-    const regionalComImagem = regionais.find((n) => Boolean(n.img && n.img.startsWith("http")));
+    const regionalComImagem = regionais.find((n) => Boolean(n.img && n.img !== "/logo-rede-apucarana.png" && n.img.startsWith("http")));
     const manchetePrincipal =
       regionalComImagem ||
       regionais[0] ||
-      poolPrioritario.find((n) => Boolean(n.img && n.img.startsWith("http"))) ||
+      poolPrioritario.find((n) => Boolean(n.img && n.img !== "/logo-rede-apucarana.png" && n.img.startsWith("http"))) ||
       poolPrioritario[0] ||
       null;
 
@@ -167,7 +171,7 @@ export async function getInitialPortalData(cidade: string = "Geral"): Promise<Po
     ]);
 
     // 3. Destaques Regionais (prioriza 2 notícias regionais que sobraram com imagem)
-    const remainingRegionais = regionais.filter((n) => !usedTopIds.has(n.id) && Boolean(n.img));
+    const remainingRegionais = regionais.filter((n) => !usedTopIds.has(n.id) && Boolean(n.img && n.img !== "/logo-rede-apucarana.png"));
     const poolAfterSub = poolRestante.filter((n) => !usedTopIds.has(n.id));
     const destaquesRegionais = (remainingRegionais.length >= 2 ? remainingRegionais : poolAfterSub).slice(0, 2);
     destaquesRegionais.forEach((d) => usedTopIds.add(d.id));
