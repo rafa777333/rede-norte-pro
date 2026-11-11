@@ -69,6 +69,9 @@ const emptyPlace: Partial<PlaceItem> = {
   },
   menuHighlights: [],
   description: "",
+  promoActive: true,
+  promoHighlight: false,
+  promoText: "",
 };
 
 export default function AdminOndeIrManager() {
@@ -231,6 +234,9 @@ export default function AdminOndeIrManager() {
   const abrirEdicao = (place: PlaceItem) => {
     setEditPlace({
       ...place,
+      promoActive: place.promoActive !== undefined ? place.promoActive : (place.activePromo?.isActive !== false),
+      promoHighlight: Boolean(place.promoHighlight || place.activePromo?.isHighlight),
+      promoText: place.promoText || place.activePromo?.title || "",
       openHours: place.openHours || { open: "18:00", close: "23:30", days: "Terça a Domingo" },
       activePromo: place.activePromo || {
         title: "",
@@ -241,9 +247,69 @@ export default function AdminOndeIrManager() {
       },
       menuHighlights: place.menuHighlights ? [...place.menuHighlights] : [],
     });
-    setPromoAtiva(Boolean(place.activePromo && place.activePromo.title));
+    setPromoAtiva(Boolean((place.activePromo && place.activePromo.title) || place.promoText));
     setFormTab("dados");
     setModalAberto(true);
+  };
+
+  // Alterna status da promoção (Ativa / Esgotada) com 1 clique rápido no card
+  const alternarPromoAtiva = async (place: PlaceItem) => {
+    const novoStatus = place.promoActive === false ? true : false;
+    try {
+      const res = await fetch("/api/onde-ir", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: place.id,
+          promo_active: novoStatus,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPlaces((prev) =>
+          prev.map((p) =>
+            p.id === place.id ? { ...p, promoActive: novoStatus } : p
+          )
+        );
+        setMensagem({
+          tipo: "sucesso",
+          texto: `Promoção de "${place.name}" alterada para: ${novoStatus ? "🟢 ATIVA" : "🔴 ESGOTADA"}!`,
+        });
+        setTimeout(() => setMensagem(null), 3500);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Alterna Destaque Extra (Topo do App) com 1 clique rápido no card
+  const alternarHighlight = async (place: PlaceItem) => {
+    const novoHighlight = !place.promoHighlight;
+    try {
+      const res = await fetch("/api/onde-ir", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: place.id,
+          promo_highlight: novoHighlight,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPlaces((prev) =>
+          prev.map((p) =>
+            p.id === place.id ? { ...p, promoHighlight: novoHighlight } : p
+          )
+        );
+        setMensagem({
+          tipo: "sucesso",
+          texto: `Destaque Extra de "${place.name}": ${novoHighlight ? "🔥 NO TOPO (ATIVADO)" : "Normal"}!`,
+        });
+        setTimeout(() => setMensagem(null), 3500);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Salvar cadastro/edição
@@ -256,7 +322,15 @@ export default function AdminOndeIrManager() {
 
     const payload: Partial<PlaceItem> = {
       ...editPlace,
-      activePromo: promoAtiva && editPlace.activePromo?.title ? editPlace.activePromo : undefined,
+      promoActive: promoAtiva ? (editPlace.promoActive !== false) : false,
+      promoHighlight: Boolean(editPlace.promoHighlight),
+      promoText: editPlace.activePromo?.title || editPlace.promoText || "",
+      activePromo: promoAtiva && (editPlace.activePromo?.title || editPlace.promoText) ? {
+        ...editPlace.activePromo!,
+        title: editPlace.activePromo?.title || editPlace.promoText || "",
+        isActive: editPlace.promoActive !== false,
+        isHighlight: Boolean(editPlace.promoHighlight),
+      } : undefined,
     };
 
     try {
@@ -512,15 +586,67 @@ export default function AdminOndeIrManager() {
                     </div>
                   </div>
 
-                  {/* Promoção Ativa */}
-                  {place.activePromo?.title ? (
-                    <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-xs flex items-center justify-between">
-                      <span className="font-bold text-amber-900 truncate">
-                        🔥 {place.activePromo.title}
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 font-black rounded text-[10px]">
-                        {place.activePromo.couponCode}
-                      </span>
+                  {/* Promoção / Escassez / Destaque */}
+                  {place.activePromo?.title || place.promoText ? (
+                    <div
+                      className={`p-2.5 rounded-xl border text-xs flex flex-col gap-2 ${
+                        place.promoActive !== false
+                          ? "bg-emerald-50/80 border-emerald-200"
+                          : "bg-slate-100 border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`font-bold truncate pr-2 ${
+                            place.promoActive !== false
+                              ? "text-emerald-950"
+                              : "text-slate-500 line-through"
+                          }`}
+                        >
+                          ⚡ {place.promoText || place.activePromo?.title}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 ${
+                            place.promoActive !== false
+                              ? "bg-emerald-600 text-white"
+                              : "bg-slate-300 text-slate-600"
+                          }`}
+                        >
+                          {place.promoActive !== false ? "🟢 ATIVA" : "🔴 ESGOTADA"}
+                        </span>
+                      </div>
+
+                      {/* Botões de Ação Rápida */}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200/70">
+                        <button
+                          type="button"
+                          onClick={() => alternarPromoAtiva(place)}
+                          className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition ${
+                            place.promoActive !== false
+                              ? "bg-red-100 hover:bg-red-200 text-red-800"
+                              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
+                          }`}
+                          title="Alternar entre Ativa e Esgotada com 1 clique"
+                        >
+                          {place.promoActive !== false
+                            ? "Desativar (Esgotar)"
+                            : "Reativar Promoção"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => alternarHighlight(place)}
+                          className={`py-1 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition flex items-center gap-1 ${
+                            place.promoHighlight
+                              ? "bg-amber-400 text-slate-950 shadow-sm"
+                              : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                          }`}
+                          title="Alternar Destaque Extra no Topo Absoluto"
+                        >
+                          <span>🔥</span>
+                          <span>{place.promoHighlight ? "No Topo" : "Destacar"}</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-[11px] text-slate-400 italic">
@@ -1058,6 +1184,61 @@ export default function AdminOndeIrManager() {
 
                   {promoAtiva && (
                     <div className="space-y-4 p-4 rounded-xl border border-slate-200 bg-white">
+                      {/* 1. INTERRUPTOR DE AÇÃO RÁPIDA: STATUS DA PROMOÇÃO (ATIVA / ESGOTADA) */}
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="font-bold text-xs text-slate-900 block">
+                            Status da Promoção (Cota Comercial)
+                          </span>
+                          <span className="text-[11px] text-slate-600 block">
+                            {editPlace.promoActive !== false
+                              ? "🟢 ATIVA: Botão vermelho liberado para resgate no caixa"
+                              : "🔴 ESGOTADA: Botão cinza desativado com '🚫 PROMOÇÃO ESGOTADA' (Gera FOMO)"}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditPlace({
+                              ...editPlace,
+                              promoActive: editPlace.promoActive === false ? true : false,
+                            })
+                          }
+                          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-sm ${
+                            editPlace.promoActive !== false
+                              ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                              : "bg-red-600 hover:bg-red-500 text-white"
+                          }`}
+                        >
+                          {editPlace.promoActive !== false ? "🟢 Ativa (Ligada)" : "🔴 Esgotada (Desligada)"}
+                        </button>
+                      </div>
+
+                      {/* 2. INTERRUPTOR DE DESTAQUE EXTRA (PROPAGANDA TURBINADA NO TOPO) */}
+                      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3">
+                        <div>
+                          <span className="font-bold text-xs text-amber-950 block">
+                            🔥 Destaque Extra (Propaganda Turbinada / Topo Absoluto)
+                          </span>
+                          <span className="text-[11px] text-amber-800 block">
+                            Posiciona este estabelecimento no topo absoluto do app com borda dourada e selo "🔥 OFERTA LIMITADA".
+                          </span>
+                        </div>
+
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editPlace.promoHighlight)}
+                          onChange={(e) =>
+                            setEditPlace({
+                              ...editPlace,
+                              promoHighlight: e.target.checked,
+                            })
+                          }
+                          className="w-5 h-5 rounded text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
+                        />
+                      </div>
+
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">
                           Título da Oferta do Dia *

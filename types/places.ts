@@ -20,6 +20,8 @@ export interface ActivePromo {
   couponCode: string; // ex: 'REDE10'
   validUntil?: string;
   description?: string;
+  isActive?: boolean; // Se false = Promoção Esgotada
+  isHighlight?: boolean; // Se true = Oferta do Dia / Destaque Turbinado
 }
 
 export interface PlaceOpenHours {
@@ -53,4 +55,8 @@ export interface PlaceItem {
   activePromo?: ActivePromo;
   menuHighlights: MenuItem[];
   description?: string;
+  // Campos de Cota Limitada, Escassez e Destaque Extra
+  promoActive?: boolean; // true = Ativa (Botão Vermelho), false = Esgotada (Botão Cinza)
+  promoText?: string; // Texto da promoção (ex: 'Terça Napolitana 20% OFF')
+  promoHighlight?: boolean; // true = Topo absoluto + Selo de Oferta Limitada
 }

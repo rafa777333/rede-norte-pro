@@ -25,15 +25,37 @@ export function mapDbToPlace(row: any): PlaceItem {
     videoUrl: row.video_url || undefined,
     videoThumbnail: row.video_thumbnail || undefined,
     whatsapp: (row.whatsapp || "").replace(/\D/g, ""),
-    activePromo: row.active_promo && row.active_promo.title ? row.active_promo : undefined,
+    activePromo: row.active_promo && row.active_promo.title ? {
+      ...row.active_promo,
+      isActive: row.promo_active !== undefined
+        ? Boolean(row.promo_active)
+        : (row.active_promo.isActive !== undefined ? Boolean(row.active_promo.isActive) : true),
+      isHighlight: row.promo_highlight !== undefined
+        ? Boolean(row.promo_highlight)
+        : Boolean(row.active_promo.isHighlight),
+    } : undefined,
     menuHighlights: Array.isArray(row.menu_highlights) ? row.menu_highlights : [],
     description: row.description || undefined,
+    promoActive: row.promo_active !== undefined
+      ? Boolean(row.promo_active)
+      : (row.active_promo?.isActive !== undefined ? Boolean(row.active_promo.isActive) : Boolean(row.active_promo?.title)),
+    promoText: row.promo_text || row.active_promo?.title || undefined,
+    promoHighlight: row.promo_highlight !== undefined
+      ? Boolean(row.promo_highlight)
+      : Boolean(row.active_promo?.isHighlight),
   };
 }
 
 export function mapPlaceToDb(place: Partial<PlaceItem>): any {
   const cleanZap = (place.whatsapp || "").replace(/\D/g, "");
   const baseSlug = place.slug || (place.name ? cidadeSlug(place.name) : "local");
+
+  const promoActiveBool = place.promoActive !== undefined
+    ? Boolean(place.promoActive)
+    : (place.activePromo?.isActive !== undefined ? Boolean(place.activePromo.isActive) : true);
+
+  const promoHighlightBool = Boolean(place.promoHighlight || place.activePromo?.isHighlight);
+  const promoTextStr = place.promoText || place.activePromo?.title || null;
 
   const record: any = {
     slug: baseSlug,
@@ -54,9 +76,19 @@ export function mapPlaceToDb(place: Partial<PlaceItem>): any {
     logo: place.logo || null,
     video_url: place.videoUrl || null,
     video_thumbnail: place.videoThumbnail || null,
-    active_promo: place.activePromo && place.activePromo.title ? place.activePromo : null,
+    active_promo: place.activePromo && (place.activePromo.title || promoTextStr)
+      ? {
+          ...place.activePromo,
+          title: promoTextStr || place.activePromo.title,
+          isActive: promoActiveBool,
+          isHighlight: promoHighlightBool,
+        }
+      : null,
     menu_highlights: Array.isArray(place.menuHighlights) ? place.menuHighlights : [],
     description: place.description || null,
+    promo_active: promoActiveBool,
+    promo_text: promoTextStr,
+    promo_highlight: promoHighlightBool,
   };
 
   if (place.id && !place.id.startsWith("mock-")) {

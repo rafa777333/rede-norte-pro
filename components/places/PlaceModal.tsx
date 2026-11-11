@@ -249,67 +249,110 @@ export default function PlaceModal({ place, onClose }: PlaceModalProps) {
 
           {/* Conteúdo com Promoção e Cardápio */}
           <div className="p-5 sm:p-6 pt-3 flex-1 overflow-y-auto space-y-6">
-            {/* Faixa de Promoção Ativa (se houver) */}
-            {place.activePromo && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white shadow-md flex flex-col gap-3.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">⚡</span>
-                      <span className="text-xs font-black uppercase tracking-wider text-orange-100">
-                        Promoção Exclusiva Rede Apucarana
-                      </span>
+            {/* Faixa de Promoção: ATIVA vs ESGOTADA */}
+            {(place.activePromo || place.promoText) && (
+              place.promoActive !== false && place.activePromo?.isActive !== false ? (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white shadow-md flex flex-col gap-3.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">⚡</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-orange-100">
+                          Promoção Exclusiva Rede Apucarana
+                        </span>
+                      </div>
+                      <h4 className="text-base sm:text-lg font-bold mt-0.5">
+                        {place.promoText || place.activePromo?.title}
+                      </h4>
+                      {place.activePromo?.description && (
+                        <p className="text-xs text-orange-100 mt-0.5">
+                          {place.activePromo.description}
+                        </p>
+                      )}
                     </div>
-                    <h4 className="text-base sm:text-lg font-bold mt-0.5">
-                      {place.activePromo.title}
-                    </h4>
-                    {place.activePromo.description && (
-                      <p className="text-xs text-orange-100 mt-0.5">
-                        {place.activePromo.description}
-                      </p>
+
+                    {place.activePromo?.couponCode && (
+                      <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl text-center shrink-0 border border-white/20">
+                        <span className="text-[10px] uppercase font-bold block opacity-90">
+                          Cupom
+                        </span>
+                        <span className="font-mono font-black text-sm tracking-wider">
+                          {place.activePromo.couponCode}
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl text-center shrink-0 border border-white/20">
-                    <span className="text-[10px] uppercase font-bold block opacity-90">
-                      Cupom
-                    </span>
-                    <span className="font-mono font-black text-sm tracking-wider">
-                      {place.activePromo.couponCode}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Botão Oficial: 🎯 RESGATAR DESCONTO NO CAIXA */}
-                <button
-                  type="button"
-                  onClick={handleResgatarNoCaixa}
-                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-orange-50 text-orange-700 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
-                >
-                  <span>🎯 RESGATAR DESCONTO NO CAIXA</span>
-                  <span className="bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded font-mono font-bold">
-                    {place.activePromo.couponCode}
-                  </span>
-                </button>
-
-                {/* Voucher de Confirmação para Apresentar no Caixa */}
-                {cupomResgatado && (
-                  <div className="p-3.5 rounded-xl bg-emerald-500/90 text-white border border-emerald-400/50 flex flex-col gap-1.5 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-                        <span>✅</span>
-                        <span>Desconto Ativado! Código Copiado</span>
-                      </span>
-                      <span className="font-mono font-black text-sm bg-white text-emerald-800 px-2 py-0.5 rounded">
+                  {/* Botão Oficial: 🎯 RESGATAR DESCONTO NO CAIXA */}
+                  <button
+                    type="button"
+                    onClick={handleResgatarNoCaixa}
+                    className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-orange-50 text-orange-700 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+                  >
+                    <span>🎯 RESGATAR DESCONTO NO CAIXA</span>
+                    {place.activePromo?.couponCode && (
+                      <span className="bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded font-mono font-bold">
                         {place.activePromo.couponCode}
                       </span>
+                    )}
+                  </button>
+
+                  {/* Voucher de Confirmação para Apresentar no Caixa */}
+                  {cupomResgatado && place.activePromo && (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/90 text-white border border-emerald-400/50 flex flex-col gap-1.5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                          <span>✅</span>
+                          <span>Desconto Ativado! Código Copiado</span>
+                        </span>
+                        <span className="font-mono font-black text-sm bg-white text-emerald-800 px-2 py-0.5 rounded">
+                          {place.activePromo.couponCode}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-100">
+                        Mostre esta tela para o atendente no caixa ou garçom de <strong>{place.name}</strong> para aplicar seu desconto!
+                      </p>
                     </div>
-                    <p className="text-[11px] text-emerald-100">
-                      Mostre esta tela para o atendente no caixa ou garçom de <strong>{place.name}</strong> para aplicar seu desconto!
-                    </p>
+                  )}
+                </div>
+              ) : (
+                /* Promoção Esgotada: Cinza desativado, FOMO */
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-100 border border-slate-200 text-slate-800 flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🚫</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                          Cota de Cupons Encerrada
+                        </span>
+                      </div>
+                      <h4 className="text-base sm:text-lg font-bold mt-0.5 text-slate-600 line-through">
+                        {place.promoText || place.activePromo?.title}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Todos os cupons promocionais disponibilizados para esta oferta foram 100% resgatados hoje.
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-200 px-3 py-1.5 rounded-xl text-center shrink-0 border border-slate-300">
+                      <span className="text-[10px] uppercase font-bold block text-slate-500">
+                        Status
+                      </span>
+                      <span className="font-mono font-black text-xs text-slate-600">
+                        ESGOTADO
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-300 text-slate-500 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 cursor-not-allowed select-none shadow-none"
+                  >
+                    <span>🚫 PROMOÇÃO ESGOTADA</span>
+                  </button>
+                </div>
+              )
             )}
 
             {/* Aba do Cardápio / Tarifas */}

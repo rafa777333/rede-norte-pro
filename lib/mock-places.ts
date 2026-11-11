@@ -54,12 +54,17 @@ export const MOCK_PLACES: PlaceItem[] = [
     coverImage: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80",
     logo: "https://images.unsplash.com/photo-1579684947550-22e945225d9a?w=160&q=80",
     whatsapp: "43999123456",
+    promoActive: true,
+    promoHighlight: true,
+    promoText: "Terça Napolitana 20% OFF",
     activePromo: {
       title: "Terça Napolitana 20% OFF",
       discountBadge: "20% OFF",
       couponCode: "NAPOLI20",
       validUntil: "Válido esta semana",
       description: "Válido para consumo no salão e pedidos retirados ou via WhatsApp",
+      isActive: true,
+      isHighlight: true,
     },
     menuHighlights: [
       {
@@ -116,12 +121,17 @@ export const MOCK_PLACES: PlaceItem[] = [
     videoThumbnail: "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80",
     coverImage: "https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&q=80",
     whatsapp: "43998877665",
+    promoActive: true,
+    promoHighlight: false,
+    promoText: "Almoço Executivo com Sobremesa Grátis",
     activePromo: {
       title: "Almoço Executivo com Sobremesa Grátis",
       discountBadge: "SOBREMESA GRÁTIS",
       couponCode: "BRASEIROGIFT",
       validUntil: "Segunda a Sexta",
       description: "Apresente o cupom e ganhe um pudim de leite condensado na compra do executivo",
+      isActive: true,
+      isHighlight: false,
     },
     menuHighlights: [
       {
@@ -170,12 +180,17 @@ export const MOCK_PLACES: PlaceItem[] = [
     videoThumbnail: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&q=80",
     coverImage: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=1200&q=80",
     whatsapp: "43997654321",
+    promoActive: false, // ESGOTADA para teste e demonstração do efeito FOMO
+    promoHighlight: false,
+    promoText: "Happy Hour Chopp em Dobro até 20h",
     activePromo: {
       title: "Happy Hour Chopp em Dobro até 20h",
       discountBadge: "CHOPP EM DOBRO",
       couponCode: "GARAGEPUB",
       validUntil: "Hoje das 18h às 20h",
       description: "Compre 1 Chopp Pilsen 500ml e o segundo sai inteiramente por conta da casa",
+      isActive: false,
+      isHighlight: false,
     },
     menuHighlights: [
       {

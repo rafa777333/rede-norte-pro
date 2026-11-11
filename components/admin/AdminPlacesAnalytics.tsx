@@ -162,6 +162,34 @@ export default function AdminPlacesAnalytics() {
     });
   };
 
+  // Alterna status da promoção (Ativa / Esgotada) direto do relatório
+  const alternarStatusPromo = async (place: PlaceItem) => {
+    const isAtiva = place.promoActive !== false && place.activePromo?.isActive !== false;
+    const novoStatus = !isAtiva;
+    try {
+      const res = await fetch("/api/onde-ir", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: place.id,
+          promo_active: novoStatus,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPlaces((prev) =>
+          prev.map((p) =>
+            p.id === place.id ? { ...p, promoActive: novoStatus } : p
+          )
+        );
+        setFeedback(`Promoção de "${place.name}" alterada para: ${novoStatus ? "🟢 ATIVA" : "🔴 ESGOTADA"}`);
+        setTimeout(() => setFeedback(null), 3500);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className={`space-y-6 ${modoPrint ? "bg-white p-6 rounded-2xl shadow-xl" : ""}`}>
       {/* ===================================================================== */}
@@ -379,15 +407,36 @@ export default function AdminPlacesAnalytics() {
                       </div>
                     </td>
 
-                    {/* Cupom Ativo */}
+                    {/* Cupom / Status da Promoção */}
                     <td className="py-4 px-4">
-                      {item.place.activePromo ? (
+                      {item.place.activePromo || item.place.promoText ? (
                         <div className="flex flex-col items-start gap-1">
-                          <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-orange-950 font-mono text-xs font-black border border-orange-200">
-                            {item.place.activePromo.couponCode}
-                          </span>
-                          <span className="text-[11px] text-orange-800 font-medium truncate max-w-[150px]">
-                            {item.place.activePromo.discountBadge}
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                item.place.promoActive !== false && item.place.activePromo?.isActive !== false
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  : "bg-slate-200 text-slate-600 border border-slate-300"
+                              }`}
+                            >
+                              {item.place.promoActive !== false && item.place.activePromo?.isActive !== false
+                                ? "🟢 Ativa"
+                                : "🔴 Esgotada"}
+                            </span>
+                            {item.place.activePromo?.couponCode && (
+                              <span className="px-2 py-0.5 rounded bg-orange-100 text-orange-950 font-mono text-xs font-black">
+                                {item.place.activePromo.couponCode}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`text-[11px] font-medium truncate max-w-[150px] ${
+                              item.place.promoActive !== false && item.place.activePromo?.isActive !== false
+                                ? "text-slate-700"
+                                : "text-slate-400 line-through"
+                            }`}
+                          >
+                            {item.place.promoText || item.place.activePromo?.title}
                           </span>
                         </div>
                       ) : (
@@ -428,11 +477,28 @@ export default function AdminPlacesAnalytics() {
                     {/* Ações */}
                     {!modoPrint && (
                       <td className="py-4 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {(item.place.activePromo || item.place.promoText) && (
+                            <button
+                              type="button"
+                              onClick={() => alternarStatusPromo(item.place)}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition ${
+                                item.place.promoActive !== false && item.place.activePromo?.isActive !== false
+                                  ? "bg-red-100 hover:bg-red-200 text-red-800"
+                                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
+                              }`}
+                              title="Alternar entre Ativa e Esgotada com 1 clique"
+                            >
+                              {item.place.promoActive !== false && item.place.activePromo?.isActive !== false
+                                ? "Esgotar"
+                                : "Reativar"}
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => handleCopiarMensagemParceiro(item)}
-                            className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 transition-colors"
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 transition-colors"
                             title="Copiar texto de prova de valor para enviar no WhatsApp"
                           >
                             <span>📲</span>
@@ -442,7 +508,7 @@ export default function AdminPlacesAnalytics() {
                             type="button"
                             onClick={() => handleZerarLocal(item.place)}
                             disabled={actionLoading === item.place.id}
-                            className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 text-xs font-bold transition-colors disabled:opacity-50"
+                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 text-xs font-bold transition-colors disabled:opacity-50"
                             title="Zerar visualizações e cupons deste local (iniciar novo mês)"
                           >
                             <span>{actionLoading === item.place.id ? "..." : "Zerar"}</span>

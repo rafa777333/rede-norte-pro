@@ -158,7 +158,7 @@ export async function PATCH(request: Request) {
   try {
     const supabase = getSupabaseAdmin();
     const body = await request.json();
-    const { id, is_vip, is_active } = body;
+    const { id, is_vip, is_active, promo_active, promo_highlight, promo_text } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -170,13 +170,50 @@ export async function PATCH(request: Request) {
     const updatePayload: any = {};
     if (typeof is_vip === "boolean") updatePayload.is_vip = is_vip;
     if (typeof is_active === "boolean") updatePayload.is_active = is_active;
+    if (typeof promo_active === "boolean") updatePayload.promo_active = promo_active;
+    if (typeof promo_highlight === "boolean") updatePayload.promo_highlight = promo_highlight;
+    if (typeof promo_text === "string") updatePayload.promo_text = promo_text;
 
-    const { data, error } = await supabase
+    // Busca o registro atual para sincronizar o JSONB active_promo também
+    const { data: currentPlace } = await supabase
+      .from("onde_ir_places")
+      .select("active_promo")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (currentPlace && currentPlace.active_promo) {
+      updatePayload.active_promo = {
+        ...currentPlace.active_promo,
+        ...(typeof promo_active === "boolean" ? { isActive: promo_active } : {}),
+        ...(typeof promo_highlight === "boolean" ? { isHighlight: promo_highlight } : {}),
+        ...(typeof promo_text === "string" ? { title: promo_text } : {}),
+      };
+    }
+
+    let { data, error } = await supabase
       .from("onde_ir_places")
       .update(updatePayload)
       .eq("id", id)
       .select()
       .single();
+
+    // Fallback: se as colunas diretas ainda não existirem no Supabase, tenta atualizar somente active_promo, is_vip, is_active
+    if (error && (error.message.includes("column") || error.code === "42703")) {
+      const fallbackPayload: any = {};
+      if (typeof is_vip === "boolean") fallbackPayload.is_vip = is_vip;
+      if (typeof is_active === "boolean") fallbackPayload.is_active = is_active;
+      if (updatePayload.active_promo) fallbackPayload.active_promo = updatePayload.active_promo;
+
+      const fallbackRes = await supabase
+        .from("onde_ir_places")
+        .update(fallbackPayload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      data = fallbackRes.data;
+      error = fallbackRes.error;
+    }
 
     if (error) {
       return NextResponse.json(

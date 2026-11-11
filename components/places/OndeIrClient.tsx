@@ -147,9 +147,23 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
         return true;
       })
       .sort((a, b) => {
-        // VIPs no topo
+        // 1. Destaque Extra (promo_highlight) no topo absoluto
+        const aHighlight = Boolean(a.promoHighlight || a.activePromo?.isHighlight);
+        const bHighlight = Boolean(b.promoHighlight || b.activePromo?.isHighlight);
+        if (aHighlight && !bHighlight) return -1;
+        if (!aHighlight && bHighlight) return 1;
+
+        // 2. Status da promoção (Ativa antes de Esgotada para gerar FOMO no final)
+        const aEsgotada = a.promoActive === false || a.activePromo?.isActive === false;
+        const bEsgotada = b.promoActive === false || b.activePromo?.isActive === false;
+        if (!aEsgotada && bEsgotada) return -1;
+        if (aEsgotada && !bEsgotada) return 1;
+
+        // 3. Parceiros VIPs
         if (a.isVip && !b.isVip) return -1;
         if (!a.isVip && b.isVip) return 1;
+
+        // 4. Avaliação
         return (b.rating || 0) - (a.rating || 0);
       });
   }, [initialPlaces, categoriaAtiva, cidadeFiltro, apenasAbertos, apenasComPromo, busca]);
@@ -319,12 +333,19 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {lugaresFiltrados.map((place) => {
               const status = isOpenNow(place.openHours);
+              const hasPromo = Boolean(place.promoText || place.activePromo);
+              const isPromoAtiva = place.promoActive !== false && place.activePromo?.isActive !== false;
+              const isHighlight = Boolean(place.promoHighlight || place.activePromo?.isHighlight);
+              const promoTitle = place.promoText || place.activePromo?.title || "Promoção Especial";
+              const couponCode = place.activePromo?.couponCode || "DESCONTO";
 
               return (
                 <article
                   key={place.id}
                   className={`bg-white rounded-3xl overflow-hidden border transition-all duration-300 flex flex-col justify-between group ${
-                    place.isVip
+                    isHighlight
+                      ? "border-amber-400 ring-2 ring-amber-400 shadow-xl shadow-amber-500/15"
+                      : place.isVip
                       ? "border-amber-400/90 shadow-md hover:shadow-xl ring-1 ring-amber-400/50"
                       : "border-slate-200/90 shadow-sm hover:shadow-lg"
                   }`}
@@ -342,16 +363,23 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30" />
 
-                    {/* Badge de Categoria */}
-                    <div className="absolute top-3 left-3 flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-600 text-white shadow-md">
-                        {place.category}
-                      </span>
+                    {/* Destaque Extra (OFERTA LIMITADA) ou Badge de Categoria */}
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5 z-20">
+                      {isHighlight ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white shadow-lg border border-amber-300/60 animate-pulse">
+                          <span>🔥</span>
+                          <span>OFERTA LIMITADA</span>
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-orange-600 text-white shadow-md">
+                          {place.category}
+                        </span>
+                      )}
                     </div>
 
                     {/* Destaque VIP / Verificado */}
                     {place.isVip && (
-                      <div className="absolute top-3 right-3">
+                      <div className="absolute top-3 right-3 z-10">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-md">
                           <span>★</span>
                           <span>Parceiro VIP</span>
@@ -391,30 +419,53 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
                         </p>
                       )}
 
-                      {/* Faixa de Promoção Ativa no Card */}
-                      {place.activePromo && (
-                        <div className="mt-3 p-3 rounded-2xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/90 flex flex-col gap-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-orange-950 truncate pr-2">
-                              ⚡ {place.activePromo.title}
-                            </span>
-                            <span className="font-mono font-bold text-[10px] bg-orange-200 text-orange-950 px-2 py-0.5 rounded shrink-0">
-                              {place.activePromo.couponCode}
-                            </span>
-                          </div>
+                      {/* Faixa de Promoção: ATIVA vs ESGOTADA */}
+                      {hasPromo && (
+                        isPromoAtiva ? (
+                          <div className="mt-3 p-3 rounded-2xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/90 flex flex-col gap-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-orange-950 truncate pr-2">
+                                ⚡ {promoTitle}
+                              </span>
+                              <span className="font-mono font-bold text-[10px] bg-orange-200 text-orange-950 px-2 py-0.5 rounded shrink-0">
+                                {couponCode}
+                              </span>
+                            </div>
 
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleResgatarDescontoNoCaixa(place);
-                            }}
-                            className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
-                            title="Resgatar desconto de hoje no caixa"
-                          >
-                            <span>🎯 RESGATAR DESCONTO NO CAIXA</span>
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResgatarDescontoNoCaixa(place);
+                              }}
+                              className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                              title="Resgatar desconto de hoje no caixa"
+                            >
+                              <span>🎯 RESGATAR DESCONTO NO CAIXA</span>
+                            </button>
+                          </div>
+                        ) : (
+                          /* Promoção Esgotada: Cinza desativado, FOMO ativo */
+                          <div className="mt-3 p-3 rounded-2xl bg-slate-100 border border-slate-200 flex flex-col gap-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-500 line-through truncate pr-2">
+                                ⚡ {promoTitle}
+                              </span>
+                              <span className="font-mono font-bold text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded shrink-0">
+                                COTA ESGOTADA
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled
+                              className="w-full py-2 px-3 rounded-xl bg-slate-300 text-slate-500 font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed select-none shadow-none"
+                              title="Os cupons desta promoção se esgotaram hoje"
+                            >
+                              <span>🚫 PROMOÇÃO ESGOTADA</span>
+                            </button>
+                          </div>
+                        )
                       )}
 
                       {/* Destaque do Carro-Chefe */}
