@@ -55,8 +55,11 @@ const SUPER_APP_BUTTONS: SuperAppButton[] = [
   },
 ];
 
-// Alturas padrão da onda sonora da rádio (espelhando a imagem de referência)
-const EQUALIZER_BARS = [8, 14, 20, 32, 24, 40, 48, 30, 52, 42, 28, 36, 22, 30, 16, 10];
+// 25 barras de altura exatas extraídas da referência visual da imagem
+const EQUALIZER_BARS = [
+  7, 13, 23, 41, 63, 41, 23, 13, 34, 11, 32, 68, 37, 21, 9, 23, 47, 34, 13, 15,
+  40, 61, 37, 19, 9,
+];
 
 export default function SuperAppHome() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -107,151 +110,138 @@ export default function SuperAppHome() {
   }, []);
 
   return (
-    // 2. CONTAINER PRINCIPAL: Centralização estrita e controle de transbordamento horizontal
-    <div className="flex flex-col items-center justify-center w-full min-h-screen px-4 py-6 overflow-x-hidden bg-[#0b2249] selection:bg-red-500 selection:text-white font-sans antialiased">
-      {/* Barra de utilidades superior (link para /admin sutil) */}
-      <div className="w-full max-w-sm mx-auto flex items-center justify-between mb-2">
-        <span className="text-[10px] font-bold text-sky-200/80 uppercase tracking-widest">
-          Rede Apucarana
-        </span>
-        <Link
-          href="/admin"
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-colors"
-          title="Administração e Configurações"
-          aria-label="Administração"
-        >
-          <Settings className="w-4 h-4 stroke-[2]" />
-        </Link>
-      </div>
-
-      {/* 1. LOGO PRINCIPAL TRAVADO: Contenção de tamanho estrita para Mobile */}
-      <div className="w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center">
-        <Link
-          href="/"
-          className="block transition-transform active:scale-95"
-          title="Rede Apucarana • Início"
-        >
-          <img
-            src="/logo-rede-apucarana.png"
-            alt="Rede Apucarana"
-            className="w-40 sm:w-48 h-auto object-contain mx-auto drop-shadow-xl"
-            loading="eager"
-          />
-        </Link>
-
-        {/* Tipografia empilhada sob o logo */}
-        <div className="flex flex-col items-center text-center mt-2 select-none">
-          <div className="flex items-center gap-1.5">
-            <span className="text-white text-xs sm:text-sm font-light tracking-[0.25em] leading-none uppercase">
-              REDE
-            </span>
-            <span className="text-white text-lg sm:text-xl font-black tracking-tight leading-none uppercase font-heading">
-              APUCARANA
-            </span>
-          </div>
-          <span className="text-sky-300 text-[10px] font-medium tracking-widest uppercase mt-0.5">
-            Vale do Ivaí
-          </span>
-        </div>
-      </div>
-
-      {/* 3. RESTAURAR GRID DOS 6 BOTÕES: Largura central exata com w-full max-w-sm mx-auto grid grid-cols-2 gap-4 mt-8 */}
-      <div className="w-full max-w-sm mx-auto grid grid-cols-2 gap-4 mt-8 bg-white p-3.5 sm:p-4 rounded-3xl shadow-2xl">
-        {SUPER_APP_BUTTONS.map((btn) => (
+    // CONTAINER GERAL: Fundo Azul Marinho idêntico à referência (#152b52), tela cheia no Mobile
+    <div className="w-full min-h-screen bg-[#152b52] flex flex-col justify-between p-4 sm:p-5 selection:bg-red-500 selection:text-white font-sans antialiased overflow-x-hidden">
+      <div className="w-full max-w-sm sm:max-w-md mx-auto flex-1 flex flex-col justify-between">
+        {/* ========================================================================= */}
+        {/* 1. CABEÇALHO HORIZONTAL (Logo RA + Tipografia à esquerda, Engrenagem à direita) */}
+        {/* ========================================================================= */}
+        <header className="w-full flex items-center justify-between pt-1 pb-2 px-1 select-none">
+          {/* Lado Esquerdo: Ícone RA + "REDE APUCARANA / Vale do Ivaí" */}
           <Link
-            key={btn.id}
-            href={btn.href}
-            className="group relative block w-full aspect-square rounded-2xl overflow-hidden shadow-md hover:scale-[1.02] active:scale-95 transition-transform duration-200 cursor-pointer select-none bg-slate-100"
-            title={btn.title}
+            href="/"
+            className="flex items-center gap-3 group active:scale-95 transition-transform"
+            title="Rede Apucarana • Início"
           >
             <img
-              src={btn.imageSrc}
-              alt={btn.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              src="/logo-rede-apucarana.png"
+              alt="Logo Rede Apucarana"
+              className="w-14 h-14 sm:w-16 sm:h-16 object-contain shrink-0 drop-shadow-md rounded-xl"
               loading="eager"
-              onError={(e) => {
-                const target = e.currentTarget;
-                if (!target.src.endsWith(".png.jpeg")) {
-                  target.src = `${btn.imageSrc}.jpeg`;
-                }
-              }}
             />
+            <div className="flex flex-col justify-center text-left">
+              <span className="text-white text-xs sm:text-sm font-light tracking-[0.24em] uppercase leading-none">
+                REDE
+              </span>
+              <span className="text-white text-xl sm:text-2xl font-black tracking-tight uppercase leading-none font-heading mt-1">
+                APUCARANA
+              </span>
+              <span className="text-sky-300 text-[10px] sm:text-[11px] font-medium tracking-wider uppercase text-right leading-none mt-1">
+                Vale do Ivaí
+              </span>
+            </div>
           </Link>
-        ))}
-      </div>
 
-      {/* 4. PLAYER FUNCIONAL DA RÁDIO APUCARANA FM */}
-      <div className="w-full max-w-sm mx-auto mt-6 flex items-center justify-between gap-3 px-1">
-        {/* Lado Esquerdo: Título, Tag de Status e Botão Play/Pause Branco */}
-        <div className="flex flex-col items-start gap-1">
-          <h3 className="font-heading font-black text-xs sm:text-sm tracking-wider text-white uppercase leading-none">
-            RÁDIO APUCARANA FM
-          </h3>
+          {/* Lado Direito: Engrenagem de Configurações / Painel Admin */}
+          <Link
+            href="/admin"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white/85 hover:text-white active:scale-95 transition-all"
+            title="Administração e Configurações"
+            aria-label="Administração"
+          >
+            <Settings className="w-6 h-6" strokeWidth={1.8} />
+          </Link>
+        </header>
 
-          <div className="flex items-center gap-1.5 my-0.5">
-            <span
-              className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
-                isPlaying
-                  ? "bg-red-600 text-white animate-pulse"
-                  : "bg-blue-950/80 text-sky-200 border border-sky-400/30"
-              }`}
+        {/* ========================================================================= */}
+        {/* 2. QUADRO BRANCO CENTRAL (Com os 6 Botões 3D no Grid 2x3)                 */}
+        {/* ========================================================================= */}
+        <main className="w-full my-auto py-2">
+          <div className="bg-white rounded-[2.25rem] sm:rounded-[2.5rem] p-3.5 sm:p-4 shadow-2xl shadow-black/25">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              {SUPER_APP_BUTTONS.map((btn) => (
+                <Link
+                  key={btn.id}
+                  href={btn.href}
+                  className="group relative block w-full aspect-square rounded-2xl overflow-hidden shadow-md active:scale-95 hover:scale-[1.02] transition-transform duration-200 cursor-pointer select-none bg-slate-100"
+                  title={btn.title}
+                >
+                  <img
+                    src={btn.imageSrc}
+                    alt={btn.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="eager"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.src.endsWith(".png.jpeg")) {
+                        target.src = `${btn.imageSrc}.jpeg`;
+                      }
+                    }}
+                  />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </main>
+
+        {/* ========================================================================= */}
+        {/* 3. RODAPÉ (Player de Rádio com Título, Botão Play e Equalizador Visual)   */}
+        {/* ========================================================================= */}
+        <footer className="w-full pt-2 pb-2 px-1 flex items-center justify-between gap-3 select-none">
+          {/* Lado Esquerdo: Título da Rádio e Botão Play/Pause Branco */}
+          <div className="flex flex-col items-start gap-2">
+            <h3 className="font-heading font-black text-xs sm:text-sm tracking-wider text-white uppercase leading-none">
+              RÁDIO APUCARANA FM
+            </h3>
+
+            <button
+              type="button"
+              onClick={toggleRadio}
+              className="bg-white text-[#152b52] font-black text-xs sm:text-sm px-6 py-2.5 rounded-full flex items-center gap-2 shadow-xl hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
+              title={isPlaying ? "Pausar rádio" : "Ouvir rádio ao vivo"}
             >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isPlaying ? "bg-white" : "bg-sky-400"
-                }`}
-              />
-              <span>{isPlaying ? "NO AR • AO VIVO" : "AO VIVO"}</span>
-            </span>
+              {isLoadingAudio ? (
+                <span className="w-4 h-4 border-2 border-[#152b52] border-t-transparent rounded-full animate-spin" />
+              ) : isPlaying ? (
+                <>
+                  <Pause className="w-4 h-4 fill-[#152b52]" />
+                  <span>Pause</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 fill-[#152b52] translate-x-0.5" />
+                  <span>Play</span>
+                </>
+              )}
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={toggleRadio}
-            className="bg-white text-[#0b2249] font-black text-xs sm:text-sm px-6 py-2 rounded-full flex items-center gap-2 shadow-xl hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
-            title={isPlaying ? "Pausar rádio" : "Ouvir rádio ao vivo"}
+          {/* Lado Direito: Gráfico de Ondas Sonoras / Equalizador em tom #6a98ca */}
+          <div
+            className="flex items-center gap-[2px] sm:gap-[2.5px] h-16 shrink-0 select-none pr-1"
+            title={isPlaying ? "Rádio transmitindo áudio" : "Rádio pausada"}
+            aria-hidden="true"
           >
-            {isLoadingAudio ? (
-              <span className="w-4 h-4 border-2 border-[#0b2249] border-t-transparent rounded-full animate-spin" />
-            ) : isPlaying ? (
-              <>
-                <Pause className="w-4 h-4 fill-[#0b2249]" />
-                <span>Pause</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-[#0b2249] translate-x-0.5" />
-                <span>Play</span>
-              </>
-            )}
-          </button>
-        </div>
+            {EQUALIZER_BARS.map((h, i) => (
+              <span
+                key={i}
+                className={`w-[2.5px] sm:w-[3px] rounded-full bg-[#6a98ca] transition-all duration-300 ${
+                  isPlaying ? "animate-pulse" : "opacity-85"
+                }`}
+                style={{
+                  height: isPlaying
+                    ? `${Math.max(6, Math.round((h * 0.72) * (0.6 + ((i % 5) * 0.12))))}px`
+                    : `${Math.round(h * 0.72)}px`,
+                  animationDuration: `${0.35 + (i % 5) * 0.12}s`,
+                  animationDelay: `${(i % 4) * 0.08}s`,
+                }}
+              />
+            ))}
+          </div>
 
-        {/* Lado Direito: Gráfico de Ondas Sonoras / Equalizador Azul Claro */}
-        <div
-          className="flex items-center gap-[3px] h-12 shrink-0 select-none pr-1"
-          title={isPlaying ? "Rádio transmitindo áudio" : "Rádio pausada"}
-          aria-hidden="true"
-        >
-          {EQUALIZER_BARS.map((h, i) => (
-            <span
-              key={i}
-              className={`w-[3px] rounded-full bg-sky-400 transition-all duration-300 ${
-                isPlaying ? "animate-pulse" : "opacity-85"
-              }`}
-              style={{
-                height: isPlaying
-                  ? `${Math.max(6, (h * 0.85) * (0.55 + ((i % 4) * 0.15)))}px`
-                  : `${h * 0.85}px`,
-                animationDuration: `${0.35 + (i % 5) * 0.12}s`,
-                animationDelay: `${(i % 4) * 0.08}s`,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Elemento de áudio nativo da Rádio */}
-        <audio ref={audioRef} src={RADIO_STREAM_URL} preload="none" />
+          {/* Elemento de áudio nativo da Rádio */}
+          <audio ref={audioRef} src={RADIO_STREAM_URL} preload="none" />
+        </footer>
       </div>
     </div>
   );
