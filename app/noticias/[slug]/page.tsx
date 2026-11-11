@@ -4,6 +4,7 @@ import ShareButtons from "./ShareButtons";
 import ReadingProgressBar from "../../../components/ReadingProgressBar";
 import Badge from "../../../components/Badge";
 import MobileBottomNav from "../../../components/MobileBottomNav";
+import { getYoutubeId } from "@/components/DarkMediaStrip";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,6 +19,7 @@ type News = {
   conteudo: string | null;
   resumo: string | null;
   imagem: string | null;
+  video_url?: string | null;
   cidade_slug: string | null;
   autor: string | null;
   published_at: string | null;
@@ -47,7 +49,40 @@ function paragraphs(value: string | null) {
 async function getNews(slug: string): Promise<News | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
+
+  const extractVideo = (d: any) =>
+    d.video_url ||
+    (d.fonte?.startsWith("video:") ? d.fonte.slice(6) : null) ||
+    null;
+
   const bySlug = await supabase
+    .from("news")
+    .select(
+      "id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at,fonte,video_url,title,seo_description,content"
+    )
+    .eq("status", "published")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (bySlug.data) {
+    const d: any = bySlug.data;
+    return {
+      id: d.id,
+      slug: d.slug,
+      titulo: d.title || d.titulo,
+      categoria: d.categoria,
+      conteudo: d.content || d.conteudo,
+      resumo: d.seo_description || d.resumo,
+      imagem: d.imagem,
+      video_url: extractVideo(d),
+      cidade_slug: d.cidade_slug,
+      autor: d.autor,
+      published_at: d.published_at,
+      fonte: d.fonte,
+    };
+  }
+
+  const bySlugFb = await supabase
     .from("news")
     .select(
       "id,slug,titulo,categoria,conteudo,resumo,imagem,cidade_slug,autor,published_at,fonte"
@@ -55,7 +90,14 @@ async function getNews(slug: string): Promise<News | null> {
     .eq("status", "published")
     .eq("slug", slug)
     .maybeSingle();
-  if (bySlug.data) return bySlug.data as News;
+  if (bySlugFb.data) {
+    const d: any = bySlugFb.data;
+    return {
+      ...d,
+      video_url: extractVideo(d),
+    };
+  }
+
   const byId = await supabase
     .from("news")
     .select(
@@ -64,7 +106,13 @@ async function getNews(slug: string): Promise<News | null> {
     .eq("status", "published")
     .eq("id", slug)
     .maybeSingle();
-  if (byId.data) return byId.data as News;
+  if (byId.data) {
+    const d: any = byId.data;
+    return {
+      ...d,
+      video_url: extractVideo(d),
+    };
+  }
 
   // Fallback para consulta direta na tabela noticias_portal
   const portalBySlug = await supabase
@@ -305,14 +353,39 @@ export default async function NewsPage({
             </small>
           </span>
         </div>
-        {news.imagem && (
+        {news.video_url ? (
+          (() => {
+            const ytId = getYoutubeId(news.video_url);
+            return (
+              <div className="my-6 rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200 aspect-video">
+                {ytId ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
+                    title={news.titulo}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    src={news.video_url}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-contain"
+                  />
+                )}
+              </div>
+            );
+          })()
+        ) : news.imagem ? (
           <figure className="article-figure">
             <img src={news.imagem} alt={news.titulo} />
             <figcaption>
               {news.autor ? `Foto / Crédito: ${news.autor} · Reprodução autorizada` : "Imagem da fonte original · Reprodução com indicação da fonte"}
             </figcaption>
           </figure>
-        )}
+        ) : null}
 
         {/* BOX: RESUMO EM 30 SEGUNDOS (SMART BREVITY - AXIOS / G1) */}
         <div className="my-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-red-50/30 border-l-4 border-red-600 border-y border-r border-slate-200 shadow-xs">

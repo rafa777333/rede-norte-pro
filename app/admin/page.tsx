@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { getYoutubeId, getInstagramCode, getInstagramEmbedUrl, getTikTokId, getVideoThumbnail } from "@/components/DarkMediaStrip";
 import SocialPublishWidget from "@/components/SocialPublishWidget";
 import AdminOndeIrManager from "@/components/admin/AdminOndeIrManager";
@@ -1228,7 +1229,31 @@ const salvarVideo = async () => {
         )}
 
         {tab === "noticias" && (
-          <AdminSection title="Cadastrar notícia" description="Notícias municipais ficam na aba da cidade. Use a opção 'Exibir também no Geral' para destacar uma matéria da cidade na Capa Principal.">
+          <>
+            {/* Banner de Acesso Rápido ao Novo Publicador com Suporte a Vídeos e SEO */}
+            <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white rounded-2xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="p-3 bg-white/20 backdrop-blur-xs rounded-xl text-2xl">
+                  🚀
+                </span>
+                <div>
+                  <h3 className="font-heading font-black text-base sm:text-lg text-white">
+                    Novo Publicador com Vídeo & SEO Google
+                  </h3>
+                  <p className="text-xs text-rose-100">
+                    Publique matérias com upload direto de vídeo .mp4 para o Supabase, links do YouTube e prévia do Google.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/admin/noticias/nova"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-red-600 font-black text-xs uppercase tracking-wider rounded-xl shadow-md hover:bg-rose-50 active:scale-95 transition-all shrink-0"
+              >
+                Abrir Publicador Avançado ↗
+              </Link>
+            </div>
+
+            <AdminSection title="Cadastrar notícia" description="Notícias municipais ficam na aba da cidade. Use a opção 'Exibir também no Geral' para destacar uma matéria da cidade na Capa Principal.">
             <FormInput placeholder="Título da notícia" value={nForm.titulo} onChange={(v) => setNForm({ ...nForm, titulo: v })} />
             <div className="form-row">
               <Select value={nForm.cidade} onChange={(v) => setNForm({ ...nForm, cidade: v, exibirNoGeral: v === "Geral" ? true : nForm.exibirNoGeral })} options={CIDADES} />
@@ -1588,7 +1613,8 @@ const salvarVideo = async () => {
               );
             })}
           </AdminSection>
-        )}
+        </>
+      )}
 
         {tab === "videos" && (
           <AdminTvVideosManager />
