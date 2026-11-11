@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
-import { getYoutubeId } from "@/components/DarkMediaStrip";
 import Badge from "@/components/Badge";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { ArrowLeft, Clock, User, Share2, Play } from "lucide-react";
@@ -26,6 +25,31 @@ interface NormalizedNews {
   cidade: string;
   autor: string;
   published_at: string;
+}
+
+/**
+ * Extrator Robusto de ID do YouTube
+ * Suporta formatos:
+ * - youtube.com/watch?v=VIDEO_ID (incluindo parâmetros adicionais e vídeos não listados)
+ * - youtu.be/VIDEO_ID
+ * - youtube.com/embed/VIDEO_ID
+ * - youtube.com/shorts/VIDEO_ID
+ * - m.youtube.com/watch?v=VIDEO_ID
+ */
+export function extractYoutubeId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const regExp =
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
+  const match = url.match(regExp);
+  return match && match[1].length === 11 ? match[1] : null;
+}
+
+/**
+ * Retorna a URL da thumbnail em alta resolução do YouTube
+ */
+export function getYoutubeThumbnail(url: string | null | undefined): string | null {
+  const id = extractYoutubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null;
 }
 
 async function getNewsBySlug(slug: string): Promise<NormalizedNews | null> {
@@ -121,23 +145,24 @@ export async function generateMetadata({
     news.seo_description ||
     "Confira a reportagem completa com detalhes apurados na Rede Apucarana de Comunicação.";
 
-  const ogImages = news.imagem
-    ? [
-        {
-          url: news.imagem,
-          width: 1200,
-          height: 630,
-          alt: news.title,
-        },
-      ]
-    : [
-        {
-          url: `${SITE_URL}/logo-rede-apucarana.png`,
-          width: 1200,
-          height: 630,
-          alt: "Rede Apucarana de Comunicação",
-        },
-      ];
+  // Extrator de Thumbnail em Alta Resolução do YouTube para OpenGraph / WhatsApp / Facebook
+  const ytId = extractYoutubeId(news.video_url);
+  const ytThumb = ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : null;
+
+  // Prioridade da imagem oficial de compartilhamento:
+  // 1. Thumbnail em Alta Resolução do YouTube (se houver vídeo)
+  // 2. Imagem da matéria enviada pelo jornalista
+  // 3. Logo oficial da Rede Apucarana
+  const primaryImageUrl = ytThumb || news.imagem || `${SITE_URL}/logo-rede-apucarana.png`;
+
+  const ogImages = [
+    {
+      url: primaryImageUrl,
+      width: 1280,
+      height: 720,
+      alt: news.title,
+    },
+  ];
 
   const metadata: Metadata = {
     title: `${news.title} | Rede Apucarana`,
@@ -171,18 +196,29 @@ export async function generateMetadata({
       card: "summary_large_image",
       title: news.title,
       description: description,
-      images: [ogImages[0].url],
+      images: [primaryImageUrl],
     },
   };
 
-  // Se houver vídeo, injeta metadado OpenGraph de vídeo para WhatsApp/Facebook
+  // Metadados OpenGraph de Vídeo para players externos
   if (news.video_url && metadata.openGraph) {
-    metadata.openGraph.videos = [
-      {
-        url: news.video_url,
-        type: "video/mp4",
-      },
-    ];
+    if (ytId) {
+      metadata.openGraph.videos = [
+        {
+          url: `https://www.youtube.com/embed/${ytId}`,
+          type: "text/html",
+          width: 1280,
+          height: 720,
+        },
+      ];
+    } else {
+      metadata.openGraph.videos = [
+        {
+          url: news.video_url,
+          type: "video/mp4",
+        },
+      ];
+    }
   }
 
   return metadata;
@@ -211,7 +247,10 @@ export default async function NoticiaDetailPage({
     : Promise.resolve({ data: [] }));
 
   // Detecção de Vídeo YouTube vs Arquivo .mp4
-  const ytId = news.video_url ? getYoutubeId(news.video_url) : null;
+  const ytId = extractYoutubeId(news.video_url);
+  const ytThumb = ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : null;
+  const primaryThumb = ytThumb || news.imagem || `${SITE_URL}/logo-rede-apucarana.png`;
+
   const isDirectVideo =
     news.video_url &&
     (news.video_url.endsWith(".mp4") ||
@@ -228,7 +267,19 @@ export default async function NoticiaDetailPage({
         .map((p) => p.trim())
         .filter(Boolean);
 
-  // Schema.org NewsArticle & VideoObject JSON-LD para indexação rápida no Google
+  // Formatação segura de data em ISO 8601
+  const uploadDateIso = (() => {
+    try {
+      return new Date(news.published_at).toISOString();
+    } catch {
+      return new Date().toISOString();
+    }
+  })();
+
+  // =========================================================================
+  // 1. INJEÇÃO DE DADOS ESTRUTURADOS (JSON-LD) - Schema.org NewsArticle + VideoObject
+  // Atende aos requisitos rigorosos do Google Search Central para a aba "Vídeos"
+  // =========================================================================
   const schemaArticle: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
@@ -238,9 +289,9 @@ export default async function NoticiaDetailPage({
     },
     headline: news.title,
     description: news.seo_description,
-    image: news.imagem ? [news.imagem] : [`${SITE_URL}/logo-rede-apucarana.png`],
-    datePublished: news.published_at,
-    dateModified: news.published_at,
+    image: [primaryThumb, news.imagem].filter(Boolean),
+    datePublished: uploadDateIso,
+    dateModified: uploadDateIso,
     author: {
       "@type": "Person",
       name: news.autor,
@@ -255,21 +306,35 @@ export default async function NoticiaDetailPage({
     },
   };
 
+  // Se houver vídeo (YouTube ou MP4), compõe a propriedade "video" do tipo VideoObject
   if (news.video_url) {
+    const embedUrl = ytId
+      ? `https://www.youtube.com/embed/${ytId}`
+      : news.video_url;
+
+    const thumbnailList = ytId
+      ? [
+          `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`,
+          `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+        ]
+      : [primaryThumb];
+
     schemaArticle.video = {
       "@type": "VideoObject",
       name: news.title,
       description: news.seo_description,
-      thumbnailUrl: news.imagem || `${SITE_URL}/logo-rede-apucarana.png`,
-      uploadDate: news.published_at,
+      thumbnailUrl: thumbnailList,
+      uploadDate: uploadDateIso,
+      embedUrl: embedUrl,
       contentUrl: news.video_url,
-      embedUrl: ytId ? `https://www.youtube.com/embed/${ytId}` : news.video_url,
     };
   }
 
   return (
     <main className="min-h-screen bg-white text-slate-900 font-sans selection:bg-red-500 selection:text-white pb-20">
-      {/* Injeção de Dados Estruturados para o Google */}
+      {/* ========================================================================= */}
+      {/* Injeção de Dados Estruturados para os robôs do Google (Googlebot)         */}
+      {/* ========================================================================= */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaArticle) }}

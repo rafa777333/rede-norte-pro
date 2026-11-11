@@ -4,7 +4,7 @@ import ShareButtons from "./ShareButtons";
 import ReadingProgressBar from "../../../components/ReadingProgressBar";
 import Badge from "../../../components/Badge";
 import MobileBottomNav from "../../../components/MobileBottomNav";
-import { getYoutubeId } from "@/components/DarkMediaStrip";
+import { extractYoutubeId, getYoutubeThumbnail } from "../../noticia/[slug]/page";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -179,10 +179,15 @@ export async function generateMetadata({
 
   const titulo = news.titulo || "";
   const categoria = news.categoria || "NOTÍCIA";
-  const fotoOriginal = news.imagem || "";
+
+  // Extrator de Thumbnail em Alta Resolução do YouTube para OpenGraph / WhatsApp / Facebook
+  const ytThumb = getYoutubeThumbnail(news.video_url);
+  const fotoOriginal = ytThumb || news.imagem || "";
 
   // Capa oficial de compartilhamento carimbada em 1200x630 (Link Preview Card Facebook)
-  const ogImageUrl = `${SITE_URL}/api/og-facebook?title=${encodeURIComponent(titulo)}&category=${encodeURIComponent(categoria)}&image_url=${encodeURIComponent(fotoOriginal)}`;
+  const ogImageUrl = ytThumb || (fotoOriginal
+    ? `${SITE_URL}/api/og-facebook?title=${encodeURIComponent(titulo)}&category=${encodeURIComponent(categoria)}&image_url=${encodeURIComponent(fotoOriginal)}`
+    : `${SITE_URL}/logo-rede-apucarana.png`);
 
   return {
     title: `${news.titulo} | Rede Apucarana`,
@@ -276,7 +281,11 @@ export default async function NewsPage({
     return list.slice(0, 3);
   })();
 
-  const newsArticleJsonLd = {
+  const ytId = extractYoutubeId(news.video_url);
+  const ytThumb = ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : null;
+  const primaryThumb = ytThumb || news.imagem || `${SITE_URL}/logo-rede-apucarana.png`;
+
+  const newsArticleJsonLd: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     mainEntityOfPage: {
@@ -285,7 +294,7 @@ export default async function NewsPage({
     },
     headline: news.titulo,
     description: cleanSummary,
-    image: [news.imagem].filter(Boolean),
+    image: [primaryThumb, news.imagem].filter(Boolean),
     datePublished: news.published_at || new Date().toISOString(),
     dateModified: news.published_at || new Date().toISOString(),
     author: {
@@ -301,6 +310,30 @@ export default async function NewsPage({
       },
     },
   };
+
+  // Se houver vídeo, injeta o VideoObject no Schema.org para o Google Search Video
+  if (news.video_url) {
+    const embedUrl = ytId
+      ? `https://www.youtube.com/embed/${ytId}`
+      : news.video_url;
+
+    const thumbnailList = ytId
+      ? [
+          `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`,
+          `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+        ]
+      : [primaryThumb];
+
+    newsArticleJsonLd.video = {
+      "@type": "VideoObject",
+      name: news.titulo,
+      description: cleanSummary,
+      thumbnailUrl: thumbnailList,
+      uploadDate: news.published_at || new Date().toISOString(),
+      embedUrl: embedUrl,
+      contentUrl: news.video_url,
+    };
+  }
 
   return (
     <main className="article-page permanent-article">
@@ -355,7 +388,7 @@ export default async function NewsPage({
         </div>
         {news.video_url ? (
           (() => {
-            const ytId = getYoutubeId(news.video_url);
+            const ytId = extractYoutubeId(news.video_url);
             return (
               <div className="my-6 rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200 aspect-video">
                 {ytId ? (
