@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { PlaceItem, MenuItem } from "@/types/places";
 import { isOpenNow } from "@/lib/mock-places";
+import { trackPlaceCouponClick } from "@/lib/places-analytics";
 
 interface PlaceModalProps {
   place: PlaceItem | null;
@@ -12,7 +13,17 @@ interface PlaceModalProps {
 export default function PlaceModal({ place, onClose }: PlaceModalProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [cupomResgatado, setCupomResgatado] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleResgatarNoCaixa = () => {
+    if (!place?.activePromo) return;
+    trackPlaceCouponClick(place.id);
+    setCupomResgatado(true);
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(place.activePromo.couponCode).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -240,32 +251,64 @@ export default function PlaceModal({ place, onClose }: PlaceModalProps) {
           <div className="p-5 sm:p-6 pt-3 flex-1 overflow-y-auto space-y-6">
             {/* Faixa de Promoção Ativa (se houver) */}
             {place.activePromo && (
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">⚡</span>
-                    <span className="text-xs font-black uppercase tracking-wider">
-                      Promoção Especial no Portal
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white shadow-md flex flex-col gap-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">⚡</span>
+                      <span className="text-xs font-black uppercase tracking-wider text-orange-100">
+                        Promoção Exclusiva Rede Apucarana
+                      </span>
+                    </div>
+                    <h4 className="text-base sm:text-lg font-bold mt-0.5">
+                      {place.activePromo.title}
+                    </h4>
+                    {place.activePromo.description && (
+                      <p className="text-xs text-orange-100 mt-0.5">
+                        {place.activePromo.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl text-center shrink-0 border border-white/20">
+                    <span className="text-[10px] uppercase font-bold block opacity-90">
+                      Cupom
+                    </span>
+                    <span className="font-mono font-black text-sm tracking-wider">
+                      {place.activePromo.couponCode}
                     </span>
                   </div>
-                  <h4 className="text-base font-bold mt-0.5">
-                    {place.activePromo.title}
-                  </h4>
-                  {place.activePromo.description && (
-                    <p className="text-xs text-orange-100 mt-0.5">
-                      {place.activePromo.description}
-                    </p>
-                  )}
                 </div>
 
-                <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl text-center shrink-0 border border-white/20">
-                  <span className="text-[10px] uppercase font-bold block opacity-90">
-                    Cupom
-                  </span>
-                  <span className="font-mono font-black text-sm tracking-wider">
+                {/* Botão Oficial: 🎯 RESGATAR DESCONTO NO CAIXA */}
+                <button
+                  type="button"
+                  onClick={handleResgatarNoCaixa}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-orange-50 text-orange-700 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <span>🎯 RESGATAR DESCONTO NO CAIXA</span>
+                  <span className="bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded font-mono font-bold">
                     {place.activePromo.couponCode}
                   </span>
-                </div>
+                </button>
+
+                {/* Voucher de Confirmação para Apresentar no Caixa */}
+                {cupomResgatado && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/90 text-white border border-emerald-400/50 flex flex-col gap-1.5 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                        <span>✅</span>
+                        <span>Desconto Ativado! Código Copiado</span>
+                      </span>
+                      <span className="font-mono font-black text-sm bg-white text-emerald-800 px-2 py-0.5 rounded">
+                        {place.activePromo.couponCode}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-100">
+                      Mostre esta tela para o atendente no caixa ou garçom de <strong>{place.name}</strong> para aplicar seu desconto!
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { PlaceItem, PlaceCategory } from "@/types/places";
 import { isOpenNow } from "@/lib/mock-places";
+import { trackPlaceViews, trackPlaceCouponClick } from "@/lib/places-analytics";
 import PromoHeroCarousel from "./PromoHeroCarousel";
 import PlaceModal from "./PlaceModal";
 
@@ -27,6 +28,26 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
   const [apenasAbertos, setApenasAbertos] = useState(false);
   const [apenasComPromo, setApenasComPromo] = useState(false);
   const [localSelecionado, setLocalSelecionado] = useState<PlaceItem | null>(null);
+  const [cupomVoucher, setCupomVoucher] = useState<{
+    place: PlaceItem;
+    code: string;
+    title: string;
+    discount: string;
+  } | null>(null);
+
+  const handleResgatarDescontoNoCaixa = (place: PlaceItem) => {
+    if (!place.activePromo) return;
+    trackPlaceCouponClick(place.id);
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(place.activePromo.couponCode).catch(() => {});
+    }
+    setCupomVoucher({
+      place,
+      code: place.activePromo.couponCode,
+      title: place.activePromo.title,
+      discount: place.activePromo.discountBadge,
+    });
+  };
 
   // Auto-seleciona local caso venha na URL (?local=slug)
   React.useEffect(() => {
@@ -132,6 +153,14 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
         return (b.rating || 0) - (a.rating || 0);
       });
   }, [initialPlaces, categoriaAtiva, cidadeFiltro, apenasAbertos, apenasComPromo, busca]);
+
+  // Rastreamento silencioso e não-bloqueante de visualizações dos estabelecimentos na tela
+  useEffect(() => {
+    if (lugaresFiltrados.length > 0) {
+      const ids = lugaresFiltrados.map((p) => p.id);
+      trackPlaceViews(ids);
+    }
+  }, [lugaresFiltrados]);
 
   return (
     <div className="w-full">
@@ -364,13 +393,27 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
 
                       {/* Faixa de Promoção Ativa no Card */}
                       {place.activePromo && (
-                        <div className="mt-3 p-2.5 rounded-xl bg-orange-50 border border-orange-200/80 flex items-center justify-between text-xs">
-                          <span className="font-bold text-orange-900 truncate pr-2">
-                            ⚡ {place.activePromo.title}
-                          </span>
-                          <span className="font-mono font-bold text-[10px] bg-orange-200 text-orange-950 px-2 py-0.5 rounded shrink-0">
-                            {place.activePromo.couponCode}
-                          </span>
+                        <div className="mt-3 p-3 rounded-2xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/90 flex flex-col gap-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-orange-950 truncate pr-2">
+                              ⚡ {place.activePromo.title}
+                            </span>
+                            <span className="font-mono font-bold text-[10px] bg-orange-200 text-orange-950 px-2 py-0.5 rounded shrink-0">
+                              {place.activePromo.couponCode}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleResgatarDescontoNoCaixa(place);
+                            }}
+                            className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                            title="Resgatar desconto de hoje no caixa"
+                          >
+                            <span>🎯 RESGATAR DESCONTO NO CAIXA</span>
+                          </button>
                         </div>
                       )}
 
@@ -482,6 +525,71 @@ export default function OndeIrClient({ initialPlaces }: OndeIrClientProps) {
         place={localSelecionado}
         onClose={() => setLocalSelecionado(null)}
       />
+
+      {/* Modal / Voucher de Cupom Ativado para Apresentação no Caixa */}
+      {cupomVoucher && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setCupomVoucher(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl border border-slate-100 flex flex-col text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Topo Festivo com Gradiente */}
+            <div className="bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white p-6 relative">
+              <span className="text-4xl block mb-2">🎉</span>
+              <span className="text-xs font-black uppercase tracking-widest text-orange-200 block">
+                Desconto Ativado no App
+              </span>
+              <h3 className="text-xl font-black mt-1 leading-tight">
+                {cupomVoucher.title}
+              </h3>
+              <p className="text-xs text-orange-100 mt-1">
+                {cupomVoucher.place.name} · {cupomVoucher.place.city}
+              </p>
+            </div>
+
+            {/* Código em Destaque Gigante */}
+            <div className="p-6 space-y-4">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Apresente este código no caixa ou balcão:
+                </span>
+                <div className="mt-2 py-3 px-4 rounded-2xl bg-slate-100 border-2 border-dashed border-orange-400 font-mono font-black text-2xl tracking-widest text-orange-600 select-all shadow-inner">
+                  {cupomVoucher.code}
+                </div>
+                <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
+                  ✓ Código copiado para sua área de transferência!
+                </span>
+              </div>
+
+              {/* Botões de Ação */}
+              <div className="space-y-2 pt-2">
+                <a
+                  href={`https://wa.me/55${cupomVoucher.place.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
+                    `Olá! Resgatei o cupom *${cupomVoucher.code}* (${cupomVoucher.discount}) no portal Rede Apucarana e gostaria de aproveitar no meu pedido!`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all"
+                >
+                  <span>Pedir no Zap Usando Este Cupom</span>
+                  <span>📲</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setCupomVoucher(null)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+                >
+                  Entendi / Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

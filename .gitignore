@@ -18,3 +18,4 @@ tv-server/*.key
 *.key
 __pycache__/
 *.pyc
+*.lnk

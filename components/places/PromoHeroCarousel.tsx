@@ -2,6 +2,7 @@
 
 import React from "react";
 import { PlaceItem } from "@/types/places";
+import { trackPlaceCouponClick } from "@/lib/places-analytics";
 
 interface PromoHeroCarouselProps {
   places: PlaceItem[];
@@ -98,24 +99,39 @@ export default function PromoHeroCarousel({
                 </div>
 
                 {/* Ações */}
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => onSelectPlace && onSelectPlace(place)}
-                    className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold text-center transition-colors"
+                    onClick={() => {
+                      trackPlaceCouponClick(place.id);
+                      if (onSelectPlace) onSelectPlace(place);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    title="Resgatar desconto de hoje"
                   >
-                    Ver Cardápio
+                    <span>🎯 RESGATAR DESCONTO NO CAIXA</span>
                   </button>
 
-                  <a
-                    href={waUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-sm transition-all"
-                  >
-                    <span>Resgatar no Zap</span>
-                    <span>📲</span>
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSelectPlace && onSelectPlace(place)}
+                      className="flex-1 py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold text-center transition-colors"
+                    >
+                      Ver Cardápio
+                    </button>
+
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackPlaceCouponClick(place.id)}
+                      className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <span>Pedir no Zap</span>
+                      <span>📲</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

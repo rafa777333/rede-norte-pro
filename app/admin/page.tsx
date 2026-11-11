@@ -3,6 +3,7 @@
 import { getYoutubeId, getInstagramCode, getInstagramEmbedUrl, getTikTokId, getVideoThumbnail } from "@/components/DarkMediaStrip";
 import SocialPublishWidget from "@/components/SocialPublishWidget";
 import AdminOndeIrManager from "@/components/admin/AdminOndeIrManager";
+import AdminPlacesAnalytics from "@/components/admin/AdminPlacesAnalytics";
 import AdminOfertasManager from "@/components/admin/AdminOfertasManager";
 import AdminClassificadosManager from "@/components/admin/AdminClassificadosManager";
 import AdminTvVideosManager from "@/components/admin/AdminTvVideosManager";
@@ -11,7 +12,7 @@ import { decodeHtmlEntities } from "@/lib/text-utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cidadeSlug, getSupabase } from "../../lib/supabase";
 
-type Tab = "capa" | "noticias" | "videos" | "ondeir" | "ofertas" | "classificados" | "empregos" | "promocoes" | "publicidade" | "contato";
+type Tab = "capa" | "noticias" | "videos" | "ondeir" | "relatorio_parceiros" | "ofertas" | "classificados" | "empregos" | "promocoes" | "publicidade" | "contato";
 type VideoPortalAdmin = {
   id: string;
   titulo: string;
@@ -54,7 +55,7 @@ const CIDADES = ["Geral", "Apucarana", "Arapongas", "Arapuã", "Ariranha do Iva�
 const CAT_NOT = ["Política", "Cidade", "Segurança", "Economia", "Eventos", "Destaque"];
 const CAT_ONDE = ["Restaurantes", "Lanchonetes", "Pizzarias", "Bares", "Cafés", "Serviços", "Lojas"];
 const CAT_CLASS = ["Imóveis", "Veículos", "Eletrônicos", "Móveis", "Celulares", "Outros"];
-const TABS: [Tab, string][] = [["capa", "🎬 Capa Principal"], ["noticias", "Notícias"], ["videos", "📺 TV & Vídeos YouTube"], ["ondeir", "Onde Ir"], ["ofertas", "🛒 Ofertas & Mercados"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["publicidade", "Publicidade"], ["contato", "Contato"]];
+const TABS: [Tab, string][] = [["capa", "🎬 Capa Principal"], ["noticias", "Notícias"], ["videos", "📺 TV & Vídeos YouTube"], ["ondeir", "Onde Ir"], ["relatorio_parceiros", "📊 Relatório de Parceiros (Vendas)"], ["ofertas", "🛒 Ofertas & Mercados"], ["classificados", "Compras e vendas"], ["empregos", "Empregos"], ["promocoes", "Promoções"], ["publicidade", "Publicidade"], ["contato", "Contato"]];
 
 function getMainAdKeys(city: string, position: number) {
   const isGeral = city === "Geral";
@@ -1595,6 +1596,10 @@ const salvarVideo = async () => {
 
         {tab === "ondeir" && (
           <AdminOndeIrManager />
+        )}
+
+        {tab === "relatorio_parceiros" && (
+          <AdminPlacesAnalytics />
         )}
 
         {tab === "ofertas" && (
