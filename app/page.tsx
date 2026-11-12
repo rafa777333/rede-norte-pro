@@ -7,20 +7,43 @@ import { getInitialPortalData } from "@/lib/portal-data";
 export const revalidate = 60; // ISR - revalidação inteligente a cada 60 segundos
 
 export const metadata: Metadata = {
-  title: "Rede Apucarana de Comunicação | Super App & Jornalismo Regional",
+  title: "Rede Apucarana - Notícias e TV ao Vivo no Vale do Ivaí",
   description:
-    "Super-Portal e Super App de notícias de Apucarana, Arapongas e Vale do Ivaí. Jornalismo regional em tempo real, rádio ao vivo, web TV 24h, previsão do tempo e classificados.",
+    "Portal de notícias, TV ao vivo 24h, podcasts e guia de comércios de Apucarana e todo o Vale do Ivaí.",
+  keywords: [
+    "Rede Apucarana",
+    "notícias Apucarana",
+    "Vale do Ivaí",
+    "TV online Apucarana",
+    "RedeCast",
+    "rádio web",
+  ],
   alternates: {
     canonical: "https://www.redeapucarana.com.br",
   },
   openGraph: {
-    title: "Rede Apucarana de Comunicação | Super App & Notícias do Paraná",
+    title: "Rede Apucarana - Notícias e TV ao Vivo no Vale do Ivaí",
     description:
-      "Tudo sobre Apucarana e região em tempo real com jornalismo, rádio ao vivo, TV 24h, empregos e utilidades.",
+      "Portal de notícias, TV ao vivo 24h, podcasts e guia de comércios de Apucarana e todo o Vale do Ivaí.",
     url: "https://www.redeapucarana.com.br",
-    siteName: "Rede Apucarana de Comunicação",
+    siteName: "Rede Apucarana",
     locale: "pt_BR",
     type: "website",
+    images: [
+      {
+        url: "https://www.redeapucarana.com.br/logo-rede-apucarana.png",
+        width: 1200,
+        height: 630,
+        alt: "Rede Apucarana",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rede Apucarana - Notícias e TV ao Vivo no Vale do Ivaí",
+    description:
+      "Portal de notícias, TV ao vivo 24h, podcasts e guia de comércios de Apucarana e todo o Vale do Ivaí.",
+    images: ["https://www.redeapucarana.com.br/logo-rede-apucarana.png"],
   },
 };
 
