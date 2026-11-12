@@ -143,6 +143,7 @@ const brandSchemaJsonLd = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const isProduction = process.env.VERCEL_ENV === "production";
   const gaId = process.env.NEXT_PUBLIC_GA_ID || "G-G93D6398W3";
 
   return (
@@ -156,8 +157,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-slate-50 text-slate-800 antialiased font-sans">
         <AppVersionWatcher />
         {children}
-        <AnalyticsTracker />
-        <GoogleAnalytics gaId={gaId} />
+        {isProduction && <AnalyticsTracker />}
+        {isProduction && <GoogleAnalytics gaId={gaId} />}
       </body>
     </html>
   );
