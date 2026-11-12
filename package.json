@@ -11,7 +11,7 @@
     "stamper": "python -m uvicorn app:app --app-dir services/image-stamper --host 0.0.0.0 --port 5000"
   },
   "dependencies": {
-    "@next/third-parties": "^14.2.5",
+    "@next/third-parties": "^16.4.6",
     "@supabase/supabase-js": "^2.118.0",
     "hls.js": "^1.7.4",
     "lucide-react": "^1.69.0",

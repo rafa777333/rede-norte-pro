@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Newsreader, Inter } from "next/font/google";
-import { GoogleTagManager, GoogleAnalytics } from "@next/third-parties/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import AppVersionWatcher from "@/components/AppVersionWatcher";
 import "./globals.css";
 
@@ -142,7 +142,6 @@ const brandSchemaJsonLd = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
   const gaId = process.env.NEXT_PUBLIC_GA_ID || "G-G93D6398W3";
 
   return (
@@ -156,9 +155,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-slate-50 text-slate-800 antialiased font-sans">
         <AppVersionWatcher />
         {children}
+        <GoogleAnalytics gaId={gaId} />
       </body>
-      {gtmId && <GoogleTagManager gtmId={gtmId} />}
-      {gaId && <GoogleAnalytics gaId={gaId} />}
     </html>
   );
 }
