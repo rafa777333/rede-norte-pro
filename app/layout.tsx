@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Newsreader, Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 import AppVersionWatcher from "@/components/AppVersionWatcher";
 import "./globals.css";
 
@@ -155,6 +156,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-slate-50 text-slate-800 antialiased font-sans">
         <AppVersionWatcher />
         {children}
+        <AnalyticsTracker />
         <GoogleAnalytics gaId={gaId} />
       </body>
     </html>
