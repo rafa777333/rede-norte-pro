@@ -19,13 +19,45 @@ export type TvPlaylistItemType = "podcast" | "reportagem" | "comercial" | "music
 export interface TvPlaylistItem {
   id: string;
   title: string;
+  video_url?: string;
   youtube_url: string;
   youtube_id: string;
   type: TvPlaylistItemType;
   duration_seconds: number;
   sort_order: number;
   active: boolean;
+  day_of_week: number; // 0 = Domingo, 1 = Segunda, 2 = Terça, 3 = Quarta, 4 = Quinta, 5 = Sexta, 6 = Sábado
   created_at?: string;
+}
+
+export interface DayOfWeekOption {
+  day: number;
+  label: string;
+  shortLabel: string;
+}
+
+export const DAYS_OF_WEEK: DayOfWeekOption[] = [
+  { day: 1, label: "Segunda-feira", shortLabel: "Segunda" },
+  { day: 2, label: "Terça-feira", shortLabel: "Terça" },
+  { day: 3, label: "Quarta-feira", shortLabel: "Quarta" },
+  { day: 4, label: "Quinta-feira", shortLabel: "Quinta" },
+  { day: 5, label: "Sexta-feira", shortLabel: "Sexta" },
+  { day: 6, label: "Sábado", shortLabel: "Sábado" },
+  { day: 0, label: "Domingo", shortLabel: "Domingo" },
+];
+
+export function getTodayDayOfWeek(): number {
+  return new Date().getDay();
+}
+
+export function getDayLabel(day: number): string {
+  const found = DAYS_OF_WEEK.find((d) => d.day === day);
+  return found ? found.label : "Segunda-feira";
+}
+
+export function getDayShortLabel(day: number): string {
+  const found = DAYS_OF_WEEK.find((d) => d.day === day);
+  return found ? found.shortLabel : "Segunda";
 }
 
 export const DEFAULT_TV_SETTINGS: TvSettings = {
@@ -42,78 +74,92 @@ export const INITIAL_TV_PLAYLIST: TvPlaylistItem[] = [
   {
     id: "tv-item-1",
     title: "RedeCast • Terra de Cowboy & Entrevistas do Vale",
+    video_url: "https://www.youtube.com/watch?v=siHRXs-J-R8",
     youtube_url: "https://www.youtube.com/watch?v=siHRXs-J-R8",
     youtube_id: "siHRXs-J-R8",
     type: "podcast",
     duration_seconds: 4200, // 1h 10m
     sort_order: 1,
     active: true,
+    day_of_week: 1,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-2",
     title: "Conexão Sertaneja • Show e Bate-papo com Josy Rosseto",
+    video_url: "https://www.youtube.com/watch?v=s_EhTC5GMjQ",
     youtube_url: "https://www.youtube.com/watch?v=s_EhTC5GMjQ",
     youtube_id: "s_EhTC5GMjQ",
     type: "musical",
     duration_seconds: 3600, // 1h 00m
     sort_order: 2,
     active: true,
+    day_of_week: 1,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-3",
     title: "RedeCast • Bate-papo com Nenê de Paula (Músico & Produtor Cultural)",
+    video_url: "https://www.youtube.com/watch?v=lBJIN6tE0zw",
     youtube_url: "https://www.youtube.com/watch?v=lBJIN6tE0zw",
     youtube_id: "lBJIN6tE0zw",
     type: "podcast",
     duration_seconds: 4500, // 1h 15m
     sort_order: 3,
     active: true,
+    day_of_week: 1,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-4",
     title: "RedeCast Entrevista • Eliane Tapira & Histórias Regionais",
+    video_url: "https://www.youtube.com/watch?v=y2zdEohCZDs",
     youtube_url: "https://www.youtube.com/watch?v=y2zdEohCZDs",
     youtube_id: "y2zdEohCZDs",
     type: "podcast",
     duration_seconds: 3600, // 1h 00m
     sort_order: 4,
     active: true,
+    day_of_week: 1,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-5",
     title: "RedeCast Política & Sociedade • Deputada Carol Dartora no Estúdio",
+    video_url: "https://www.youtube.com/watch?v=5TXJP8-U94k",
     youtube_url: "https://www.youtube.com/watch?v=5TXJP8-U94k",
     youtube_id: "5TXJP8-U94k",
     type: "podcast",
     duration_seconds: 3900, // 1h 05m
     sort_order: 5,
     active: true,
+    day_of_week: 1,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-6",
     title: "O Pior Programa do Mundo #6 • Entrevista com Rafa Carraro",
+    video_url: "https://www.youtube.com/watch?v=R6-QAtKZM3Q",
     youtube_url: "https://www.youtube.com/watch?v=R6-QAtKZM3Q",
     youtube_id: "R6-QAtKZM3Q",
     type: "podcast",
     duration_seconds: 3300, // 55m
     sort_order: 6,
     active: true,
+    day_of_week: 1,
     created_at: new Date().toISOString(),
   },
   {
     id: "tv-item-7",
     title: "RedeCast Especial • Autismo em Pauta com Especialistas de Apucarana",
+    video_url: "https://www.youtube.com/watch?v=DdvQWXAue0U",
     youtube_url: "https://www.youtube.com/watch?v=DdvQWXAue0U",
     youtube_id: "DdvQWXAue0U",
     type: "reportagem",
     duration_seconds: 3600, // 1h 00m
     sort_order: 7,
     active: true,
+    day_of_week: 1,
     created_at: new Date().toISOString(),
   },
 ];
@@ -208,11 +254,23 @@ export interface CurrentTvSchedule {
  */
 export function calculateTvProgramAtTime(
   playlist: TvPlaylistItem[],
-  nowTimestampSeconds?: number
+  nowTimestampSeconds?: number,
+  dayOfWeek?: number
 ): CurrentTvSchedule | null {
-  const activeList = playlist
-    .filter((item) => item.active && item.duration_seconds > 0)
+  const targetDay = dayOfWeek !== undefined ? dayOfWeek : new Date().getDay();
+  let activeList = playlist
+    .filter((item) => {
+      const itemDay = typeof item.day_of_week === "number" ? item.day_of_week : 1;
+      return item.active && itemDay === targetDay && item.duration_seconds > 0;
+    })
     .sort((a, b) => a.sort_order - b.sort_order);
+
+  // Se o dia específico não tiver itens cadastrados, busca quaisquer itens ativos como fallback
+  if (activeList.length === 0) {
+    activeList = playlist
+      .filter((item) => item.active && item.duration_seconds > 0)
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }
 
   if (activeList.length === 0) {
     return null;

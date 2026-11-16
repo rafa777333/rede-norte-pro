@@ -97,29 +97,47 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
     ref
   ) {
     const playerRef = useRef<any>(null);
+    const html5VideoRef = useRef<HTMLVideoElement | null>(null);
     const isTransitioningRef = useRef(false);
 
-    // Lista apenas com itens ativos e com duração válida
-    const activePlaylist = useMemo(() => {
-      const list = playlist.filter((i) => i.active && i.youtube_id && i.duration_seconds > 0);
-      return list.length > 0 ? list : INITIAL_TV_PLAYLIST;
-    }, [playlist]);
+    // Dia da semana atual (0 = Domingo, 1 = Segunda, etc.)
+    const [todayDay, setTodayDay] = useState<number>(() => new Date().getDay());
+    const todayRef = useRef(todayDay);
+    todayRef.current = todayDay;
 
-    // Ponto de partida calculado pelo relógio sincronizado
-    const initialCalculated = useMemo(() => {
-      return calculateTvProgramAtTime(activePlaylist);
-    }, [activePlaylist]);
+    // Fila do dia atual: filtra por active e day_of_week === todayDay
+    const dayPlaylist = useMemo(() => {
+      const filtered = playlist
+        .filter((i) => {
+          const itemDay = typeof i.day_of_week === "number" ? i.day_of_week : 1;
+          return i.active && itemDay === todayDay && (i.youtube_id || i.video_url);
+        })
+        .sort((a, b) => a.sort_order - b.sort_order);
 
-    // Índice sequencial rigoroso na fila da grade
-    const [currentIndex, setCurrentIndex] = useState(() => initialCalculated?.currentIndex ?? 0);
+      if (filtered.length > 0) return filtered;
+
+      // Fallback: se o dia de hoje não tiver vídeos cadastrados, usa os vídeos ativos gerais
+      const anyActive = playlist
+        .filter((i) => i.active && (i.youtube_id || i.video_url))
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      return anyActive.length > 0 ? anyActive : INITIAL_TV_PLAYLIST;
+    }, [playlist, todayDay]);
+
+    const dayPlaylistRef = useRef(dayPlaylist);
+    dayPlaylistRef.current = dayPlaylist;
+
+    // Índice sequencial na fila do dia (executa vídeo completo do início ao fim)
+    const [currentIndex, setCurrentIndex] = useState(0);
     const [isMuted, setIsMuted] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
     const [remainingTime, setRemainingTime] = useState<number>(0);
     const [selectedQuality, setSelectedQuality] = useState<string>("hd1080");
 
-    const currentItem = activePlaylist[currentIndex] || activePlaylist[0];
-    const nextIndex = (currentIndex + 1) % activePlaylist.length;
-    const nextItem = activePlaylist[nextIndex] || currentItem;
+    const currentItem = dayPlaylist[currentIndex] || dayPlaylist[0];
+    const nextIndex = (currentIndex + 1) % dayPlaylist.length;
+    const nextItem = dayPlaylist[nextIndex] || currentItem;
+    const isExternalVideo = Boolean(!currentItem?.youtube_id && currentItem?.video_url);
 
     // Notifica o componente pai sobre o item no ar e o próximo
     useEffect(() => {
@@ -128,16 +146,39 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
       }
     }, [currentItem, nextItem, remainingTime, onCurrentItemChange]);
 
-    // Transição sequencial rigorosa entre vídeos sem cliques (loadVideoById)
+    // Transição sequencial rigorosa acionada EXCLUSIVAMENTE pelo término do vídeo (onEnded / ENDED)
     const advanceToNextVideo = useCallback(() => {
-      if (isTransitioningRef.current || activePlaylist.length === 0) return;
+      if (isTransitioningRef.current) return;
       isTransitioningRef.current = true;
 
-      setCurrentIndex((prev) => {
-        const nextIdx = (prev + 1) % activePlaylist.length;
-        const nextVid = activePlaylist[nextIdx];
+      // 1. Checa se o dia mudou (virada de meia-noite)
+      const currentRealDay = new Date().getDay();
+      if (currentRealDay !== todayRef.current) {
+        console.info(
+          `[FastGridPlayer] Meia-noite detectada: transição de dia ${todayRef.current} para ${currentRealDay}. Carregando nova grade diária.`
+        );
+        todayRef.current = currentRealDay;
+        setTodayDay(currentRealDay);
+        setCurrentIndex(0);
+        setTimeout(() => {
+          isTransitioningRef.current = false;
+        }, 1500);
+        return;
+      }
 
-        if (nextVid && playerRef.current && typeof playerRef.current.loadVideoById === "function") {
+      // 2. Mesmo dia: avança para o próximo vídeo
+      const list = dayPlaylistRef.current;
+      if (list.length === 0) {
+        isTransitioningRef.current = false;
+        return;
+      }
+
+      setCurrentIndex((prev) => {
+        // Loop infinito diário: quando chega ao último vídeo, (prev + 1) % list.length retorna 0
+        const nextIdx = (prev + 1) % list.length;
+        const nextVid = list[nextIdx];
+
+        if (nextVid && nextVid.youtube_id && playerRef.current && typeof playerRef.current.loadVideoById === "function") {
           try {
             playerRef.current.loadVideoById({
               videoId: nextVid.youtube_id,
@@ -148,32 +189,42 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
               playerRef.current.setPlaybackQuality(selectedQuality);
             }
           } catch (e) {
-            console.warn("[YouTubeFastGridPlayer] Falha ao avançar vídeo:", e);
+            console.warn("[FastGridPlayer] Falha ao avançar vídeo no YouTube:", e);
           }
         }
 
         return nextIdx;
       });
 
-      // Trava de segurança para não chamar loadVideoById em duplicidade
       setTimeout(() => {
         isTransitioningRef.current = false;
-      }, 2000);
-    }, [activePlaylist, selectedQuality]);
+      }, 1500);
+    }, [selectedQuality]);
 
-    // Controle de áudio desmutar / mutar
+    // Controle de áudio desmutar / mutar (unificado para YouTube e HTML5)
     const handleToggleMute = useCallback(() => {
       const p = playerRef.current;
-      if (!p) return;
+      const html5 = html5VideoRef.current;
 
       try {
         if (isMuted) {
-          p.unMute();
-          p.setVolume(100);
+          if (p && typeof p.unMute === "function") {
+            p.unMute();
+            p.setVolume(100);
+          }
+          if (html5) {
+            html5.muted = false;
+            html5.volume = 1;
+          }
           setIsMuted(false);
           onMuteChange?.(false);
         } else {
-          p.mute();
+          if (p && typeof p.mute === "function") {
+            p.mute();
+          }
+          if (html5) {
+            html5.muted = true;
+          }
           setIsMuted(true);
           onMuteChange?.(true);
         }
@@ -189,41 +240,54 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
         toggleMute: handleToggleMute,
         unMute: () => {
           const p = playerRef.current;
-          if (p && typeof p.unMute === "function") {
-            try {
+          const html5 = html5VideoRef.current;
+          try {
+            if (p && typeof p.unMute === "function") {
               p.unMute();
               p.setVolume(100);
-              setIsMuted(false);
-              onMuteChange?.(false);
-            } catch {}
-          }
+            }
+            if (html5) {
+              html5.muted = false;
+              html5.volume = 1;
+            }
+            setIsMuted(false);
+            onMuteChange?.(false);
+          } catch {}
         },
         mute: () => {
           const p = playerRef.current;
-          if (p && typeof p.mute === "function") {
-            try {
+          const html5 = html5VideoRef.current;
+          try {
+            if (p && typeof p.mute === "function") {
               p.mute();
-              setIsMuted(true);
-              onMuteChange?.(true);
-            } catch {}
-          }
+            }
+            if (html5) {
+              html5.muted = true;
+            }
+            setIsMuted(true);
+            onMuteChange?.(true);
+          } catch {}
         },
         setVolume: (val: number) => {
           const p = playerRef.current;
-          if (p && typeof p.setVolume === "function") {
-            try {
+          const html5 = html5VideoRef.current;
+          try {
+            if (p && typeof p.setVolume === "function") {
               p.setVolume(val);
               if (val === 0) {
                 p.mute();
-                setIsMuted(true);
-                onMuteChange?.(true);
               } else if (isMuted) {
                 p.unMute();
-                setIsMuted(false);
-                onMuteChange?.(false);
               }
-            } catch {}
-          }
+            }
+            if (html5) {
+              html5.volume = val / 100;
+              html5.muted = val === 0;
+            }
+            const isNowMuted = val === 0;
+            setIsMuted(isNowMuted);
+            onMuteChange?.(isNowMuted);
+          } catch {}
         },
         isMuted: () => isMuted,
         setQuality: (quality: string) => {
@@ -240,51 +304,43 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
         getQuality: () => selectedQuality,
         playVideo: () => {
           const p = playerRef.current;
-          if (p && typeof p.playVideo === "function") {
-            try {
+          const html5 = html5VideoRef.current;
+          try {
+            if (p && typeof p.playVideo === "function") {
               p.unMute();
               p.setVolume(100);
               p.playVideo();
-              setIsPlaying(true);
-              setIsMuted(false);
-            } catch {}
-          }
+            }
+            if (html5) {
+              html5.muted = false;
+              html5.volume = 1;
+              html5.play().catch(() => {});
+            }
+            setIsPlaying(true);
+            setIsMuted(false);
+          } catch {}
         },
         pauseVideo: () => {
           const p = playerRef.current;
-          if (p && typeof p.pauseVideo === "function") {
-            try {
-              p.pauseVideo();
-              setIsPlaying(false);
-            } catch {}
-          }
-        },
-        resyncWithClock: (videoId: string, elapsedSeconds: number) => {
-          const p = playerRef.current;
-          if (!p) return;
+          const html5 = html5VideoRef.current;
           try {
-            const currentVidData = typeof p.getVideoData === "function" ? p.getVideoData() : null;
-            const currentVidId = currentVidData?.video_id;
-            if (currentVidId && currentVidId !== videoId) {
-              if (typeof p.loadVideoById === "function") {
-                p.loadVideoById({ videoId, startSeconds: elapsedSeconds });
-                p.playVideo();
-              }
-            } else if (typeof p.getCurrentTime === "function" && typeof p.seekTo === "function") {
-              const currentPos = p.getCurrentTime();
-              if (Math.abs(currentPos - elapsedSeconds) > 4) {
-                p.seekTo(elapsedSeconds, true);
-              }
+            if (p && typeof p.pauseVideo === "function") {
+              p.pauseVideo();
             }
-          } catch (e) {
-            console.warn("[YouTubeFastGridPlayer] Falha no resync com relógio:", e);
-          }
+            if (html5) {
+              html5.pause();
+            }
+            setIsPlaying(false);
+          } catch {}
+        },
+        resyncWithClock: () => {
+          // No-op: na nova lógica, cada vídeo toca na íntegra sem cortes abruptos
         },
       }),
       [handleToggleMute, isMuted, onMuteChange, selectedQuality]
     );
 
-    // Inicialização única da API oficial do YouTube IFrame (window.YT)
+    // Inicialização da API oficial do YouTube IFrame (window.YT) quando houver vídeo do YouTube
     useEffect(() => {
       let cancel = false;
 
@@ -294,8 +350,8 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
         const container = document.getElementById("yt-fast-player-container");
         if (!container) return;
 
-        const initialStart = initialCalculated?.offsetInCurrentVideo ?? 0;
-        const initialYtId = currentItem?.youtube_id || activePlaylist[0]?.youtube_id;
+        const initialYtId = currentItem?.youtube_id || dayPlaylist[0]?.youtube_id;
+        if (!initialYtId) return;
 
         try {
           playerRef.current = new window.YT.Player("yt-fast-player-container", {
@@ -309,7 +365,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
               modestbranding: 1,
               rel: 0,
               playsinline: 1,
-              start: Math.floor(initialStart),
+              start: 0, // Toca o vídeo desde o início (sem corte de segundos)
               origin: typeof window !== "undefined" ? window.location.origin : undefined,
             },
             events: {
@@ -345,8 +401,9 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
                 }
               },
               onStateChange: (e: any) => {
-                // 0 = YT.PlayerState.ENDED
+                // 0 = YT.PlayerState.ENDED: O vídeo terminou de tocar por completo!
                 if (e.data === 0) {
+                  console.info("[FastGridPlayer] Vídeo finalizado (YT.PlayerState.ENDED). Avançando...");
                   advanceToNextVideo();
                 }
               },
@@ -383,9 +440,9 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
       return () => {
         cancel = true;
       };
-    }, [currentItem?.youtube_id, initialCalculated?.offsetInCurrentVideo, activePlaylist, advanceToNextVideo, onMuteChange]);
+    }, [advanceToNextVideo, currentItem?.youtube_id, dayPlaylist, onMuteChange]);
 
-    // Monitor de tempo a cada 400ms: aciona a transição 1.2s antes do final e sincroniza áudio
+    // Monitor de tempo para a barra de contagem regressiva da UI (SEM cortar vídeos!)
     useEffect(() => {
       const interval = setInterval(() => {
         const p = playerRef.current;
@@ -400,11 +457,6 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
           if (dur > 0 && curr >= 0) {
             const rem = Math.max(0, dur - curr);
             setRemainingTime(Math.round(rem));
-
-            // 1.2 segundo antes de acabar: carrega imediatamente o próximo item
-            if (curr >= dur - 1.2 && dur > 4) {
-              advanceToNextVideo();
-            }
           }
 
           // Sincroniza estado de mudo com controles nativos do YouTube
@@ -418,10 +470,10 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
         } catch (err) {
           // Ignora leituras durante transição de estado
         }
-      }, 400);
+      }, 1000);
 
       return () => clearInterval(interval);
-    }, [advanceToNextVideo, isMuted, onMuteChange]);
+    }, [isMuted, onMuteChange]);
 
     // Destruição limpa no unmount
     useEffect(() => {
@@ -439,9 +491,34 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
 
     return (
       <div className="relative w-full h-full aspect-video bg-black flex items-center justify-center select-none group">
-        {/* Container do player oficial YouTube IFrame - 100% original sem corte */}
+        {/* Container do player oficial YouTube IFrame ou Player de Vídeo HTML5 (para links externos) */}
         <div className="w-full h-full aspect-video">
-          <div id="yt-fast-player-container" className="w-full h-full" />
+          {isExternalVideo ? (
+            <video
+              ref={html5VideoRef}
+              src={currentItem?.video_url}
+              autoPlay
+              playsInline
+              muted={isMuted}
+              onEnded={() => {
+                console.info("[FastGridPlayer] Vídeo HTML5 finalizado (onEnded). Avançando...");
+                advanceToNextVideo();
+              }}
+              onError={(e) => {
+                console.warn("[FastGridPlayer] Falha ao reproduzir vídeo externo:", e);
+                advanceToNextVideo();
+              }}
+              onTimeUpdate={(e) => {
+                const v = e.currentTarget;
+                if (v.duration > 0) {
+                  setRemainingTime(Math.round(Math.max(0, v.duration - v.currentTime)));
+                }
+              }}
+              className="w-full h-full object-contain bg-black"
+            />
+          ) : (
+            <div id="yt-fast-player-container" className="w-full h-full" />
+          )}
         </div>
 
         {/* CAMADA TRANSPARENTE DE PROTEÇÃO (SHIELD): Impede hover/pausa/seek acidental no YouTube */}
@@ -792,25 +869,13 @@ function TvOnlineHubContent() {
     const handleResync = () => {
       checkLiveStream();
       fetchTvChannel();
-      if (playerMode === "live" && tvPlaylist.length > 0) {
-        const calc = calculateTvProgramAtTime(tvPlaylist);
-        if (calc) {
-          setLiveCurrentItem(calc.currentItem);
-          setLiveNextItem(calc.nextItem);
-          setLiveRemainingSeconds(calc.remainingInCurrent);
-          ytPlayerHandleRef.current?.resyncWithClock?.(
-            calc.currentItem.youtube_id,
-            calc.offsetInCurrentVideo
-          );
-        }
-      }
     };
 
     window.addEventListener("app:resync-tv", handleResync);
     return () => {
       window.removeEventListener("app:resync-tv", handleResync);
     };
-  }, [playerMode, tvPlaylist, checkLiveStream, fetchTvChannel]);
+  }, [checkLiveStream, fetchTvChannel]);
 
   // 3. Carrega catálogo de vídeos da API
   const fetchVideos = useCallback(async () => {

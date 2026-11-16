@@ -32,6 +32,10 @@ import {
   Layers,
   ListVideo,
   CheckCircle,
+  Pencil,
+  Copy,
+  Calendar,
+  X,
 } from "lucide-react";
 import {
   PortalVideoItem,
@@ -48,6 +52,10 @@ import {
   TvChannelMode,
   DEFAULT_TV_SETTINGS,
   INITIAL_TV_PLAYLIST,
+  DAYS_OF_WEEK,
+  getDayLabel,
+  getDayShortLabel,
+  getTodayDayOfWeek,
   formatDurationSeconds,
   formatClockTime,
   getPlaylistItemTypeMeta,
@@ -69,13 +77,34 @@ export default function AdminTvVideosManager() {
   const [loadingTv, setLoadingTv] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // Dia da semana selecionado na grade (1 = Segunda, 2 = Terça ... 0 = Domingo)
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    return new Date().getDay();
+  });
+
   // Formulário de Adicionar Vídeo à Grade 24h
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemUrl, setNewItemUrl] = useState("");
   const [newItemType, setNewItemType] = useState<TvPlaylistItemType>("podcast");
   const [newItemMinutes, setNewItemMinutes] = useState("15");
   const [newItemSeconds, setNewItemSeconds] = useState("00");
+  const [newItemDay, setNewItemDay] = useState<number>(() => new Date().getDay());
   const [addingItem, setAddingItem] = useState(false);
+
+  // Modal / Edição de Vídeo da Grade
+  const [editingItem, setEditingItem] = useState<TvPlaylistItem | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editType, setEditType] = useState<TvPlaylistItemType>("podcast");
+  const [editMinutes, setEditMinutes] = useState("15");
+  const [editSeconds, setEditSeconds] = useState("00");
+  const [editDay, setEditDay] = useState<number>(1);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Modal / Utilitário de Copiar Grade de um Dia para Outro
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyFromDay, setCopyFromDay] = useState<number>(1);
+  const [copyingDay, setCopyingDay] = useState(false);
 
   // Relógio sincronizado para preview do item no ar neste segundo
   const [currentClockSeconds, setCurrentClockSeconds] = useState(() => Math.floor(Date.now() / 1000));
@@ -87,10 +116,32 @@ export default function AdminTvVideosManager() {
     return () => clearInterval(timer);
   }, []);
 
+  // Quando o usuário muda a aba do dia, atualiza o dia padrão do formulário de adição
+  useEffect(() => {
+    setNewItemDay(selectedDay);
+  }, [selectedDay]);
+
+  // Itens filtrados para o dia selecionado
+  const dayItems = useMemo(() => {
+    return tvPlaylist
+      .filter((i) => {
+        const itemDay = typeof i.day_of_week === "number" ? i.day_of_week : 1;
+        return itemDay === selectedDay;
+      })
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [tvPlaylist, selectedDay]);
+
+  // Tempo total da grade do dia selecionado
+  const dayTotalSeconds = useMemo(() => {
+    return dayItems
+      .filter((i) => i.active)
+      .reduce((acc, curr) => acc + (Number(curr.duration_seconds) || 0), 0);
+  }, [dayItems]);
+
   // Cálculo do programa no ar e estatísticas da grade
   const currentTvSchedule = useMemo(() => {
-    return calculateTvProgramAtTime(tvPlaylist, currentClockSeconds);
-  }, [tvPlaylist, currentClockSeconds]);
+    return calculateTvProgramAtTime(tvPlaylist, currentClockSeconds, selectedDay);
+  }, [tvPlaylist, currentClockSeconds, selectedDay]);
 
   const totalPlaylistSeconds = useMemo(() => {
     return tvPlaylist
@@ -254,7 +305,7 @@ export default function AdminTvVideosManager() {
   };
 
   // =========================================================================
-  // AÇÕES DO BLOCO B — MONTADOR DE GRADE 24H
+  // AÇÕES DO BLOCO B — MONTADOR DE GRADE 24H (COM ABAS POR DIA DA SEMANA)
   // =========================================================================
   const handleAddItemToPlaylist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,8 +313,8 @@ export default function AdminTvVideosManager() {
       setMensagemErro("Informe o título do programa ou comercial.");
       return;
     }
-    if (!newItemUrl.trim() || !detectedNewItemYtId) {
-      setMensagemErro("Cole um link válido do YouTube.");
+    if (!newItemUrl.trim()) {
+      setMensagemErro("Cole a URL do vídeo (YouTube ou link externo).");
       return;
     }
 
@@ -280,12 +331,15 @@ export default function AdminTvVideosManager() {
       setAddingItem(true);
       setMensagemErro(null);
 
+      const ytId = extractYouTubeId(newItemUrl) || "";
       const payload = {
         title: newItemTitle.trim(),
+        video_url: newItemUrl.trim(),
         youtube_url: newItemUrl.trim(),
-        youtube_id: detectedNewItemYtId,
+        youtube_id: ytId,
         type: newItemType,
         duration_seconds: totalSec,
+        day_of_week: newItemDay,
       };
 
       const res = await fetch("/api/tv-channel", {
@@ -304,7 +358,7 @@ export default function AdminTvVideosManager() {
       setNewItemSeconds("00");
 
       broadcastTvUpdate();
-      setMensagemSucesso("Item adicionado com sucesso à Grade 24h!");
+      setMensagemSucesso(`Vídeo adicionado com sucesso à grade de ${getDayLabel(newItemDay)}!`);
       await carregarTvChannel();
       setTimeout(() => setMensagemSucesso(null), 3500);
     } catch (err: any) {
@@ -314,17 +368,25 @@ export default function AdminTvVideosManager() {
     }
   };
 
-  const handleMovePlaylistItem = async (index: number, direction: "up" | "down") => {
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= tvPlaylist.length) return;
+  const handleMovePlaylistItem = async (indexInDay: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? indexInDay - 1 : indexInDay + 1;
+    if (targetIndex < 0 || targetIndex >= dayItems.length) return;
 
-    const reordered = [...tvPlaylist];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
+    const reorderedDay = [...dayItems];
+    const [moved] = reorderedDay.splice(indexInDay, 1);
+    reorderedDay.splice(targetIndex, 0, moved);
+
+    const newOrderIds = reorderedDay.map((i) => i.id);
 
     // Atualiza otimista no estado
-    const withSortOrder = reordered.map((item, idx) => ({ ...item, sort_order: idx + 1 }));
-    setTvPlaylist(withSortOrder);
+    setTvPlaylist((prev) => {
+      const otherDays = prev.filter((i) => {
+        const itemDay = typeof i.day_of_week === "number" ? i.day_of_week : 1;
+        return itemDay !== selectedDay;
+      });
+      const updatedDay = reorderedDay.map((item, idx) => ({ ...item, sort_order: idx + 1 }));
+      return [...otherDays, ...updatedDay];
+    });
 
     try {
       await fetch("/api/tv-channel", {
@@ -332,12 +394,114 @@ export default function AdminTvVideosManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "reorder",
-          newOrderIds: withSortOrder.map((i) => i.id),
+          day_of_week: selectedDay,
+          newOrderIds,
         }),
       });
       broadcastTvUpdate();
     } catch (e) {
       console.warn("Falha ao salvar nova ordem:", e);
+    }
+  };
+
+  // Abrir Modal de Edição de um Vídeo
+  const handleOpenEditItem = (item: TvPlaylistItem) => {
+    setEditingItem(item);
+    setEditTitle(item.title);
+    setEditUrl(item.video_url || item.youtube_url || "");
+    setEditType(item.type);
+    const min = Math.floor((item.duration_seconds || 0) / 60);
+    const sec = (item.duration_seconds || 0) % 60;
+    setEditMinutes(String(min));
+    setEditSeconds(String(sec).padStart(2, "0"));
+    setEditDay(typeof item.day_of_week === "number" ? item.day_of_week : 1);
+  };
+
+  // Salvar Edição de um Vídeo
+  const handleSaveEditItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    if (!editTitle.trim()) {
+      setMensagemErro("Informe o título do vídeo.");
+      return;
+    }
+    if (!editUrl.trim()) {
+      setMensagemErro("Cole a URL do vídeo.");
+      return;
+    }
+
+    const min = parseInt(editMinutes, 10) || 0;
+    const sec = parseInt(editSeconds, 10) || 0;
+    const totalSec = min * 60 + sec;
+
+    try {
+      setSavingEdit(true);
+      const ytId = extractYouTubeId(editUrl) || "";
+      const updated: TvPlaylistItem = {
+        ...editingItem,
+        title: editTitle.trim(),
+        video_url: editUrl.trim(),
+        youtube_url: editUrl.trim(),
+        youtube_id: ytId,
+        type: editType,
+        duration_seconds: totalSec,
+        day_of_week: editDay,
+      };
+
+      const res = await fetch("/api/tv-channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_item", item: updated }),
+      });
+
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "Erro ao salvar edição.");
+
+      setEditingItem(null);
+      broadcastTvUpdate();
+      setMensagemSucesso("Vídeo da grade atualizado com sucesso!");
+      await carregarTvChannel();
+      setTimeout(() => setMensagemSucesso(null), 3000);
+    } catch (err: any) {
+      setMensagemErro(err.message || "Erro ao atualizar vídeo.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Copiar Grade de um Dia para Outro
+  const handleCopyDaySchedule = async () => {
+    if (copyFromDay === selectedDay) {
+      setMensagemErro("Selecione um dia de origem diferente do dia atual.");
+      return;
+    }
+
+    try {
+      setCopyingDay(true);
+      const res = await fetch("/api/tv-channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "copy_day",
+          fromDay: copyFromDay,
+          toDay: selectedDay,
+        }),
+      });
+
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "Erro ao copiar grade.");
+
+      setShowCopyModal(false);
+      broadcastTvUpdate();
+      setMensagemSucesso(
+        `Grade de ${getDayLabel(copyFromDay)} copiada com sucesso para ${getDayLabel(selectedDay)}!`
+      );
+      await carregarTvChannel();
+      setTimeout(() => setMensagemSucesso(null), 3500);
+    } catch (err: any) {
+      setMensagemErro(err.message || "Erro ao copiar grade.");
+    } finally {
+      setCopyingDay(false);
     }
   };
 
@@ -814,17 +978,17 @@ export default function AdminTvVideosManager() {
           </div>
 
           {/* ===================================================================== */}
-          {/* BLOCO B — MONTADOR DE GRADE 24H (PLAYLIST YOUTUBE + COMERCIAIS)        */}
+          {/* BLOCO B — MONTADOR DE GRADE POR DIA DA SEMANA (ABAS SEGUNDA A DOMINGO) */}
           {/* ===================================================================== */}
           <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div>
                 <span className="text-[11px] font-black uppercase tracking-wider text-purple-600 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5" />
-                  Bloco B • Montador da Grade Programada 24h (Loop Sincronizado)
+                  Bloco B • Grade Programada Semanal (Loop Contínuo por Dia)
                 </span>
                 <h3 className="text-lg font-black text-slate-900">
-                  Sequência Contínua de Vídeos, Programas e Comerciais
+                  Programação da Web TV por Dia da Semana
                 </h3>
               </div>
 
@@ -840,17 +1004,140 @@ export default function AdminTvVideosManager() {
               </div>
             </div>
 
+            {/* ABAS DOS DIAS DA SEMANA (SEGUNDA A DOMINGO) */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-200">
+                {DAYS_OF_WEEK.map((d) => {
+                  const isSelected = selectedDay === d.day;
+                  const isToday = new Date().getDay() === d.day;
+                  const count = tvPlaylist.filter(
+                    (i) => (typeof i.day_of_week === "number" ? i.day_of_week : 1) === d.day
+                  ).length;
+
+                  return (
+                    <button
+                      key={d.day}
+                      type="button"
+                      onClick={() => setSelectedDay(d.day)}
+                      className={`px-3.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+                        isSelected
+                          ? "bg-purple-600 text-white border-purple-600 shadow-md ring-2 ring-purple-400/40"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                      }`}
+                    >
+                      <Calendar className={`w-3.5 h-3.5 ${isSelected ? "text-white" : "text-slate-400"}`} />
+                      <span>{d.shortLabel}</span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                          isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                      {isToday && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                            isSelected ? "bg-amber-400 text-slate-950" : "bg-red-600 text-white"
+                          }`}
+                        >
+                          HOJE
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* BARRA SUPERIOR DO DIA SELECIONADO */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-slate-900">
+                    Grade de {getDayLabel(selectedDay)}
+                  </span>
+                  {new Date().getDay() === selectedDay ? (
+                    <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-black uppercase flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+                      No ar hoje
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
+                      Grade programada
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-500 font-bold">
+                    · {dayItems.length} vídeo{dayItems.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCopyModal(!showCopyModal)}
+                  className="px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-black transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                  title="Copiar programação de outro dia para este dia"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copiar Grade de Outro Dia</span>
+                </button>
+              </div>
+
+              {/* CARD DE CÓPIA DE GRADE ENTRE DIAS */}
+              {showCopyModal && (
+                <div className="p-4 rounded-xl bg-purple-50/80 border border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-150">
+                  <div className="space-y-1">
+                    <h5 className="font-black text-xs text-purple-950 flex items-center gap-1.5">
+                      <Copy className="w-3.5 h-3.5 text-purple-700" />
+                      Duplicar Grade para {getDayLabel(selectedDay)}
+                    </h5>
+                    <p className="text-[11px] text-purple-800">
+                      Escolha um dia de origem para copiar todos os vídeos para a grade deste dia.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={copyFromDay}
+                      onChange={(e) => setCopyFromDay(parseInt(e.target.value, 10))}
+                      className="text-xs p-2 rounded-xl border border-purple-300 bg-white font-bold text-slate-800"
+                    >
+                      {DAYS_OF_WEEK.filter((d) => d.day !== selectedDay).map((d) => (
+                        <option key={d.day} value={d.day}>
+                          Copiar de: {d.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyDaySchedule}
+                      disabled={copyingDay}
+                      className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black transition cursor-pointer"
+                    >
+                      {copyingDay ? "Copiando..." : "Confirmar Cópia"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowCopyModal(false)}
+                      className="px-2.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-600 text-xs font-bold hover:bg-slate-100 cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* BANNER DINÂMICO DE TEMPO TOTAL E PROGRAMA NO AR */}
             <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-purple-950 text-white p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-md grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                  Tempo Total do Loop da TV
+                  Tempo da Grade de {getDayShortLabel(selectedDay)}
                 </span>
                 <strong className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 block">
-                  {formatDurationSeconds(totalPlaylistSeconds)}
+                  {formatDurationSeconds(dayTotalSeconds)}
                 </strong>
                 <span className="text-xs text-slate-400">
-                  {tvPlaylist.filter((i) => i.active).length} blocos ativos na grade
+                  {dayItems.filter((i) => i.active).length} blocos ativos nesta grade
                 </span>
               </div>
 
@@ -858,7 +1145,7 @@ export default function AdminTvVideosManager() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider animate-pulse">
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                    No Ar Agora Neste Segundo
+                    {new Date().getDay() === selectedDay ? "No Ar Agora Neste Segundo" : "Simulação da Grade"}
                   </span>
                   {currentTvSchedule && (
                     <span className="text-[11px] font-mono text-amber-300 font-bold">
@@ -890,25 +1177,41 @@ export default function AdminTvVideosManager() {
               onSubmit={handleAddItemToPlaylist}
               className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4"
             >
-              <div className="flex items-center gap-2">
-                <Plus className="w-4 h-4 text-purple-600" />
-                <h4 className="font-black text-sm text-slate-900">
-                  Adicionar Novo Programa, Reportagem ou Comercial à Grade
-                </h4>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-purple-600" />
+                  <h4 className="font-black text-sm text-slate-900">
+                    Adicionar Vídeo à Grade de {getDayLabel(newItemDay)}
+                  </h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-600">Dia:</span>
+                  <select
+                    value={newItemDay}
+                    onChange={(e) => setNewItemDay(parseInt(e.target.value, 10))}
+                    className="text-xs font-bold p-1.5 rounded-lg border border-slate-300 bg-white"
+                  >
+                    {DAYS_OF_WEEK.map((d) => (
+                      <option key={d.day} value={d.day}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                {/* 1. Link do YouTube */}
-                <div className="sm:col-span-4">
+                {/* 1. Link do Vídeo (YouTube, MP4 ou Externo) */}
+                <div className="sm:col-span-5">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Link do YouTube
+                    Link do Vídeo (YouTube, MP4 ou Externo)
                   </label>
                   <input
                     type="url"
                     value={newItemUrl}
                     onChange={(e) => setNewItemUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 bg-white"
+                    placeholder="https://www.youtube.com/watch?v=... ou link direto .mp4"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 bg-white font-mono"
                     required
                   />
                 </div>
@@ -916,7 +1219,7 @@ export default function AdminTvVideosManager() {
                 {/* 2. Título */}
                 <div className="sm:col-span-4">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Título do Bloco
+                    Título do Bloco / Programa
                   </label>
                   <input
                     type="text"
@@ -929,7 +1232,7 @@ export default function AdminTvVideosManager() {
                 </div>
 
                 {/* 3. Tipo */}
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-3">
                   <label className="block text-xs font-bold text-slate-700 mb-1">Tipo</label>
                   <select
                     value={newItemType}
@@ -944,7 +1247,7 @@ export default function AdminTvVideosManager() {
                 </div>
 
                 {/* 4. Duração: Minutos e Segundos */}
-                <div className="sm:col-span-2 flex items-center gap-1.5">
+                <div className="sm:col-span-3 flex items-center gap-1.5">
                   <div className="flex-1">
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">Min</label>
                     <input
@@ -968,43 +1271,48 @@ export default function AdminTvVideosManager() {
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Botão de Envio */}
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[11px] text-slate-500">
-                  {detectedNewItemYtId ? (
-                    <span className="text-emerald-700 font-bold">
-                      ✓ Vídeo identificado: {detectedNewItemYtId}
-                    </span>
-                  ) : (
-                    "Cole o link do YouTube acima para vincular automaticamente."
-                  )}
-                </span>
+                {/* Botão de Envio */}
+                <div className="sm:col-span-9 flex items-center justify-between sm:justify-end gap-3 pt-1">
+                  <span className="text-[11px] text-slate-500 truncate">
+                    {extractYouTubeId(newItemUrl) ? (
+                      <span className="text-emerald-700 font-bold">
+                        ✓ YouTube ID: {extractYouTubeId(newItemUrl)}
+                      </span>
+                    ) : newItemUrl.trim() ? (
+                      <span className="text-purple-700 font-bold">✓ Link externo/direto aceito</span>
+                    ) : (
+                      "Aceita links do YouTube ou URLs diretas."
+                    )}
+                  </span>
 
-                <button
-                  type="submit"
-                  disabled={addingItem}
-                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{addingItem ? "Adicionando..." : "Adicionar à Fila da Grade"}</span>
-                </button>
+                  <button
+                    type="submit"
+                    disabled={addingItem}
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{addingItem ? "Adicionando..." : `Adicionar à Grade`}</span>
+                  </button>
+                </div>
               </div>
             </form>
 
-            {/* LISTAGEM REORDENÁVEL DA FILA DA GRADE (ZERO IFRAMES, THUMBNAILS LEVES) */}
+            {/* LISTAGEM REORDENÁVEL DA FILA DA GRADE PARA O DIA SELECIONADO */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between text-xs text-slate-500 font-bold px-1">
-                <span>Ordem de Exibição Contínua ({tvPlaylist.length} itens)</span>
-                <span>Controles de Posição</span>
+                <span>
+                  Ordem de Exibição • {getDayLabel(selectedDay)} ({dayItems.length} vídeo{dayItems.length !== 1 ? "s" : ""})
+                </span>
+                <span>Controles de Posição & Edição</span>
               </div>
 
-              {tvPlaylist.map((item, index) => {
+              {dayItems.map((item, index) => {
                 const typeMeta = getPlaylistItemTypeMeta(item.type);
                 const isFirst = index === 0;
-                const isLast = index === tvPlaylist.length - 1;
-                const isCurrentlyPlaying = currentTvSchedule?.currentItem?.id === item.id;
+                const isLast = index === dayItems.length - 1;
+                const isCurrentlyPlaying =
+                  new Date().getDay() === selectedDay && currentTvSchedule?.currentItem?.id === item.id;
 
                 return (
                   <div
@@ -1034,8 +1342,11 @@ export default function AdminTvVideosManager() {
                             loading="lazy"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500 font-mono">
-                            SEM CAPA
+                          <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-slate-400 p-1 text-center">
+                            <Video className="w-4 h-4 text-purple-400 mb-0.5" />
+                            <span className="text-[8px] font-mono font-bold uppercase truncate max-w-full">
+                              LINK
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1057,13 +1368,17 @@ export default function AdminTvVideosManager() {
                         <h4 className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate mt-0.5">
                           {item.title}
                         </h4>
-                        <span className="text-[11px] font-mono text-slate-500 font-bold">
-                          ⏱ {formatClockTime(item.duration_seconds)} ({item.duration_seconds}s)
-                        </span>
+                        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 font-bold">
+                          <span>⏱ {formatClockTime(item.duration_seconds)}</span>
+                          <span>·</span>
+                          <span className="truncate max-w-[180px] sm:max-w-xs text-slate-400 font-normal">
+                            {item.video_url || item.youtube_url}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* LADO DIREITO: Botões de Subir / Descer / Ativar / Excluir */}
+                    {/* LADO DIREITO: Botões de Subir / Descer / Editar / Ativar / Excluir */}
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
@@ -1074,7 +1389,7 @@ export default function AdminTvVideosManager() {
                             ? "text-slate-300 border-slate-200 cursor-not-allowed"
                             : "text-slate-700 border-slate-300 hover:bg-slate-100 cursor-pointer"
                         }`}
-                        title="Subir na fila"
+                        title="Subir na fila deste dia"
                       >
                         <ArrowUp className="w-3.5 h-3.5" />
                       </button>
@@ -1088,9 +1403,18 @@ export default function AdminTvVideosManager() {
                             ? "text-slate-300 border-slate-200 cursor-not-allowed"
                             : "text-slate-700 border-slate-300 hover:bg-slate-100 cursor-pointer"
                         }`}
-                        title="Descer na fila"
+                        title="Descer na fila deste dia"
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditItem(item)}
+                        className="p-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 text-xs transition cursor-pointer"
+                        title="Editar vídeo"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
 
                       <button
@@ -1119,12 +1443,150 @@ export default function AdminTvVideosManager() {
                 );
               })}
 
-              {tvPlaylist.length === 0 && (
-                <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-                  Nenhum item na grade programada. Adicione o primeiro vídeo acima ou clique em &quot;Restaurar Grade Padrão&quot;.
+              {dayItems.length === 0 && (
+                <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
+                  <Calendar className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-sm text-slate-700">
+                    Nenhum vídeo programado para {getDayLabel(selectedDay)}.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Adicione um vídeo no formulário acima ou clique no botão &quot;Copiar Grade de Outro Dia&quot;.
+                  </p>
                 </div>
               )}
             </div>
+
+            {/* MODAL DE EDIÇÃO DE VÍDEO DA GRADE */}
+            {editingItem && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+                <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <Pencil className="w-4 h-4 text-purple-600" />
+                      <h4 className="font-heading font-black text-slate-900 text-base">
+                        Editar Vídeo da Grade
+                      </h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingItem(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveEditItem} className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Título do Bloco / Programa
+                      </label>
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Link do Vídeo (YouTube, MP4 ou Externo)
+                      </label>
+                      <input
+                        type="url"
+                        value={editUrl}
+                        onChange={(e) => setEditUrl(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-mono"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Dia da Semana
+                        </label>
+                        <select
+                          value={editDay}
+                          onChange={(e) => setEditDay(parseInt(e.target.value, 10))}
+                          className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-medium"
+                        >
+                          {DAYS_OF_WEEK.map((d) => (
+                            <option key={d.day} value={d.day}>
+                              {d.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Tipo de Bloco
+                        </label>
+                        <select
+                          value={editType}
+                          onChange={(e) => setEditType(e.target.value as any)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-medium"
+                        >
+                          <option value="podcast">🎙️ Podcast</option>
+                          <option value="reportagem">🚨 Reportagem</option>
+                          <option value="comercial">💰 Comercial</option>
+                          <option value="musical">🎸 Música</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Duração (Minutos)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="600"
+                          value={editMinutes}
+                          onChange={(e) => setEditMinutes(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-mono text-center"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Segundos
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={editSeconds}
+                          onChange={(e) => setEditSeconds(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-mono text-center"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setEditingItem(null)}
+                        className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingEdit}
+                        className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black transition cursor-pointer shadow-md"
+                      >
+                        {savingEdit ? "Salvando..." : "Salvar Alterações"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
