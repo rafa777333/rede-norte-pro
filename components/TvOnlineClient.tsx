@@ -50,6 +50,10 @@ import {
   formatClockTime,
   getPlaylistItemTypeMeta,
   calculateTvProgramAtTime,
+  calculateGlobalLinearSync,
+  getSecondsSinceMidnightBrasilia,
+  getDayOfWeekBrasilia,
+  type GlobalSyncResult,
 } from "@/lib/tv-channel-data";
 import { getSupabase } from "@/lib/supabase";
 
@@ -87,95 +91,6 @@ interface YouTubeFastGridPlayerProps {
   onMuteChange?: (muted: boolean) => void;
 }
 
-export interface WebTvPlaybackState {
-  dayOfWeek: number;
-  videoIndex: number;
-  currentTime: number;
-  savedAt: number;
-}
-
-const WEBTV_PLAYBACK_STORAGE_KEY = "webtv_playback_state";
-
-export function getSavedWebTvState(): WebTvPlaybackState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(WEBTV_PLAYBACK_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (
-      typeof parsed?.dayOfWeek === "number" &&
-      typeof parsed?.videoIndex === "number" &&
-      typeof parsed?.currentTime === "number" &&
-      typeof parsed?.savedAt === "number"
-    ) {
-      return parsed;
-    }
-  } catch {}
-  return null;
-}
-
-export function saveWebTvState(day: number, index: number, time: number) {
-  if (typeof window === "undefined") return;
-  try {
-    const state: WebTvPlaybackState = {
-      dayOfWeek: day,
-      videoIndex: Math.max(0, index),
-      currentTime: Math.max(0, Math.floor(time)),
-      savedAt: Date.now(),
-    };
-    localStorage.setItem(WEBTV_PLAYBACK_STORAGE_KEY, JSON.stringify(state));
-  } catch {}
-}
-
-export function calculateResumedPlayback(
-  playlist: TvPlaylistItem[],
-  currentDay: number
-): { index: number; seekSeconds: number } {
-  if (!playlist || playlist.length === 0) {
-    return { index: 0, seekSeconds: 0 };
-  }
-
-  const saved = getSavedWebTvState();
-  if (!saved) {
-    return { index: 0, seekSeconds: 0 };
-  }
-
-  // 1. Se virou o dia da semana (meia-noite), reinicia no dia atual no início da grade
-  if (saved.dayOfWeek !== currentDay) {
-    return { index: 0, seekSeconds: 0 };
-  }
-
-  // 2. Calcula quantos segundos se passaram desde que o usuário saiu da página
-  const elapsedSeconds = Math.max(0, (Date.now() - saved.savedAt) / 1000);
-  let totalTargetTime = Math.max(0, saved.currentTime) + elapsedSeconds;
-
-  const N = playlist.length;
-  let targetIndex = Math.min(Math.max(0, saved.videoIndex), N - 1);
-
-  // 3. Percorre a fila descontando as durações dos vídeos para posicionar no vídeo e segundo exatos
-  let safetyLimit = 0;
-  while (safetyLimit < N * 20) {
-    const item = playlist[targetIndex];
-    const duration =
-      item && item.duration_seconds && item.duration_seconds > 10
-        ? item.duration_seconds
-        : 1800; // fallback padrão de 30 min se não houver duração registrada
-
-    if (totalTargetTime >= duration) {
-      totalTargetTime -= duration;
-      targetIndex = (targetIndex + 1) % N;
-      safetyLimit++;
-    } else {
-      break;
-    }
-  }
-
-  return {
-    index: targetIndex,
-    seekSeconds: Math.floor(totalTargetTime),
-  };
-}
-
 const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouTubeFastGridPlayerProps>(
   function YouTubeFastGridPlayer(
     {
@@ -189,8 +104,8 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
     const html5VideoRef = useRef<HTMLVideoElement | null>(null);
     const isTransitioningRef = useRef(false);
 
-    // Dia da semana atual (0 = Domingo, 1 = Segunda, etc.)
-    const [todayDay, setTodayDay] = useState<number>(() => new Date().getDay());
+    // Dia da semana atual no fuso oficial de Brasília (0 = Domingo a 6 = Sábado)
+    const [todayDay, setTodayDay] = useState<number>(() => getDayOfWeekBrasilia());
     const todayRef = useRef(todayDay);
     todayRef.current = todayDay;
 
@@ -216,29 +131,60 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
     const dayPlaylistRef = useRef(dayPlaylist);
     dayPlaylistRef.current = dayPlaylist;
 
-    // Referência da retomada contínua com cálculo de tempo real
-    const initialResumedRef = useRef<{ index: number; seekSeconds: number; applied: boolean } | null>(null);
-    if (!initialResumedRef.current) {
-      const res = calculateResumedPlayback(dayPlaylist, todayDay);
-      initialResumedRef.current = { ...res, applied: false };
+    // Sincronização Global Linear (Simulcast / Pseudo-Live):
+    // Todos os usuários ao redor do mundo entram no mesmo vídeo e no mesmo segundo
+    const initialSyncRef = useRef<{ index: number; startOffsetSeconds: number; applied: boolean } | null>(null);
+    if (!initialSyncRef.current) {
+      const sync = calculateGlobalLinearSync(dayPlaylist);
+      initialSyncRef.current = {
+        index: sync.currentVideoIndex,
+        startOffsetSeconds: sync.startOffsetSeconds,
+        applied: false,
+      };
     }
 
-    // Índice sequencial na fila do dia (inicia posicionado no avanço contínuo do tempo)
-    const [currentIndex, setCurrentIndex] = useState(() => initialResumedRef.current?.index ?? 0);
+    // Inicia no índice sincronizado linearmente pelo relógio global
+    const [currentIndex, setCurrentIndex] = useState(() => initialSyncRef.current?.index ?? 0);
     const currentIndexRef = useRef(currentIndex);
     currentIndexRef.current = currentIndex;
 
-    // Recalibra índice e tempo inicial caso a playlist real seja carregada do banco antes do início
+    // Recalibra o índice e segundo de início quando a playlist real carrega do banco (antes do play)
     useEffect(() => {
-      if (initialResumedRef.current && !initialResumedRef.current.applied && dayPlaylist.length > 0) {
-        const res = calculateResumedPlayback(dayPlaylist, todayDay);
-        initialResumedRef.current = { ...res, applied: false };
-        if (res.index !== currentIndexRef.current) {
-          setCurrentIndex(res.index);
-          currentIndexRef.current = res.index;
+      if (initialSyncRef.current && !initialSyncRef.current.applied && dayPlaylist.length > 0) {
+        const sync = calculateGlobalLinearSync(dayPlaylist);
+        initialSyncRef.current = {
+          index: sync.currentVideoIndex,
+          startOffsetSeconds: sync.startOffsetSeconds,
+          applied: false,
+        };
+        if (sync.currentVideoIndex !== currentIndexRef.current) {
+          setCurrentIndex(sync.currentVideoIndex);
+          currentIndexRef.current = sync.currentVideoIndex;
         }
       }
-    }, [dayPlaylist, todayDay]);
+    }, [dayPlaylist]);
+
+    // Gravação automática de duração no Supabase se ainda não estava gravada ou se divergir
+    const durationSyncedRef = useRef<Set<string>>(new Set());
+    const autoSyncDuration = useCallback((itemId: string, durSeconds: number) => {
+      if (!itemId || !durSeconds || durSeconds <= 0) return;
+      if (durationSyncedRef.current.has(itemId)) return;
+
+      durationSyncedRef.current.add(itemId);
+      const rounded = Math.round(durSeconds);
+
+      fetch("/api/tv-channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_duration",
+          itemId,
+          duration_seconds: rounded,
+        }),
+      }).catch((e) => {
+        console.warn("[TvOnlineClient] Erro ao sincronizar duração no Supabase:", e);
+      });
+    }, []);
 
     const [isMuted, setIsMuted] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -261,9 +207,12 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
     const advanceToNextVideo = useCallback(() => {
       if (isTransitioningRef.current) return;
       isTransitioningRef.current = true;
+      if (initialSyncRef.current) {
+        initialSyncRef.current.applied = true;
+      }
 
       // 1. Checa se o dia mudou (virada de meia-noite)
-      const currentRealDay = new Date().getDay();
+      const currentRealDay = getDayOfWeekBrasilia();
       if (currentRealDay !== todayRef.current) {
         console.info(
           `[FastGridPlayer] Meia-noite detectada: transição de dia ${todayRef.current} para ${currentRealDay}. Carregando nova grade diária.`
@@ -272,15 +221,13 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
         setTodayDay(currentRealDay);
         setCurrentIndex(0);
         currentIndexRef.current = 0;
-        if (initialResumedRef.current) initialResumedRef.current.applied = true;
-        saveWebTvState(currentRealDay, 0, 0);
         setTimeout(() => {
           isTransitioningRef.current = false;
         }, 1500);
         return;
       }
 
-      // 2. Mesmo dia: avança para o próximo vídeo
+      // 2. Mesmo dia: avança para o próximo vídeo da fila na íntegra (segundo 0)
       const list = dayPlaylistRef.current;
       if (list.length === 0) {
         isTransitioningRef.current = false;
@@ -291,22 +238,13 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
         // Loop infinito diário: quando chega ao último vídeo, (prev + 1) % list.length retorna 0
         const nextIdx = (prev + 1) % list.length;
         currentIndexRef.current = nextIdx;
-
-        // Se houver tempo de seek pendente por transição com avanço, aplica no novo vídeo
-        let startSec = 0;
-        if (initialResumedRef.current && !initialResumedRef.current.applied) {
-          startSec = initialResumedRef.current.seekSeconds;
-          initialResumedRef.current.applied = true;
-        }
-
-        saveWebTvState(todayRef.current, nextIdx, startSec);
         const nextVid = list[nextIdx];
 
         if (nextVid && nextVid.youtube_id && playerRef.current && typeof playerRef.current.loadVideoById === "function") {
           try {
             playerRef.current.loadVideoById({
               videoId: nextVid.youtube_id,
-              startSeconds: startSec,
+              startSeconds: 0,
             });
             playerRef.current.playVideo();
             if (selectedQuality && typeof playerRef.current.setPlaybackQuality === "function") {
@@ -477,8 +415,8 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
         const initialYtId = currentItem?.youtube_id || dayPlaylist[0]?.youtube_id;
         if (!initialYtId) return;
 
-        const targetSeek = !initialResumedRef.current?.applied
-          ? initialResumedRef.current?.seekSeconds ?? 0
+        const targetSeek = !initialSyncRef.current?.applied
+          ? initialSyncRef.current?.startOffsetSeconds ?? 0
           : 0;
 
         try {
@@ -500,33 +438,17 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
               onReady: (e: any) => {
                 if (cancel) return;
 
-                // Retomada contínua com cálculo de tempo real e verificação de duração
-                if (initialResumedRef.current && !initialResumedRef.current.applied) {
-                  const seekTime = initialResumedRef.current.seekSeconds;
-                  initialResumedRef.current.applied = true;
+                // 1. Sincronização Global Linear Inicial (Simulcast / Pseudo-Live):
+                // Posiciona no segundo exato do ciclo diário compartilhado por todos
+                if (initialSyncRef.current && !initialSyncRef.current.applied) {
+                  const startSec = initialSyncRef.current.startOffsetSeconds;
+                  initialSyncRef.current.applied = true;
 
-                  if (seekTime > 0) {
-                    try {
-                      const realDur = typeof e.target.getDuration === "function" ? e.target.getDuration() : 0;
-                      if (realDur > 0 && seekTime >= realDur) {
-                        const excess = seekTime - realDur;
-                        console.info(
-                          `[FastGridPlayer] Tempo decorrido (${seekTime}s) ultrapassou a duração (${realDur}s). Avançando para o próximo vídeo.`
-                        );
-                        initialResumedRef.current = {
-                          index: (currentIndexRef.current + 1) % dayPlaylistRef.current.length,
-                          seekSeconds: Math.floor(excess),
-                          applied: false,
-                        };
-                        advanceToNextVideo();
-                        return;
-                      } else if (typeof e.target.seekTo === "function") {
-                        console.info(`[FastGridPlayer] Retomando programação ao vivo no segundo ${seekTime}.`);
-                        e.target.seekTo(seekTime, true);
-                      }
-                    } catch (seekErr) {
-                      console.warn("[FastGridPlayer] Erro no seekTo inicial:", seekErr);
-                    }
+                  if (startSec > 0 && typeof e.target.seekTo === "function") {
+                    console.info(
+                      `[FastGridPlayer] Sincronia Simulcast Global: posicionando em ${startSec}s no vídeo ${currentIndexRef.current + 1}.`
+                    );
+                    e.target.seekTo(startSec, true);
                   }
                 }
 
@@ -537,6 +459,14 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
                     e.target.setPlaybackQuality("hd1080");
                   } catch {}
                 }
+
+                // 2. Auto-gravação da duração exata no Supabase caso ainda não exista
+                try {
+                  const dur = typeof e.target.getDuration === "function" ? e.target.getDuration() : 0;
+                  if (dur > 10 && currentItem?.id) {
+                    autoSyncDuration(currentItem.id, dur);
+                  }
+                } catch {}
 
                 // Garante atributos de permissão no iframe gerado para tela cheia e rotação mobile
                 try {
@@ -562,7 +492,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
               onStateChange: (e: any) => {
                 // 0 = YT.PlayerState.ENDED: O vídeo terminou de tocar por completo!
                 if (e.data === 0) {
-                  console.info("[FastGridPlayer] Vídeo finalizado (YT.PlayerState.ENDED). Avançando...");
+                  console.info("[FastGridPlayer] Vídeo finalizado (YT.PlayerState.ENDED). Avançando na íntegra...");
                   advanceToNextVideo();
                 }
               },
@@ -599,9 +529,9 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
       return () => {
         cancel = true;
       };
-    }, [advanceToNextVideo, currentItem?.youtube_id, dayPlaylist, onMuteChange]);
+    }, [advanceToNextVideo, currentItem?.youtube_id, currentItem?.id, dayPlaylist, onMuteChange, autoSyncDuration]);
 
-    // Monitor de tempo para a barra de contagem regressiva e gravação contínua no localStorage
+    // Monitor de tempo para a contagem regressiva da UI e auto-gravação de duração
     useEffect(() => {
       const interval = setInterval(() => {
         const p = playerRef.current;
@@ -617,8 +547,10 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
             const rem = Math.max(0, dur - curr);
             setRemainingTime(Math.round(rem));
 
-            // Salva continuamente o ponto exato da transmissão
-            saveWebTvState(todayRef.current, currentIndexRef.current, curr);
+            // Garante que a duração exata do vídeo seja persistida no Supabase
+            if (dur > 10 && currentItem?.id) {
+              autoSyncDuration(currentItem.id, dur);
+            }
           }
 
           // Sincroniza estado de mudo com controles nativos do YouTube
@@ -635,33 +567,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
       }, 1000);
 
       return () => clearInterval(interval);
-    }, [isMuted, onMuteChange]);
-
-    // Grava o ponto exato imediatamente antes de sair da página ou recarregar
-    useEffect(() => {
-      const handleBeforeUnload = () => {
-        try {
-          const p = playerRef.current;
-          const html5 = html5VideoRef.current;
-          let curr = -1;
-          if (p && typeof p.getCurrentTime === "function") {
-            curr = p.getCurrentTime();
-          } else if (html5 && typeof html5.currentTime === "number") {
-            curr = html5.currentTime;
-          }
-          if (curr >= 0) {
-            saveWebTvState(todayRef.current, currentIndexRef.current, curr);
-          }
-        } catch {}
-      };
-
-      window.addEventListener("beforeunload", handleBeforeUnload);
-      window.addEventListener("pagehide", handleBeforeUnload);
-      return () => {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        window.removeEventListener("pagehide", handleBeforeUnload);
-      };
-    }, []);
+    }, [isMuted, onMuteChange, currentItem?.id, autoSyncDuration]);
 
     // Destruição limpa no unmount
     useEffect(() => {
@@ -690,32 +596,26 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
               muted={isMuted}
               onLoadedMetadata={(e) => {
                 const v = e.currentTarget;
-                if (initialResumedRef.current && !initialResumedRef.current.applied) {
-                  const seekTime = initialResumedRef.current.seekSeconds;
-                  initialResumedRef.current.applied = true;
-                  if (seekTime > 0) {
-                    if (v.duration > 0 && seekTime >= v.duration) {
-                      const excess = seekTime - v.duration;
-                      console.info(
-                        `[FastGridPlayer] HTML5: tempo ${seekTime}s ultrapassou duração (${v.duration}s). Avançando.`
-                      );
-                      initialResumedRef.current = {
-                        index: (currentIndexRef.current + 1) % dayPlaylistRef.current.length,
-                        seekSeconds: Math.floor(excess),
-                        applied: false,
-                      };
-                      advanceToNextVideo();
-                      return;
-                    }
+
+                // 1. Sincronização Global Linear Inicial (Simulcast):
+                if (initialSyncRef.current && !initialSyncRef.current.applied) {
+                  const startSec = initialSyncRef.current.startOffsetSeconds;
+                  initialSyncRef.current.applied = true;
+                  if (startSec > 0 && v.duration > 0 && startSec < v.duration) {
                     try {
-                      v.currentTime = seekTime;
-                      console.info(`[FastGridPlayer] HTML5 retomado no segundo ${seekTime}.`);
+                      v.currentTime = startSec;
+                      console.info(`[FastGridPlayer] Simulcast HTML5 posicionado aos ${startSec}s.`);
                     } catch {}
                   }
                 }
+
+                // 2. Auto-gravação da duração exata no Supabase
+                if (v.duration > 10 && currentItem?.id) {
+                  autoSyncDuration(currentItem.id, v.duration);
+                }
               }}
               onEnded={() => {
-                console.info("[FastGridPlayer] Vídeo HTML5 finalizado (onEnded). Avançando...");
+                console.info("[FastGridPlayer] Vídeo HTML5 finalizado na íntegra (onEnded). Avançando...");
                 advanceToNextVideo();
               }}
               onError={(e) => {
@@ -724,9 +624,8 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
               }}
               onTimeUpdate={(e) => {
                 const v = e.currentTarget;
-                if (v.duration > 0 && v.currentTime >= 0) {
+                if (v.duration > 0) {
                   setRemainingTime(Math.round(Math.max(0, v.duration - v.currentTime)));
-                  saveWebTvState(todayRef.current, currentIndexRef.current, v.currentTime);
                 }
               }}
               className="w-full h-full object-contain bg-black"

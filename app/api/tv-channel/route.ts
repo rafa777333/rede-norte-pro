@@ -350,6 +350,31 @@ export async function POST(request: NextRequest) {
       await savePlaylist(updated);
     }
 
+    // 6.1 Atualizar Duração Automática Detectada pelo Player (onDuration / onLoadedMetadata)
+    if (action === "update_duration" && itemId && typeof body.duration_seconds === "number" && body.duration_seconds > 0) {
+      const currentList = await getCurrentPlaylist();
+      let changed = false;
+      const targetSec = Math.round(body.duration_seconds);
+
+      const updated = currentList.map((i) => {
+        if (i.id === itemId) {
+          // Só atualiza se ainda não tinha duração ou se diverge mais de 5 segundos
+          if (!i.duration_seconds || Math.abs(i.duration_seconds - targetSec) > 5) {
+            changed = true;
+            return {
+              ...i,
+              duration_seconds: targetSec,
+            };
+          }
+        }
+        return i;
+      });
+
+      if (changed) {
+        await savePlaylist(updated);
+      }
+    }
+
     // 7. Copiar Grade de um Dia para Outro (Utilitário para emissoras)
     if (action === "copy_day" && typeof fromDay === "number" && typeof toDay === "number") {
       const currentList = await getCurrentPlaylist();

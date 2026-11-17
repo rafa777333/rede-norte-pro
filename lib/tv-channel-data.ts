@@ -315,3 +315,139 @@ export function calculateTvProgramAtTime(
     activeList,
   };
 }
+
+/**
+ * Retorna os segundos decorridos desde a meia-noite (00:00:00) no horário oficial de Brasília.
+ * Utiliza o fuso America/Sao_Paulo com fallback para horário local.
+ * Garante que todos os usuários ao redor do mundo estejam alinhados ao mesmo segundo de transmissão.
+ */
+export function getSecondsSinceMidnightBrasilia(now = new Date()): number {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    let h = 0;
+    let m = 0;
+    let s = 0;
+    for (const p of parts) {
+      if (p.type === "hour") h = parseInt(p.value, 10);
+      if (p.type === "minute") m = parseInt(p.value, 10);
+      if (p.type === "second") s = parseInt(p.value, 10);
+    }
+    if (h === 24) h = 0;
+    return h * 3600 + m * 60 + s + now.getMilliseconds() / 1000;
+  } catch {
+    return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() / 1000;
+  }
+}
+
+/**
+ * Retorna o dia da semana atual (0 = Domingo, 1 = Segunda, etc.) no horário de Brasília.
+ */
+export function getDayOfWeekBrasilia(now = new Date()): number {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      weekday: "short",
+    });
+    const dayStr = formatter.format(now);
+    const map: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+    return map[dayStr] ?? now.getDay();
+  } catch {
+    return now.getDay();
+  }
+}
+
+/**
+ * Sincronização Global Linear (Simulcast / Pseudo-Live)
+ * Calcula exatamente qual vídeo da grade do dia está no ar e em qual segundo
+ * com base no relógio global desde a meia-noite.
+ */
+export interface GlobalSyncResult {
+  currentVideoIndex: number;
+  startOffsetSeconds: number;
+  totalPlaylistDuration: number;
+  currentCycleTime: number;
+  secondsSinceMidnight: number;
+}
+
+export function calculateGlobalLinearSync(
+  playlist: TvPlaylistItem[],
+  now = new Date()
+): GlobalSyncResult {
+  if (!playlist || playlist.length === 0) {
+    return {
+      currentVideoIndex: 0,
+      startOffsetSeconds: 0,
+      totalPlaylistDuration: 0,
+      currentCycleTime: 0,
+      secondsSinceMidnight: 0,
+    };
+  }
+
+  // 1. Horário atual exato em segundos decorridos desde a meia-noite de hoje (00:00:00 no fuso de Brasília)
+  const secondsSinceMidnight = getSecondsSinceMidnightBrasilia(now);
+
+  // 2. Soma da duração de todos os vídeos da playlist do dia (fallback seguro de 1800s se não houver duração)
+  const totalPlaylistDuration = playlist.reduce((acc, item) => {
+    const dur =
+      typeof item.duration_seconds === "number" && item.duration_seconds > 10
+        ? item.duration_seconds
+        : 1800;
+    return acc + dur;
+  }, 0);
+
+  if (totalPlaylistDuration <= 0) {
+    return {
+      currentVideoIndex: 0,
+      startOffsetSeconds: 0,
+      totalPlaylistDuration: 0,
+      currentCycleTime: 0,
+      secondsSinceMidnight,
+    };
+  }
+
+  // 3. Operador de módulo para descobrir o ponto exato no ciclo diário da TV
+  const currentCycleTime = secondsSinceMidnight % totalPlaylistDuration;
+
+  // 4. Percorre o array de vídeos somando as durações até encontrar o vídeo atual e o segundo exato
+  let accumulated = 0;
+  let currentVideoIndex = 0;
+  let startOffsetSeconds = 0;
+
+  for (let i = 0; i < playlist.length; i++) {
+    const item = playlist[i];
+    const dur =
+      typeof item.duration_seconds === "number" && item.duration_seconds > 10
+        ? item.duration_seconds
+        : 1800;
+
+    if (currentCycleTime < accumulated + dur) {
+      currentVideoIndex = i;
+      startOffsetSeconds = Math.max(0, Math.floor(currentCycleTime - accumulated));
+      break;
+    }
+    accumulated += dur;
+  }
+
+  return {
+    currentVideoIndex,
+    startOffsetSeconds,
+    totalPlaylistDuration,
+    currentCycleTime,
+    secondsSinceMidnight,
+  };
+}
