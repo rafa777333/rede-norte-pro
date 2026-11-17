@@ -51,6 +51,9 @@ import {
   getPlaylistItemTypeMeta,
   calculateTvProgramAtTime,
   calculateGlobalLinearSync,
+  calculateBrasiliaScheduleSync,
+  getBrasiliaTimeHHMM,
+  parseTimeToSeconds,
   getSecondsSinceMidnightBrasilia,
   getDayOfWeekBrasilia,
   type GlobalSyncResult,
@@ -131,11 +134,11 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
     const dayPlaylistRef = useRef(dayPlaylist);
     dayPlaylistRef.current = dayPlaylist;
 
-    // Sincronização Global Linear (Simulcast / Pseudo-Live):
-    // Todos os usuários ao redor do mundo entram no mesmo vídeo e no mesmo segundo
+    // Sincronização por Horário de Brasília (Hora Marcada vs. Sequência Contínua):
+    // Verifica se algum programa com start_time está no ar; se não, roda sequência contínua (linear)
     const initialSyncRef = useRef<{ index: number; startOffsetSeconds: number; applied: boolean } | null>(null);
     if (!initialSyncRef.current) {
-      const sync = calculateGlobalLinearSync(dayPlaylist);
+      const sync = calculateBrasiliaScheduleSync(dayPlaylist);
       initialSyncRef.current = {
         index: sync.currentVideoIndex,
         startOffsetSeconds: sync.startOffsetSeconds,
@@ -143,7 +146,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
       };
     }
 
-    // Inicia no índice sincronizado linearmente pelo relógio global
+    // Inicia no índice sincronizado linearmente pelo relógio global ou pelo start_time
     const [currentIndex, setCurrentIndex] = useState(() => initialSyncRef.current?.index ?? 0);
     const currentIndexRef = useRef(currentIndex);
     currentIndexRef.current = currentIndex;
@@ -151,7 +154,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
     // Recalibra o índice e segundo de início quando a playlist real carrega do banco (antes do play)
     useEffect(() => {
       if (initialSyncRef.current && !initialSyncRef.current.applied && dayPlaylist.length > 0) {
-        const sync = calculateGlobalLinearSync(dayPlaylist);
+        const sync = calculateBrasiliaScheduleSync(dayPlaylist);
         initialSyncRef.current = {
           index: sync.currentVideoIndex,
           startOffsetSeconds: sync.startOffsetSeconds,
@@ -568,6 +571,89 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
 
       return () => clearInterval(interval);
     }, [isMuted, onMuteChange, currentItem?.id, autoSyncDuration]);
+
+    // Verificador leve de relógio (a cada 30 segundos) que checa se o horário atual de Brasília
+    // acabou de atingir o minuto exato (HH:MM) do start_time de algum programa agendado.
+    const lastScheduledTriggerRef = useRef<string | null>(null);
+
+    useEffect(() => {
+      const scheduleTimer = setInterval(() => {
+        const currentHHMM = getBrasiliaTimeHHMM();
+        const currentDay = getDayOfWeekBrasilia();
+
+        // Se o dia virou à meia-noite, avança para a nova grade diária
+        if (currentDay !== todayRef.current) {
+          advanceToNextVideo();
+          return;
+        }
+
+        const list = dayPlaylistRef.current;
+        if (!list || list.length === 0) return;
+
+        // Busca se existe algum programa agendado para o minuto atual
+        const scheduledTarget = list.find(
+          (item) => item.active && item.start_time && item.start_time.trim() === currentHHMM
+        );
+
+        if (!scheduledTarget) return;
+
+        const triggerKey = `${scheduledTarget.id}_${currentDay}_${currentHHMM}`;
+        if (lastScheduledTriggerRef.current === triggerKey) {
+          // Já disparou neste minuto
+          return;
+        }
+
+        // Se já estiver tocando esse mesmo programa, não reinicia
+        const currentPlaying = list[currentIndexRef.current];
+        if (currentPlaying?.id === scheduledTarget.id) {
+          lastScheduledTriggerRef.current = triggerKey;
+          return;
+        }
+
+        // Programa agendado encontrado e não está tocando: inicia imediatamente
+        lastScheduledTriggerRef.current = triggerKey;
+        const targetIdx = list.findIndex((i) => i.id === scheduledTarget.id);
+        if (targetIdx === -1) return;
+
+        console.info(
+          `[FastGridPlayer] Horário agendado ${currentHHMM} de Brasília atingido! Iniciando programa "${scheduledTarget.title}"...`
+        );
+
+        const secIntoMinute = Math.floor(getSecondsSinceMidnightBrasilia() % 60);
+        const startSec = Math.max(0, secIntoMinute);
+
+        setCurrentIndex(targetIdx);
+        currentIndexRef.current = targetIdx;
+
+        if (
+          scheduledTarget.youtube_id &&
+          playerRef.current &&
+          typeof playerRef.current.loadVideoById === "function"
+        ) {
+          try {
+            playerRef.current.loadVideoById({
+              videoId: scheduledTarget.youtube_id,
+              startSeconds: startSec,
+            });
+            playerRef.current.playVideo();
+            if (selectedQuality && typeof playerRef.current.setPlaybackQuality === "function") {
+              playerRef.current.setPlaybackQuality(selectedQuality);
+            }
+          } catch (e) {
+            console.warn("[FastGridPlayer] Falha ao carregar programa agendado no YouTube:", e);
+          }
+        } else if (html5VideoRef.current) {
+          try {
+            html5VideoRef.current.currentTime = startSec;
+            html5VideoRef.current.play().catch(() => {});
+          } catch (e) {
+            console.warn("[FastGridPlayer] Falha ao carregar programa agendado em HTML5:", e);
+          }
+        }
+      }, 30000); // 30 segundos
+
+      return () => clearInterval(scheduleTimer);
+    }, [advanceToNextVideo, selectedQuality]);
 
     // Destruição limpa no unmount
     useEffect(() => {

@@ -27,6 +27,7 @@ export interface TvPlaylistItem {
   sort_order: number;
   active: boolean;
   day_of_week: number; // 0 = Domingo, 1 = Segunda, 2 = Terça, 3 = Quarta, 4 = Quinta, 5 = Sexta, 6 = Sábado
+  start_time?: string | null; // ex: "12:00" (Horário de Brasília) ou null/vazio para Sequência contínua
   created_at?: string;
 }
 
@@ -249,8 +250,8 @@ export interface CurrentTvSchedule {
 }
 
 /**
- * Calcula qual vídeo está passando no exato segundo atual, com base no relógio real sincronizado.
- * Fórmula: nowSeconds % totalPlaylistDurationSeconds
+ * Calcula qual vídeo está passando no exato segundo atual, com base no relógio de Brasília.
+ * Suporta programas de hora marcada (start_time) e fila contínua (Sequência).
  */
 export function calculateTvProgramAtTime(
   playlist: TvPlaylistItem[],
@@ -261,14 +262,14 @@ export function calculateTvProgramAtTime(
   let activeList = playlist
     .filter((item) => {
       const itemDay = typeof item.day_of_week === "number" ? item.day_of_week : 1;
-      return item.active && itemDay === targetDay && item.duration_seconds > 0;
+      return item.active && itemDay === targetDay;
     })
     .sort((a, b) => a.sort_order - b.sort_order);
 
   // Se o dia específico não tiver itens cadastrados, busca quaisquer itens ativos como fallback
   if (activeList.length === 0) {
     activeList = playlist
-      .filter((item) => item.active && item.duration_seconds > 0)
+      .filter((item) => item.active)
       .sort((a, b) => a.sort_order - b.sort_order);
   }
 
@@ -276,42 +277,20 @@ export function calculateTvProgramAtTime(
     return null;
   }
 
-  const totalDuration = activeList.reduce((acc, item) => acc + item.duration_seconds, 0);
-  if (totalDuration <= 0) return null;
-
-  const now = nowTimestampSeconds ?? Math.floor(Date.now() / 1000);
-  const currentCycleOffset = ((now % totalDuration) + totalDuration) % totalDuration;
-
-  let accumulated = 0;
-  let currentIndex = 0;
-  let offsetInCurrentVideo = 0;
-
-  for (let i = 0; i < activeList.length; i++) {
-    const item = activeList[i];
-    const itemStart = accumulated;
-    const itemEnd = accumulated + item.duration_seconds;
-
-    if (currentCycleOffset >= itemStart && currentCycleOffset < itemEnd) {
-      currentIndex = i;
-      offsetInCurrentVideo = currentCycleOffset - itemStart;
-      break;
-    }
-    accumulated += item.duration_seconds;
-  }
-
-  const currentItem = activeList[currentIndex] || activeList[0];
-  const nextIndex = (currentIndex + 1) % activeList.length;
+  const sync = calculateBrasiliaScheduleSync(activeList);
+  const currentItem = activeList[sync.currentVideoIndex] || activeList[0];
+  const nextIndex = (sync.currentVideoIndex + 1) % activeList.length;
   const nextItem = activeList[nextIndex] || currentItem;
-  const remainingInCurrent = Math.max(0, currentItem.duration_seconds - offsetInCurrentVideo);
+  const dur = currentItem.duration_seconds > 0 ? currentItem.duration_seconds : 1800;
 
   return {
     currentItem,
-    currentIndex,
+    currentIndex: sync.currentVideoIndex,
     nextItem,
     nextIndex,
-    offsetInCurrentVideo,
-    remainingInCurrent,
-    totalDuration,
+    offsetInCurrentVideo: sync.startOffsetSeconds,
+    remainingInCurrent: Math.max(0, dur - sync.startOffsetSeconds),
+    totalDuration: activeList.reduce((acc, i) => acc + (i.duration_seconds || 1800), 0),
     activeList,
   };
 }
@@ -449,5 +428,126 @@ export function calculateGlobalLinearSync(
     totalPlaylistDuration,
     currentCycleTime,
     secondsSinceMidnight,
+  };
+}
+
+/**
+ * Converte string de horário "HH:MM" ou "HH:MM:SS" em segundos decorridos desde a meia-noite.
+ * Retorna null se a string for vazia ou inválida.
+ */
+export function parseTimeToSeconds(timeStr?: string | null): number | null {
+  if (!timeStr || typeof timeStr !== "string") return null;
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return null;
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const seconds = match[3] ? parseInt(match[3], 10) : 0;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) {
+    return null;
+  }
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+/**
+ * Retorna o horário atual no fuso oficial de Brasília formatado como "HH:MM".
+ */
+export function getBrasiliaTimeHHMM(now = new Date()): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    let h = "00";
+    let m = "00";
+    for (const p of parts) {
+      if (p.type === "hour") h = p.value.padStart(2, "0");
+      if (p.type === "minute") m = p.value.padStart(2, "0");
+    }
+    return `${h}:${m}`;
+  } catch {
+    const h = String(now.getHours()).padStart(2, "0");
+    const m = String(now.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+}
+
+/**
+ * Resultado da Sincronização Híbrida:
+ * Prioriza programas com horário fixo de início (start_time).
+ * Quando nenhum programa fixo está no ar, roda a sequência contínua (linear).
+ */
+export interface ScheduleSyncResult {
+  currentVideoIndex: number;
+  startOffsetSeconds: number;
+  isScheduledTime: boolean;
+  activeProgram: TvPlaylistItem | null;
+}
+
+export function calculateBrasiliaScheduleSync(
+  playlist: TvPlaylistItem[],
+  now = new Date()
+): ScheduleSyncResult {
+  if (!playlist || playlist.length === 0) {
+    return {
+      currentVideoIndex: 0,
+      startOffsetSeconds: 0,
+      isScheduledTime: false,
+      activeProgram: null,
+    };
+  }
+
+  const nowSeconds = getSecondsSinceMidnightBrasilia(now);
+
+  // 1. Procurar programas do dia que possuem horário fixo (start_time)
+  const scheduledWithSec = playlist
+    .map((item, index) => {
+      const sec = parseTimeToSeconds(item.start_time);
+      return { item, index, startSec: sec };
+    })
+    .filter(
+      (entry): entry is { item: TvPlaylistItem; index: number; startSec: number } =>
+        entry.startSec !== null && entry.startSec <= nowSeconds
+    );
+
+  // Ordena pelo horário de início mais recente primeiro
+  scheduledWithSec.sort((a, b) => b.startSec - a.startSec);
+
+  // Verifica se o programa de horário fixo mais recente ainda está no ar
+  if (scheduledWithSec.length > 0) {
+    const mostRecent = scheduledWithSec[0];
+    const elapsed = nowSeconds - mostRecent.startSec;
+    const dur =
+      typeof mostRecent.item.duration_seconds === "number" && mostRecent.item.duration_seconds > 10
+        ? mostRecent.item.duration_seconds
+        : 1800; // Duração fallback segura
+
+    if (elapsed < dur) {
+      // O programa de hora marcada está NO AR agora!
+      return {
+        currentVideoIndex: mostRecent.index,
+        startOffsetSeconds: Math.max(0, Math.floor(elapsed)),
+        isScheduledTime: true,
+        activeProgram: mostRecent.item,
+      };
+    }
+  }
+
+  // 2. Se nenhum programa agendado está no ar agora, mantém a reprodução contínua
+  // dos vídeos Sequência da fila usando o cálculo linear
+  const sequentialItems = playlist.filter((i) => !i.start_time || !i.start_time.trim());
+  const pool = sequentialItems.length > 0 ? sequentialItems : playlist;
+
+  const linear = calculateGlobalLinearSync(pool, now);
+  const chosenItem = pool[linear.currentVideoIndex] || playlist[0];
+  const realIndex = playlist.findIndex((i) => i.id === chosenItem.id);
+
+  return {
+    currentVideoIndex: realIndex >= 0 ? realIndex : 0,
+    startOffsetSeconds: linear.startOffsetSeconds,
+    isScheduledTime: false,
+    activeProgram: chosenItem,
   };
 }

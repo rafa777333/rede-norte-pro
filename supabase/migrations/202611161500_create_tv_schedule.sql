@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.tv_schedule (
   duration_seconds INT DEFAULT 0,
   day_of_week INT NOT NULL DEFAULT 1 CHECK (day_of_week >= 0 AND day_of_week <= 6),
   sort_order INT NOT NULL DEFAULT 1,
+  start_time TEXT DEFAULT NULL,
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

@@ -86,8 +86,7 @@ export default function AdminTvVideosManager() {
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemUrl, setNewItemUrl] = useState("");
   const [newItemType, setNewItemType] = useState<TvPlaylistItemType>("podcast");
-  const [newItemMinutes, setNewItemMinutes] = useState("15");
-  const [newItemSeconds, setNewItemSeconds] = useState("00");
+  const [newItemStartTime, setNewItemStartTime] = useState("");
   const [newItemDay, setNewItemDay] = useState<number>(() => new Date().getDay());
   const [addingItem, setAddingItem] = useState(false);
 
@@ -96,8 +95,7 @@ export default function AdminTvVideosManager() {
   const [editTitle, setEditTitle] = useState("");
   const [editUrl, setEditUrl] = useState("");
   const [editType, setEditType] = useState<TvPlaylistItemType>("podcast");
-  const [editMinutes, setEditMinutes] = useState("15");
-  const [editSeconds, setEditSeconds] = useState("00");
+  const [editStartTime, setEditStartTime] = useState("");
   const [editDay, setEditDay] = useState<number>(1);
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -318,15 +316,6 @@ export default function AdminTvVideosManager() {
       return;
     }
 
-    const min = parseInt(newItemMinutes, 10) || 0;
-    const sec = parseInt(newItemSeconds, 10) || 0;
-    const totalSec = min * 60 + sec;
-
-    if (totalSec <= 0) {
-      setMensagemErro("A duração do vídeo deve ser maior que 0 segundos.");
-      return;
-    }
-
     try {
       setAddingItem(true);
       setMensagemErro(null);
@@ -338,8 +327,9 @@ export default function AdminTvVideosManager() {
         youtube_url: newItemUrl.trim(),
         youtube_id: ytId,
         type: newItemType,
-        duration_seconds: totalSec,
+        duration_seconds: 0,
         day_of_week: newItemDay,
+        start_time: newItemStartTime.trim() || null,
       };
 
       const res = await fetch("/api/tv-channel", {
@@ -354,8 +344,7 @@ export default function AdminTvVideosManager() {
       // Limpa formulário
       setNewItemTitle("");
       setNewItemUrl("");
-      setNewItemMinutes("15");
-      setNewItemSeconds("00");
+      setNewItemStartTime("");
 
       broadcastTvUpdate();
       setMensagemSucesso(`Vídeo adicionado com sucesso à grade de ${getDayLabel(newItemDay)}!`);
@@ -410,10 +399,7 @@ export default function AdminTvVideosManager() {
     setEditTitle(item.title);
     setEditUrl(item.video_url || item.youtube_url || "");
     setEditType(item.type);
-    const min = Math.floor((item.duration_seconds || 0) / 60);
-    const sec = (item.duration_seconds || 0) % 60;
-    setEditMinutes(String(min));
-    setEditSeconds(String(sec).padStart(2, "0"));
+    setEditStartTime(item.start_time || "");
     setEditDay(typeof item.day_of_week === "number" ? item.day_of_week : 1);
   };
 
@@ -430,10 +416,6 @@ export default function AdminTvVideosManager() {
       return;
     }
 
-    const min = parseInt(editMinutes, 10) || 0;
-    const sec = parseInt(editSeconds, 10) || 0;
-    const totalSec = min * 60 + sec;
-
     try {
       setSavingEdit(true);
       const ytId = extractYouTubeId(editUrl) || "";
@@ -444,8 +426,8 @@ export default function AdminTvVideosManager() {
         youtube_url: editUrl.trim(),
         youtube_id: ytId,
         type: editType,
-        duration_seconds: totalSec,
         day_of_week: editDay,
+        start_time: editStartTime.trim() || null,
       };
 
       const res = await fetch("/api/tv-channel", {
@@ -1246,45 +1228,39 @@ export default function AdminTvVideosManager() {
                   </select>
                 </div>
 
-                {/* 4. Duração: Minutos e Segundos */}
-                <div className="sm:col-span-3 flex items-center gap-1.5">
-                  <div className="flex-1">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Min</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="600"
-                      value={newItemMinutes}
-                      onChange={(e) => setNewItemMinutes(e.target.value)}
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 bg-white text-center font-mono"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Seg</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="59"
-                      value={newItemSeconds}
-                      onChange={(e) => setNewItemSeconds(e.target.value)}
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 bg-white text-center font-mono"
-                    />
-                  </div>
+                {/* 4. Horário de Início (Opcional - Horário de Brasília) */}
+                <div className="sm:col-span-3">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Horário de Início (Opcional)
+                  </label>
+                  <input
+                    type="time"
+                    value={newItemStartTime}
+                    onChange={(e) => setNewItemStartTime(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 bg-white font-mono"
+                  />
                 </div>
 
-                {/* Botão de Envio */}
+                {/* Status e Botão de Envio */}
                 <div className="sm:col-span-9 flex items-center justify-between sm:justify-end gap-3 pt-1">
-                  <span className="text-[11px] text-slate-500 truncate">
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500 truncate">
+                    {newItemStartTime ? (
+                      <span className="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                        ⏰ Inicia às {newItemStartTime} (Brasília)
+                      </span>
+                    ) : (
+                      <span className="text-slate-600 font-medium bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                        🔄 Entra na Sequência contínua
+                      </span>
+                    )}
                     {extractYouTubeId(newItemUrl) ? (
-                      <span className="text-emerald-700 font-bold">
+                      <span className="text-emerald-700 font-bold hidden md:inline">
                         ✓ YouTube ID: {extractYouTubeId(newItemUrl)}
                       </span>
                     ) : newItemUrl.trim() ? (
-                      <span className="text-purple-700 font-bold">✓ Link externo/direto aceito</span>
-                    ) : (
-                      "Aceita links do YouTube ou URLs diretas."
-                    )}
-                  </span>
+                      <span className="text-purple-700 font-bold hidden md:inline">✓ Link direto aceito</span>
+                    ) : null}
+                  </div>
 
                   <button
                     type="submit"
@@ -1353,12 +1329,23 @@ export default function AdminTvVideosManager() {
 
                       {/* Título e Metadados */}
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${typeMeta.badgeBg}`}
                           >
                             {typeMeta.icon} {typeMeta.label}
                           </span>
+
+                          {item.start_time && item.start_time.trim() ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-xs">
+                              ⏰ {item.start_time.trim()}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 flex items-center gap-1">
+                              🔄 Sequência
+                            </span>
+                          )}
+
                           {isCurrentlyPlaying && (
                             <span className="px-2 py-0.5 rounded-full bg-red-600 text-white font-black text-[9px] uppercase tracking-wider animate-pulse">
                               NO AR AGORA
@@ -1369,7 +1356,9 @@ export default function AdminTvVideosManager() {
                           {item.title}
                         </h4>
                         <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 font-bold">
-                          <span>⏱ {formatClockTime(item.duration_seconds)}</span>
+                          <span>
+                            ⏱ {item.duration_seconds > 0 ? formatClockTime(item.duration_seconds) : "Detectando ao tocar..."}
+                          </span>
                           <span>·</span>
                           <span className="truncate max-w-[180px] sm:max-w-xs text-slate-400 font-normal">
                             {item.video_url || item.youtube_url}
@@ -1538,33 +1527,52 @@ export default function AdminTvVideosManager() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Duração (Minutos)
+                    {/* Horário de Início (Opcional - Horário de Brasília) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700">
+                          Horário de Início (Opcional - Horário de Brasília)
                         </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="600"
-                          value={editMinutes}
-                          onChange={(e) => setEditMinutes(e.target.value)}
-                          className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-mono text-center"
-                        />
+                        {editStartTime && (
+                          <button
+                            type="button"
+                            onClick={() => setEditStartTime("")}
+                            className="text-[11px] font-bold text-purple-600 hover:text-purple-800 hover:underline cursor-pointer flex items-center gap-1"
+                            title="Remover horário fixo e tornar o programa uma sequência contínua"
+                          >
+                            <span>✕ Limpar Horário</span>
+                          </button>
+                        )}
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Segundos
-                        </label>
+                      <div className="flex items-center gap-2">
                         <input
-                          type="number"
-                          min="0"
-                          max="59"
-                          value={editSeconds}
-                          onChange={(e) => setEditSeconds(e.target.value)}
-                          className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-mono text-center"
+                          type="time"
+                          value={editStartTime}
+                          onChange={(e) => setEditStartTime(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-purple-600 font-mono"
                         />
+                        {editStartTime && (
+                          <button
+                            type="button"
+                            onClick={() => setEditStartTime("")}
+                            className="px-3 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-bold shrink-0 cursor-pointer"
+                            title="Limpar Horário e Voltar para Sequência"
+                          >
+                            Limpar Horário
+                          </button>
+                        )}
                       </div>
+                      <p className="text-[11px] mt-1.5">
+                        {editStartTime ? (
+                          <span className="text-amber-800 font-semibold">
+                            ⏰ Programa com hora marcada: entrará no ar pontualmente às {editStartTime} (Brasília).
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 font-normal">
+                            🔄 Modo Sequencial: o vídeo irá ao ar logo após o término do anterior na fila.
+                          </span>
+                        )}
+                      </p>
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

@@ -27,6 +27,10 @@ function normalizePlaylistItem(p: any, idx: number): TvPlaylistItem {
   const day = typeof p.day_of_week === "number" && p.day_of_week >= 0 && p.day_of_week <= 6
     ? p.day_of_week
     : 1; // Default: Segunda-feira
+  const startTime =
+    typeof p.start_time === "string" && p.start_time.trim()
+      ? p.start_time.trim()
+      : null;
 
   return {
     id: p.id || `tv-item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -35,10 +39,11 @@ function normalizePlaylistItem(p: any, idx: number): TvPlaylistItem {
     youtube_url: videoUrl,
     youtube_id: ytId,
     type: p.type || "podcast",
-    duration_seconds: Math.max(0, Number(p.duration_seconds) || 300),
+    duration_seconds: Math.max(0, Number(p.duration_seconds) || 0),
     sort_order: typeof p.sort_order === "number" ? p.sort_order : idx + 1,
     active: typeof p.active === "boolean" ? p.active : true,
     day_of_week: day,
+    start_time: startTime,
     created_at: p.created_at || new Date().toISOString(),
   };
 }
@@ -208,6 +213,7 @@ export async function POST(request: NextRequest) {
             day_of_week: item.day_of_week,
             sort_order: item.sort_order,
             active: item.active,
+            start_time: item.start_time || null,
             updated_at: new Date().toISOString(),
           }))
         );
@@ -277,6 +283,10 @@ export async function POST(request: NextRequest) {
 
       const videoUrl = item.video_url?.trim() || item.youtube_url?.trim() || "";
       const ytId = item.youtube_id || extractYouTubeId(videoUrl) || "";
+      const startTime =
+        typeof item.start_time === "string" && item.start_time.trim()
+          ? item.start_time.trim()
+          : null;
 
       const newItem: TvPlaylistItem = {
         id: `tv-item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -285,10 +295,11 @@ export async function POST(request: NextRequest) {
         youtube_url: videoUrl,
         youtube_id: ytId,
         type: item.type || "podcast",
-        duration_seconds: Math.max(0, Number(item.duration_seconds) || 300),
+        duration_seconds: Math.max(0, Number(item.duration_seconds) || 0),
         sort_order: nextSortOrder,
         active: typeof item.active === "boolean" ? item.active : true,
         day_of_week: itemDay,
+        start_time: startTime,
         created_at: new Date().toISOString(),
       };
 
@@ -320,7 +331,7 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
-    // 6. Atualizar Item Específico (edição de título, link, duração, dia, active)
+    // 6. Atualizar Item Específico (edição de título, link, duração, dia, start_time, active)
     if (action === "update_item" && item && item.id) {
       const currentList = await getCurrentPlaylist();
       const videoUrl = item.video_url?.trim() || item.youtube_url?.trim() || "";
@@ -333,6 +344,11 @@ export async function POST(request: NextRequest) {
               ? item.day_of_week
               : i.day_of_week;
 
+          const startTime =
+            item.start_time !== undefined
+              ? (typeof item.start_time === "string" && item.start_time.trim() ? item.start_time.trim() : null)
+              : i.start_time;
+
           return {
             ...i,
             ...item,
@@ -342,6 +358,7 @@ export async function POST(request: NextRequest) {
             duration_seconds:
               typeof item.duration_seconds === "number" ? Math.max(0, item.duration_seconds) : i.duration_seconds,
             day_of_week: nextDay,
+            start_time: startTime,
           };
         }
         return i;
