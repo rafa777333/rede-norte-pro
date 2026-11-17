@@ -1,4 +1,4 @@
-import React from "react";
+import React, { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,7 +7,8 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import { ArrowLeft, Clock, Play } from "lucide-react";
 import ShareButtons from "./ShareButtons";
 
-export const dynamic = "force-dynamic";
+// Caching ISR inteligente: revalida a cada 60s em background
+// Sem 'force-dynamic' para permitir renderização ultra rápida (< 30ms)
 export const revalidate = 60;
 
 const SITE_URL = "https://www.redeapucarana.com.br";
@@ -29,13 +30,187 @@ interface NormalizedNews {
 }
 
 /**
+ * Fallback institucional resiliente para notícias base do portal
+ */
+const INSTITUTIONAL_FALLBACKS: Record<string, NormalizedNews> = {
+  "1": {
+    id: "1",
+    slug: "portal-rede-apucarana-informacao-regional",
+    title: "Portal Rede Apucarana de Comunicação • Informação Regional em Tempo Real",
+    seo_description:
+      "Acompanhe a cobertura completa de acontecimentos em Apucarana, Arapongas e Vale do Ivaí com credibilidade e utilidade pública.",
+    content:
+      "A Rede Apucarana de Comunicação traz as principais atualizações e reportagens de toda a nossa região com jornalismo ágil, ético e focado no desenvolvimento do Vale do Ivaí.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Cidade",
+    cidade: "Apucarana",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+  "portal-rede-apucarana-informacao-regional": {
+    id: "1",
+    slug: "portal-rede-apucarana-informacao-regional",
+    title: "Portal Rede Apucarana de Comunicação • Informação Regional em Tempo Real",
+    seo_description:
+      "Acompanhe a cobertura completa de acontecimentos em Apucarana, Arapongas e Vale do Ivaí com credibilidade e utilidade pública.",
+    content:
+      "A Rede Apucarana de Comunicação traz as principais atualizações e reportagens de toda a nossa região com jornalismo ágil, ético e focado no desenvolvimento do Vale do Ivaí.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Cidade",
+    cidade: "Apucarana",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+  "2": {
+    id: "2",
+    slug: "desenvolvimento-regional-oportunidades-vale-do-ivai",
+    title: "Desenvolvimento Regional e Oportunidades no Vale do Ivaí",
+    seo_description:
+      "Setor produtivo e comércio local fortalecem a geração de empregos na região de Apucarana e cidades vizinhas.",
+    content:
+      "O setor de comércio e serviços segue como um dos pilares da economia regional, impulsionando novos empreendimentos e oportunidades de trabalho.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Economia",
+    cidade: "Arapongas",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+  "desenvolvimento-regional-oportunidades-vale-do-ivai": {
+    id: "2",
+    slug: "desenvolvimento-regional-oportunidades-vale-do-ivai",
+    title: "Desenvolvimento Regional e Oportunidades no Vale do Ivaí",
+    seo_description:
+      "Setor produtivo e comércio local fortalecem a geração de empregos na região de Apucarana e cidades vizinhas.",
+    content:
+      "O setor de comércio e serviços segue como um dos pilares da economia regional, impulsionando novos empreendimentos e oportunidades de trabalho.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Economia",
+    cidade: "Arapongas",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+  "3": {
+    id: "3",
+    slug: "servicos-publicos-comunidade-apucarana",
+    title: "Serviços Públicos e Utilidade à Comunidade de Apucarana e Região",
+    seo_description:
+      "Confira informações essenciais, telefones úteis e atendimento à população do Vale do Ivaí.",
+    content:
+      "Informações atualizadas sobre serviços públicos, plantões e utilidades para o morador de Apucarana e municípios parceiros.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Serviço",
+    cidade: "Apucarana",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+  "servicos-publicos-comunidade-apucarana": {
+    id: "3",
+    slug: "servicos-publicos-comunidade-apucarana",
+    title: "Serviços Públicos e Utilidade à Comunidade de Apucarana e Região",
+    seo_description:
+      "Confira informações essenciais, telefones úteis e atendimento à população do Vale do Ivaí.",
+    content:
+      "Informações atualizadas sobre serviços públicos, plantões e utilidades para o morador de Apucarana e municípios parceiros.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Serviço",
+    cidade: "Apucarana",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+  "4": {
+    id: "4",
+    slug: "vale-do-ivai-noticias-dos-26-municipios",
+    title: "Vale do Ivaí: Acompanhe as Notícias dos 26 Municípios",
+    seo_description:
+      "Giro regional com os principais fatos do dia apurados pela equipe de reportagem da Rede Apucarana.",
+    content:
+      "Reportagens e notícias de interesse público cobrindo todo o Vale do Ivaí com atualizações diárias sobre os 26 municípios paranaenses.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Região",
+    cidade: "Ivaiporã",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+  "vale-do-ivai-noticias-dos-26-municipios": {
+    id: "4",
+    slug: "vale-do-ivai-noticias-dos-26-municipios",
+    title: "Vale do Ivaí: Acompanhe as Notícias dos 26 Municípios",
+    seo_description:
+      "Giro regional com os principais fatos do dia apurados pela equipe de reportagem da Rede Apucarana.",
+    content:
+      "Reportagens e notícias de interesse público cobrindo todo o Vale do Ivaí com atualizações diárias sobre os 26 municípios paranaenses.",
+    video_url: null,
+    imagem: "/logo-rede-apucarana.png",
+    cover_image: "/logo-rede-apucarana.png",
+    categoria: "Região",
+    cidade: "Ivaiporã",
+    autor: "Redação Rede Apucarana",
+    published_at: "2026-01-01T08:00:00Z",
+  },
+};
+
+/**
+ * Timeout seguro para evitar que consultas remotas travem o servidor
+ */
+function withTimeout<T>(promise: PromiseLike<T>, ms: number = 4000): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout de consulta após ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
+/**
+ * Formatação de data à prova de falhas (nunca lança RangeError)
+ */
+function safeFormatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Formatação ISO segura para dados estruturados
+ */
+function safeIsoDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return new Date().toISOString();
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return new Date().toISOString();
+    return d.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+/**
  * Extrator Robusto de ID do YouTube
- * Suporta formatos:
- * - youtube.com/watch?v=VIDEO_ID (incluindo vídeos não listados)
- * - youtu.be/VIDEO_ID
- * - youtube.com/embed/VIDEO_ID
- * - youtube.com/shorts/VIDEO_ID
- * - m.youtube.com/watch?v=VIDEO_ID
  */
 function extractYoutubeId(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -54,130 +229,148 @@ function getYoutubeThumbnail(url: string | null | undefined): string | null {
 }
 
 /**
- * Busca a notícia no Supabase pelo slug ou ID de forma segura contra erros de tipo (UUID)
+ * Busca a notícia no Supabase com deduplicação React cache() por requisição
  */
-async function getNewsBySlug(slug: string | undefined | null): Promise<NormalizedNews | null> {
-  if (!slug) return null;
-  const supabase = getSupabase();
-  if (!supabase) return null;
+const getNewsBySlug = cache(
+  async (slug: string | undefined | null): Promise<NormalizedNews | null> => {
+    if (!slug) return null;
 
-  try {
-    const decodedSlug = decodeURIComponent(slug).trim();
+    let decodedSlug = "";
+    try {
+      decodedSlug = decodeURIComponent(slug).trim();
+    } catch {
+      decodedSlug = String(slug).trim();
+    }
     if (!decodedSlug) return null;
 
-    // Valida se o slug informado é um UUID v4 válido
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedSlug);
-
-    // 1. Consulta primária na tabela news (usando select("*") para evitar erros de colunas inexistentes)
-    let query = supabase.from("news").select("*");
-    if (isUuid) {
-      query = query.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`);
-    } else {
-      query = query.eq("slug", decodedSlug);
+    // 0. Fallback institucional instantâneo (evita 404 em links base)
+    if (INSTITUTIONAL_FALLBACKS[decodedSlug]) {
+      return INSTITUTIONAL_FALLBACKS[decodedSlug];
     }
 
-    const { data, error } = await query.maybeSingle();
+    const supabase = getSupabase();
+    if (!supabase) return null;
 
-    if (error) {
-      console.warn("[getNewsBySlug news error]:", error.message);
-    }
+    try {
+      // Valida se o slug informado é um UUID v4 válido
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        decodedSlug
+      );
 
-    if (data) {
-      const rawFonte = data.fonte || "";
-      let extractedVideo: string | null = data.video_url || null;
-      let extractedFormat = (data as any).video_format || "16:9";
+      // 1. Consulta primária na tabela news com timeout protetor
+      let query = supabase.from("news").select("*");
+      if (isUuid) {
+        query = query.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`);
+      } else {
+        query = query.eq("slug", decodedSlug);
+      }
 
-      if (!extractedVideo && rawFonte.startsWith("video:")) {
-        const rawVideo = rawFonte.slice(6);
-        if (rawVideo.startsWith("9:16:") || rawVideo.startsWith("16:9:")) {
-          extractedFormat = rawVideo.slice(0, 4);
-          extractedVideo = rawVideo.slice(5);
-        } else {
-          extractedVideo = rawVideo;
+      const { data, error } = await withTimeout(query.maybeSingle(), 4000);
+
+      if (error) {
+        console.warn("[getNewsBySlug news warning]:", error.message);
+      }
+
+      if (data) {
+        const rawFonte = data.fonte || "";
+        let extractedVideo: string | null = data.video_url || null;
+        let extractedFormat = (data as any).video_format || "16:9";
+
+        if (!extractedVideo && rawFonte.startsWith("video:")) {
+          const rawVideo = rawFonte.slice(6);
+          if (rawVideo.startsWith("9:16:") || rawVideo.startsWith("16:9:")) {
+            extractedFormat = rawVideo.slice(0, 4);
+            extractedVideo = rawVideo.slice(5);
+          } else {
+            extractedVideo = rawVideo;
+          }
         }
+
+        if (
+          extractedVideo &&
+          (extractedVideo.includes("/shorts/") ||
+            extractedVideo.includes("/reel/") ||
+            extractedVideo.includes("tiktok.com/"))
+        ) {
+          extractedFormat = "9:16";
+        }
+
+        const cover_image = (data as any).cover_image || data.imagem || null;
+        const rawTitle = data.title || data.titulo || "";
+        if (!rawTitle) return null;
+
+        const rawContent = data.content || data.conteudo || "";
+        const rawResumo =
+          data.seo_description ||
+          data.resumo ||
+          rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
+
+        return {
+          id: data.id,
+          slug: data.slug || data.id,
+          title: rawTitle,
+          seo_description: rawResumo,
+          content: rawContent,
+          video_url: extractedVideo,
+          video_format: extractedFormat,
+          cover_image,
+          imagem: cover_image || data.imagem || null,
+          categoria: data.categoria || "Geral",
+          cidade: data.cidade_slug || "Apucarana",
+          autor: data.autor || "Redação Rede Apucarana",
+          published_at: data.published_at || data.created_at || new Date().toISOString(),
+        };
       }
 
-      if (
-        extractedVideo &&
-        (extractedVideo.includes("/shorts/") ||
-          extractedVideo.includes("/reel/") ||
-          extractedVideo.includes("tiktok.com/"))
-      ) {
-        extractedFormat = "9:16";
+      // 2. Fallback de compatibilidade na tabela noticias_portal com timeout protetor
+      let portalQuery = supabase.from("noticias_portal").select("*");
+      if (isUuid) {
+        portalQuery = portalQuery.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`);
+      } else {
+        portalQuery = portalQuery.eq("slug", decodedSlug);
       }
 
-      const cover_image = (data as any).cover_image || data.imagem || null;
-      const rawTitle = data.title || data.titulo || "";
-      if (!rawTitle) return null;
+      const { data: portalData, error: portalError } = await withTimeout(
+        portalQuery.maybeSingle(),
+        3000
+      );
 
-      const rawContent = data.content || data.conteudo || "";
-      const rawResumo =
-        data.seo_description ||
-        data.resumo ||
-        rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
+      if (portalError) {
+        console.warn("[getNewsBySlug noticias_portal warning]:", portalError.message);
+      }
 
-      return {
-        id: data.id,
-        slug: data.slug || data.id,
-        title: rawTitle,
-        seo_description: rawResumo,
-        content: rawContent,
-        video_url: extractedVideo,
-        video_format: extractedFormat,
-        cover_image,
-        imagem: cover_image || data.imagem || null,
-        categoria: data.categoria || "Geral",
-        cidade: data.cidade_slug || "Apucarana",
-        autor: data.autor || "Redação Rede Apucarana",
-        published_at: data.published_at || data.created_at || new Date().toISOString(),
-      };
+      if (portalData) {
+        const rawTitle = portalData.titulo_seo || portalData.titulo || "";
+        if (!rawTitle) return null;
+
+        const rawContent = portalData.corpo_html || portalData.conteudo || "";
+        const rawResumo =
+          portalData.resumo_meta ||
+          rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
+
+        return {
+          id: portalData.id,
+          slug: portalData.slug || portalData.id,
+          title: rawTitle,
+          seo_description: rawResumo,
+          content: rawContent,
+          video_url: null,
+          imagem: portalData.imagem_url || portalData.imagem || null,
+          cover_image: portalData.imagem_url || portalData.imagem || null,
+          categoria: portalData.categoria || "Geral",
+          cidade: "Apucarana",
+          autor: portalData.credito_imagem || portalData.fonte_nome || "Redação Rede Apucarana",
+          published_at: portalData.created_at || new Date().toISOString(),
+        };
+      }
+
+      return null;
+    } catch (err) {
+      console.error("[getNewsBySlug exception]:", err);
+      return null;
     }
-
-    // 2. Fallback de compatibilidade na tabela noticias_portal
-    let portalQuery = supabase.from("noticias_portal").select("*");
-    if (isUuid) {
-      portalQuery = portalQuery.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`);
-    } else {
-      portalQuery = portalQuery.eq("slug", decodedSlug);
-    }
-
-    const { data: portalData, error: portalError } = await portalQuery.maybeSingle();
-
-    if (portalError) {
-      console.warn("[getNewsBySlug noticias_portal error]:", portalError.message);
-    }
-
-    if (portalData) {
-      const rawTitle = portalData.titulo_seo || portalData.titulo || "";
-      if (!rawTitle) return null;
-
-      const rawContent = portalData.corpo_html || portalData.conteudo || "";
-      const rawResumo =
-        portalData.resumo_meta ||
-        rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
-
-      return {
-        id: portalData.id,
-        slug: portalData.slug || portalData.id,
-        title: rawTitle,
-        seo_description: rawResumo,
-        content: rawContent,
-        video_url: null,
-        imagem: portalData.imagem_url || portalData.imagem || null,
-        cover_image: portalData.imagem_url || portalData.imagem || null,
-        categoria: portalData.categoria || "Geral",
-        cidade: "Apucarana",
-        autor: portalData.credito_imagem || portalData.fonte_nome || "Redação Rede Apucarana",
-        published_at: portalData.created_at || new Date().toISOString(),
-      };
-    }
-
-    return null;
-  } catch (err) {
-    console.error("[getNewsBySlug exception]:", err);
-    return null;
   }
-}
+);
 
 /**
  * =========================================================================
@@ -244,7 +437,7 @@ export async function generateMetadata({
         type: "article",
         siteName: "Rede Apucarana de Comunicação",
         locale: "pt_BR",
-        publishedTime: news.published_at,
+        publishedTime: safeIsoDate(news.published_at),
         authors: [news.autor],
         images: ogImages,
       },
@@ -280,7 +473,8 @@ export async function generateMetadata({
   } catch (err) {
     return {
       title: "Rede Apucarana - Notícias e TV ao Vivo no Vale do Ivaí",
-      description: "Portal de notícias, TV ao vivo 24h, podcasts e guia de comércios de Apucarana e todo o Vale do Ivaí.",
+      description:
+        "Portal de notícias, TV ao vivo 24h, podcasts e guia de comércios de Apucarana e todo o Vale do Ivaí.",
     };
   }
 }
@@ -300,12 +494,10 @@ export default async function NewsArticlePage({
     notFound();
   }
 
-  // 2. Busca segura da notícia no banco de dados
+  // 2. Busca segura da notícia (usa React cache, compartilhando o resultado com generateMetadata)
   const news = await getNewsBySlug(params.slug);
 
-  // 3. TRATAMENTO CRUCIAL DE EXCEÇÃO:
-  // Se a consulta retornar erro ou não encontrar a notícia, aciona notFound() IMEDIATAMENTE
-  // antes de qualquer renderização de HTML, evitando crash por variáveis nulas.
+  // 3. Tratamento de Not Found antes de qualquer renderização
   if (!news) {
     notFound();
   }
@@ -313,16 +505,25 @@ export default async function NewsArticlePage({
   const supabase = getSupabase();
   const pageUrl = `${SITE_URL}/noticia/${encodeURIComponent(news.slug)}`;
 
-  // Notícias relacionadas
-  const { data: related } = await (supabase
-    ? supabase
-        .from("news")
-        .select("id,slug,titulo,imagem,categoria,published_at")
-        .neq("id", news.id)
-        .eq("status", "published")
-        .order("published_at", { ascending: false })
-        .limit(3)
-    : Promise.resolve({ data: [] }));
+  // 4. Notícias relacionadas com timeout seguro e try/catch
+  let related: any[] = [];
+  try {
+    if (supabase) {
+      const { data } = await withTimeout(
+        supabase
+          .from("news")
+          .select("id,slug,titulo,imagem,categoria,published_at")
+          .neq("id", news.id)
+          .eq("status", "published")
+          .order("published_at", { ascending: false })
+          .limit(3),
+        2500
+      );
+      if (data) related = data;
+    }
+  } catch (err) {
+    console.warn("[related news warning]:", err);
+  }
 
   // Detecção de Vídeo YouTube vs Arquivo .mp4
   const ytId = extractYoutubeId(news.video_url);
@@ -345,14 +546,9 @@ export default async function NewsArticlePage({
         .map((p) => p.trim())
         .filter(Boolean);
 
-  // Formatação segura de data em ISO 8601
-  const uploadDateIso = (() => {
-    try {
-      return new Date(news.published_at).toISOString();
-    } catch {
-      return new Date().toISOString();
-    }
-  })();
+  // Formatação segura de data
+  const uploadDateIso = safeIsoDate(news.published_at);
+  const formattedDisplayDate = safeFormatDate(news.published_at);
 
   // =========================================================================
   // DADOS ESTRUTURADOS (JSON-LD) - Schema.org NewsArticle + VideoObject
@@ -473,18 +669,12 @@ export default async function NewsArticlePage({
               <div className="font-bold text-slate-800 text-xs sm:text-sm">
                 {news.autor}
               </div>
-              <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                <Clock className="w-3 h-3" />
-                <span>
-                  {new Date(news.published_at).toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
+              {formattedDisplayDate && (
+                <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                  <Clock className="w-3 h-3" />
+                  <span>{formattedDisplayDate}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -590,10 +780,6 @@ export default async function NewsArticlePage({
               alt={news.title}
               className={`w-full ${(news.cover_image || news.imagem) === "/logo-rede-apucarana.png" ? "h-64 object-contain p-6" : "h-auto max-h-[500px] object-cover"}`}
               loading="eager"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = "/logo-rede-apucarana.png";
-                (e.currentTarget as HTMLImageElement).className = "w-full h-64 object-contain p-6";
-              }}
             />
             <figcaption className="p-2.5 bg-slate-50 text-[11px] text-slate-500 text-center border-t border-slate-100">
               Foto: {news.autor} • Reprodução Jornalística Rede Apucarana
@@ -636,6 +822,7 @@ export default async function NewsArticlePage({
                   <Link
                     key={item.id}
                     href={`/noticia/${encodeURIComponent(itemSlug)}`}
+                    prefetch={false}
                     className="group block rounded-xl overflow-hidden border border-slate-200 bg-white hover:shadow-md transition-all"
                   >
                     {item.imagem && (

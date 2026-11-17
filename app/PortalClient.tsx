@@ -168,7 +168,8 @@ function instagramEmbedUrl(url: string) {
 
 const noticiasFixas: Noticia[] = [
   {
-    id: "1",
+    id: "portal-rede-apucarana-informacao-regional",
+    slug: "portal-rede-apucarana-informacao-regional",
     cidade: "Apucarana",
     cat: "Cidade",
     titulo: "Portal Rede Apucarana de Comunicação • Informação Regional em Tempo Real",
@@ -181,7 +182,8 @@ const noticiasFixas: Noticia[] = [
     credit: "Rede Apucarana",
   },
   {
-    id: "2",
+    id: "desenvolvimento-regional-oportunidades-vale-do-ivai",
+    slug: "desenvolvimento-regional-oportunidades-vale-do-ivai",
     cidade: "Arapongas",
     cat: "Economia",
     titulo: "Desenvolvimento Regional e Oportunidades no Vale do Ivaí",
@@ -194,7 +196,8 @@ const noticiasFixas: Noticia[] = [
     credit: "Rede Apucarana",
   },
   {
-    id: "3",
+    id: "servicos-publicos-comunidade-apucarana",
+    slug: "servicos-publicos-comunidade-apucarana",
     cidade: "Apucarana",
     cat: "Serviço",
     titulo: "Serviços Públicos e Utilidade à Comunidade de Apucarana e Região",
@@ -207,7 +210,8 @@ const noticiasFixas: Noticia[] = [
     credit: "Rede Apucarana",
   },
   {
-    id: "4",
+    id: "vale-do-ivai-noticias-dos-26-municipios",
+    slug: "vale-do-ivai-noticias-dos-26-municipios",
     cidade: "Ivaiporã",
     cat: "Região",
     titulo: "Vale do Ivaí: Acompanhe as Notícias dos 26 Municípios",
@@ -286,7 +290,7 @@ function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: bo
 
   return (
     <article className={`news-card group ${compact ? "news-card--compact" : ""}`}>
-      <Link href={href} className="block relative overflow-hidden aspect-video bg-slate-900">
+      <Link href={href} prefetch={false} className="block relative overflow-hidden aspect-video bg-slate-900">
         {temFotoValida ? (
           <img
             src={noticia.img}
@@ -326,7 +330,7 @@ function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: bo
         </span>
 
         <h3 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-blue-600 transition-colors duration-200 line-clamp-3">
-          <Link href={href}>{noticia.titulo}</Link>
+          <Link href={href} prefetch={false}>{noticia.titulo}</Link>
         </h3>
 
         {!compact && resumoFormatado && (
@@ -682,7 +686,9 @@ export default function PortalClient({
         sub: resumoSeguro(n.conteudo, n.resumo),
         resumo: resumoSeguro(n.conteudo, n.resumo),
         texto: n.conteudo || n.resumo || "",
-        img: n.imagem || "",
+        img: n.cover_image || n.imagem || "/logo-rede-apucarana.png",
+        cover_image: n.cover_image || n.imagem || "/logo-rede-apucarana.png",
+        video_format: n.video_format || "16:9",
         hora: formatNewsTime(n.published_at),
         autor: n.autor || "Redação Rede Apucarana",
         credit: n.autor || "Redação Rede Apucarana",
@@ -1445,7 +1451,7 @@ export default function PortalClient({
             {categoria !== "Todas" && (
               <div className="headline-layout">
                 {destaque ? (
-                  <Link className="hero-story group" href={`/noticia/${destaque.slug || destaque.id}`}>
+                  <Link className="hero-story group" href={`/noticia/${destaque.slug || destaque.id}`} prefetch={false}>
                     {destaque.img && destaque.img !== "/logo-rede-apucarana.png" ? (
                       <img
                         className="hero-image"
