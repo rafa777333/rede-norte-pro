@@ -3,10 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
-import Badge from "@/components/Badge";
 import MobileBottomNav from "@/components/MobileBottomNav";
-import { ArrowLeft, Clock, User, Share2, Play } from "lucide-react";
-import ShareButtons from "@/app/noticias/[slug]/ShareButtons";
+import { ArrowLeft, Clock, Play } from "lucide-react";
+import ShareButtons from "./ShareButtons";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
@@ -32,13 +31,13 @@ interface NormalizedNews {
 /**
  * Extrator Robusto de ID do YouTube
  * Suporta formatos:
- * - youtube.com/watch?v=VIDEO_ID (incluindo parâmetros adicionais e vídeos não listados)
+ * - youtube.com/watch?v=VIDEO_ID (incluindo vídeos não listados)
  * - youtu.be/VIDEO_ID
  * - youtube.com/embed/VIDEO_ID
  * - youtube.com/shorts/VIDEO_ID
  * - m.youtube.com/watch?v=VIDEO_ID
  */
-export function extractYoutubeId(url: string | null | undefined): string | null {
+function extractYoutubeId(url: string | null | undefined): string | null {
   if (!url) return null;
   const regExp =
     /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
@@ -49,100 +48,140 @@ export function extractYoutubeId(url: string | null | undefined): string | null 
 /**
  * Retorna a URL da thumbnail em alta resolução do YouTube
  */
-export function getYoutubeThumbnail(url: string | null | undefined): string | null {
+function getYoutubeThumbnail(url: string | null | undefined): string | null {
   const id = extractYoutubeId(url);
   return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null;
 }
 
-async function getNewsBySlug(slug: string): Promise<NormalizedNews | null> {
+/**
+ * Busca a notícia no Supabase pelo slug ou ID de forma segura contra erros de tipo (UUID)
+ */
+async function getNewsBySlug(slug: string | undefined | null): Promise<NormalizedNews | null> {
+  if (!slug) return null;
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  const decodedSlug = decodeURIComponent(slug);
+  try {
+    const decodedSlug = decodeURIComponent(slug).trim();
+    if (!decodedSlug) return null;
 
-  // 1. Consulta primária na tabela news
-  const { data, error } = await supabase
-    .from("news")
-    .select(
-      "id,slug,title,titulo,seo_description,resumo,content,conteudo,video_url,imagem,categoria,cidade_slug,autor,published_at,created_at,fonte"
-    )
-    .or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
-    .maybeSingle();
+    // Valida se o slug informado é um UUID v4 válido
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedSlug);
 
-  if (data) {
-    const rawFonte = data.fonte || "";
-    let extractedVideo: string | null = data.video_url || null;
-    let extractedFormat = (data as any).video_format || "16:9";
+    // 1. Consulta primária na tabela news (usando select("*") para evitar erros de colunas inexistentes)
+    let query = supabase.from("news").select("*");
+    if (isUuid) {
+      query = query.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`);
+    } else {
+      query = query.eq("slug", decodedSlug);
+    }
 
-    if (!extractedVideo && rawFonte.startsWith("video:")) {
-      const rawVideo = rawFonte.slice(6);
-      if (rawVideo.startsWith("9:16:") || rawVideo.startsWith("16:9:")) {
-        extractedFormat = rawVideo.slice(0, 4);
-        extractedVideo = rawVideo.slice(5);
-      } else {
-        extractedVideo = rawVideo;
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      console.warn("[getNewsBySlug news error]:", error.message);
+    }
+
+    if (data) {
+      const rawFonte = data.fonte || "";
+      let extractedVideo: string | null = data.video_url || null;
+      let extractedFormat = (data as any).video_format || "16:9";
+
+      if (!extractedVideo && rawFonte.startsWith("video:")) {
+        const rawVideo = rawFonte.slice(6);
+        if (rawVideo.startsWith("9:16:") || rawVideo.startsWith("16:9:")) {
+          extractedFormat = rawVideo.slice(0, 4);
+          extractedVideo = rawVideo.slice(5);
+        } else {
+          extractedVideo = rawVideo;
+        }
       }
-    }
 
-    if (extractedVideo && (extractedVideo.includes("/shorts/") || extractedVideo.includes("/reel/") || extractedVideo.includes("tiktok.com/"))) {
-      extractedFormat = "9:16";
-    }
+      if (
+        extractedVideo &&
+        (extractedVideo.includes("/shorts/") ||
+          extractedVideo.includes("/reel/") ||
+          extractedVideo.includes("tiktok.com/"))
+      ) {
+        extractedFormat = "9:16";
+      }
 
-    const cover_image = (data as any).cover_image || data.imagem || null;
+      const cover_image = (data as any).cover_image || data.imagem || null;
+      const rawTitle = data.title || data.titulo || "";
+      if (!rawTitle) return null;
 
-    return {
-      id: data.id,
-      slug: data.slug || data.id,
-      title: data.title || data.titulo || "Notícia da Rede Apucarana",
-      seo_description:
+      const rawContent = data.content || data.conteudo || "";
+      const rawResumo =
         data.seo_description ||
         data.resumo ||
-        (data.content || data.conteudo || "").replace(/<[^>]+>/g, "").slice(0, 160),
-      content: data.content || data.conteudo || "",
-      video_url: extractedVideo,
-      video_format: extractedFormat,
-      cover_image,
-      imagem: cover_image || data.imagem || null,
-      categoria: data.categoria || "Geral",
-      cidade: data.cidade_slug || "Apucarana",
-      autor: data.autor || "Redação Rede Apucarana",
-      published_at: data.published_at || data.created_at || new Date().toISOString(),
-    };
-  }
+        rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
 
-  // 2. Fallback de compatibilidade na tabela noticias_portal
-  const { data: portalData } = await supabase
-    .from("noticias_portal")
-    .select(
-      "id,slug,titulo_seo,corpo_html,resumo_meta,imagem_url,categoria,fonte_nome,credito_imagem,created_at"
-    )
-    .or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`)
-    .maybeSingle();
+      return {
+        id: data.id,
+        slug: data.slug || data.id,
+        title: rawTitle,
+        seo_description: rawResumo,
+        content: rawContent,
+        video_url: extractedVideo,
+        video_format: extractedFormat,
+        cover_image,
+        imagem: cover_image || data.imagem || null,
+        categoria: data.categoria || "Geral",
+        cidade: data.cidade_slug || "Apucarana",
+        autor: data.autor || "Redação Rede Apucarana",
+        published_at: data.published_at || data.created_at || new Date().toISOString(),
+      };
+    }
 
-  if (portalData) {
-    return {
-      id: portalData.id,
-      slug: portalData.slug,
-      title: portalData.titulo_seo,
-      seo_description:
+    // 2. Fallback de compatibilidade na tabela noticias_portal
+    let portalQuery = supabase.from("noticias_portal").select("*");
+    if (isUuid) {
+      portalQuery = portalQuery.or(`slug.eq.${decodedSlug},id.eq.${decodedSlug}`);
+    } else {
+      portalQuery = portalQuery.eq("slug", decodedSlug);
+    }
+
+    const { data: portalData, error: portalError } = await portalQuery.maybeSingle();
+
+    if (portalError) {
+      console.warn("[getNewsBySlug noticias_portal error]:", portalError.message);
+    }
+
+    if (portalData) {
+      const rawTitle = portalData.titulo_seo || portalData.titulo || "";
+      if (!rawTitle) return null;
+
+      const rawContent = portalData.corpo_html || portalData.conteudo || "";
+      const rawResumo =
         portalData.resumo_meta ||
-        portalData.corpo_html.replace(/<[^>]+>/g, "").slice(0, 160),
-      content: portalData.corpo_html,
-      video_url: null,
-      imagem: portalData.imagem_url,
-      categoria: portalData.categoria || "Geral",
-      cidade: "Apucarana",
-      autor: portalData.credito_imagem || portalData.fonte_nome || "Redação Rede Apucarana",
-      published_at: portalData.created_at || new Date().toISOString(),
-    };
-  }
+        rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
 
-  return null;
+      return {
+        id: portalData.id,
+        slug: portalData.slug || portalData.id,
+        title: rawTitle,
+        seo_description: rawResumo,
+        content: rawContent,
+        video_url: null,
+        imagem: portalData.imagem_url || portalData.imagem || null,
+        cover_image: portalData.imagem_url || portalData.imagem || null,
+        categoria: portalData.categoria || "Geral",
+        cidade: "Apucarana",
+        autor: portalData.credito_imagem || portalData.fonte_nome || "Redação Rede Apucarana",
+        published_at: portalData.created_at || new Date().toISOString(),
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.error("[getNewsBySlug exception]:", err);
+    return null;
+  }
 }
 
 /**
  * =========================================================================
- * SEO DINÂMICO CRUCIAL PARA O GOOGLE (Server-Side Metadata)
+ * SEO DINÂMICO PARA O GOOGLE (Server-Side Metadata)
  * =========================================================================
  */
 export async function generateMetadata({
@@ -150,106 +189,126 @@ export async function generateMetadata({
 }: {
   params: { slug: string };
 }): Promise<Metadata> {
-  const news = await getNewsBySlug(params.slug);
-  if (!news) {
-    return {
-      title: "Notícia não encontrada | Rede Apucarana",
-      description: "A matéria solicitada não foi localizada ou já expirou.",
-    };
-  }
+  try {
+    const news = await getNewsBySlug(params?.slug);
+    if (!news) {
+      return {
+        title: "Matéria não encontrada | Rede Apucarana",
+        description: "A matéria solicitada não foi localizada ou já expirou.",
+        robots: { index: false, follow: false },
+      };
+    }
 
-  const pageUrl = `${SITE_URL}/noticia/${encodeURIComponent(news.slug)}`;
-  const description =
-    news.seo_description ||
-    "Confira a reportagem completa com detalhes apurados na Rede Apucarana de Comunicação.";
+    const pageUrl = `${SITE_URL}/noticia/${encodeURIComponent(news.slug)}`;
+    const description =
+      news.seo_description ||
+      "Confira a reportagem completa com detalhes apurados na Rede Apucarana de Comunicação.";
 
-  // Extrator de Thumbnail em Alta Resolução do YouTube para OpenGraph / WhatsApp / Facebook
-  // Prioridade da imagem oficial de compartilhamento:
-  // 1. Capa oficial configurada (cover_image ou imagem)
-  // 2. Thumbnail em Alta Resolução do YouTube (se for vídeo horizontal 16:9)
-  // 3. Logo oficial da Rede Apucarana
-  const is916 = news.video_format === "9:16";
-  const ytId = extractYoutubeId(news.video_url);
-  const ytThumb = (!is916 && ytId) ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : null;
+    const is916 = news.video_format === "9:16";
+    const ytId = extractYoutubeId(news.video_url);
+    const ytThumb = !is916 && ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : null;
 
-  const primaryImageUrl = news.cover_image || news.imagem || ytThumb || `${SITE_URL}/logo-rede-apucarana.png`;
+    const primaryImageUrl =
+      news.cover_image || news.imagem || ytThumb || `${SITE_URL}/logo-rede-apucarana.png`;
 
-  const ogImages = [
-    {
-      url: primaryImageUrl,
-      width: 1280,
-      height: 720,
-      alt: news.title,
-    },
-  ];
+    const ogImages = [
+      {
+        url: primaryImageUrl,
+        width: 1280,
+        height: 720,
+        alt: news.title,
+      },
+    ];
 
-  const metadata: Metadata = {
-    title: `${news.title} | Rede Apucarana`,
-    description: description,
-    alternates: {
-      canonical: pageUrl,
-    },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
+    const metadata: Metadata = {
+      title: `${news.title} | Rede Apucarana`,
+      description: description,
+      alternates: {
+        canonical: pageUrl,
+      },
+      robots: {
         index: true,
         follow: true,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-        "max-video-preview": -1,
+        googleBot: {
+          index: true,
+          follow: true,
+          "max-image-preview": "large",
+          "max-snippet": -1,
+          "max-video-preview": -1,
+        },
       },
-    },
-    openGraph: {
-      title: news.title,
-      description: description,
-      url: pageUrl,
-      type: "article",
-      siteName: "Rede Apucarana de Comunicação",
-      locale: "pt_BR",
-      publishedTime: news.published_at,
-      authors: [news.autor],
-      images: ogImages,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: news.title,
-      description: description,
-      images: [primaryImageUrl],
-    },
-  };
+      openGraph: {
+        title: news.title,
+        description: description,
+        url: pageUrl,
+        type: "article",
+        siteName: "Rede Apucarana de Comunicação",
+        locale: "pt_BR",
+        publishedTime: news.published_at,
+        authors: [news.autor],
+        images: ogImages,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: news.title,
+        description: description,
+        images: [primaryImageUrl],
+      },
+    };
 
-  // Metadados OpenGraph de Vídeo para players externos
-  if (news.video_url && metadata.openGraph) {
-    if (ytId) {
-      metadata.openGraph.videos = [
-        {
-          url: `https://www.youtube.com/embed/${ytId}`,
-          type: "text/html",
-          width: 1280,
-          height: 720,
-        },
-      ];
-    } else {
-      metadata.openGraph.videos = [
-        {
-          url: news.video_url,
-          type: "video/mp4",
-        },
-      ];
+    if (news.video_url && metadata.openGraph) {
+      if (ytId) {
+        metadata.openGraph.videos = [
+          {
+            url: `https://www.youtube.com/embed/${ytId}`,
+            type: "text/html",
+            width: 1280,
+            height: 720,
+          },
+        ];
+      } else {
+        metadata.openGraph.videos = [
+          {
+            url: news.video_url,
+            type: "video/mp4",
+          },
+        ];
+      }
     }
-  }
 
-  return metadata;
+    return metadata;
+  } catch (err) {
+    return {
+      title: "Rede Apucarana - Notícias e TV ao Vivo no Vale do Ivaí",
+      description: "Portal de notícias, TV ao vivo 24h, podcasts e guia de comércios de Apucarana e todo o Vale do Ivaí.",
+    };
+  }
 }
 
-export default async function NoticiaDetailPage({
+/**
+ * =========================================================================
+ * COMPONENTE PRINCIPAL (RSC): NewsArticlePage
+ * =========================================================================
+ */
+export default async function NewsArticlePage({
   params,
 }: {
   params: { slug: string };
 }) {
+  // 1. Validação do parâmetro de rota
+  if (!params?.slug) {
+    notFound();
+  }
+
+  // 2. Busca segura da notícia no banco de dados
   const news = await getNewsBySlug(params.slug);
-  if (!news) notFound();
+
+  // 3. TRATAMENTO CRUCIAL DE EXCEÇÃO:
+  // Se a consulta retornar erro ou não encontrar a notícia, aciona notFound() IMEDIATAMENTE
+  // antes de qualquer renderização de HTML, evitando crash por variáveis nulas.
+  if (!news) {
+    notFound();
+  }
 
   const supabase = getSupabase();
   const pageUrl = `${SITE_URL}/noticia/${encodeURIComponent(news.slug)}`;
@@ -258,7 +317,7 @@ export default async function NoticiaDetailPage({
   const { data: related } = await (supabase
     ? supabase
         .from("news")
-        .select("id,slug,title,titulo,imagem,categoria,published_at")
+        .select("id,slug,titulo,imagem,categoria,published_at")
         .neq("id", news.id)
         .eq("status", "published")
         .order("published_at", { ascending: false })
@@ -296,8 +355,7 @@ export default async function NoticiaDetailPage({
   })();
 
   // =========================================================================
-  // 1. INJEÇÃO DE DADOS ESTRUTURADOS (JSON-LD) - Schema.org NewsArticle + VideoObject
-  // Atende aos requisitos rigorosos do Google Search Central para a aba "Vídeos"
+  // DADOS ESTRUTURADOS (JSON-LD) - Schema.org NewsArticle + VideoObject
   // =========================================================================
   const schemaArticle: Record<string, any> = {
     "@context": "https://schema.org",
@@ -325,12 +383,8 @@ export default async function NoticiaDetailPage({
     },
   };
 
-  // Se houver vídeo (YouTube ou MP4), compõe a propriedade "video" do tipo VideoObject
   if (news.video_url) {
-    const embedUrl = ytId
-      ? `https://www.youtube.com/embed/${ytId}`
-      : news.video_url;
-
+    const embedUrl = ytId ? `https://www.youtube.com/embed/${ytId}` : news.video_url;
     const thumbnailList = ytId
       ? [
           `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`,
@@ -351,9 +405,7 @@ export default async function NoticiaDetailPage({
 
   return (
     <main className="min-h-screen bg-white text-slate-900 font-sans selection:bg-red-500 selection:text-white pb-20">
-      {/* ========================================================================= */}
-      {/* Injeção de Dados Estruturados para os robôs do Google (Googlebot)         */}
-      {/* ========================================================================= */}
+      {/* Injeção de Dados Estruturados para o Googlebot */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaArticle) }}
@@ -395,19 +447,19 @@ export default async function NoticiaDetailPage({
           </span>
         </div>
 
-        {/* H1 GRANDE E LIMPO (Destaque Principal) */}
+        {/* H1 Principal */}
         <h1 className="font-heading font-black text-2xl sm:text-4xl lg:text-5xl text-slate-900 leading-[1.18] tracking-tight mb-4">
           {news.title}
         </h1>
 
-        {/* SUBTÍTULO / LINHA FINA (Resumo SEO Google) */}
+        {/* Subtítulo / Linha Fina (Resumo SEO Google) */}
         {news.seo_description && (
           <p className="text-base sm:text-xl text-slate-600 font-sans leading-relaxed mb-6 font-normal">
             {news.seo_description}
           </p>
         )}
 
-        {/* Byline: Autor, Data e Compartilhar */}
+        {/* Byline: Autor, Data e Compartilhamento */}
         <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-y border-slate-100 text-xs text-slate-500 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
@@ -440,14 +492,20 @@ export default async function NoticiaDetailPage({
         </div>
 
         {/* ========================================================================= */}
-        {/* PLAYER DE VÍDEO EM DESTAQUE (YouTube ou .mp4 nativo)                     */}
+        {/* PLAYER DE VÍDEO EM DESTAQUE (YouTube ou .mp4)                             */}
         {/* ========================================================================= */}
         {news.video_url && (() => {
-          const isVertical = news.video_format === "9:16" || Boolean(news.video_url?.includes("/shorts/") || news.video_url?.includes("/reel/") || news.video_url?.includes("tiktok.com/"));
+          const isVertical =
+            news.video_format === "9:16" ||
+            Boolean(
+              news.video_url?.includes("/shorts/") ||
+                news.video_url?.includes("/reel/") ||
+                news.video_url?.includes("tiktok.com/")
+            );
           return (
             <section aria-label="Vídeo da Matéria" className="my-6 sm:my-8">
               {isVertical ? (
-                // Player Vertical Elegante (9:16 - Shorts / Reels / Celular)
+                // Player Vertical (9:16 - Shorts / Reels / Mobile)
                 <div className="relative w-full max-w-sm mx-auto aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-800">
                   {ytId ? (
                     <iframe
@@ -477,7 +535,7 @@ export default async function NoticiaDetailPage({
                   )}
                 </div>
               ) : ytId ? (
-                // Player do YouTube (16:9 responsivo)
+                // Player do YouTube (16:9)
                 <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200">
                   <iframe
                     src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
@@ -488,7 +546,7 @@ export default async function NoticiaDetailPage({
                   />
                 </div>
               ) : isDirectVideo ? (
-                // Player de Vídeo Nativo HTML5 (.mp4 do Supabase Storage)
+                // Player de Vídeo Nativo HTML5 (.mp4)
                 <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black border border-slate-200 flex items-center justify-center">
                   <video
                     src={news.video_url}
@@ -524,7 +582,7 @@ export default async function NoticiaDetailPage({
           );
         })()}
 
-        {/* Se NÃO houver vídeo, mas houver imagem de capa */}
+        {/* Se NÃO houver vídeo, exibe imagem de capa com fallback neutro */}
         {!news.video_url && (news.cover_image || news.imagem) && (
           <figure className="my-6 sm:my-8 rounded-2xl overflow-hidden shadow-md border border-slate-100 bg-slate-900">
             <img
@@ -543,10 +601,8 @@ export default async function NoticiaDetailPage({
           </figure>
         )}
 
-        {/* ========================================================================= */}
-        {/* CORPO DO TEXTO (prose prose-lg dark:prose-invert para leitura confortável) */}
-        {/* ========================================================================= */}
-        <section className="prose prose-lg dark:prose-invert max-w-3xl mx-auto mt-6 text-slate-800 dark:text-slate-200 leading-relaxed font-sans">
+        {/* Corpo do Texto da Notícia */}
+        <section className="prose prose-lg max-w-3xl mx-auto mt-6 text-slate-800 leading-relaxed font-sans">
           {isHtml ? (
             <div dangerouslySetInnerHTML={{ __html: news.content }} />
           ) : (

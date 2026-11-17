@@ -96,8 +96,8 @@ export default function EditorialBentoGrid({
       : news.filter((n) => !usedIds.has(n.id)).slice(0, 5);
 
   const mainHref = finalPrincipal.slug
-    ? `/noticias/${finalPrincipal.slug}`
-    : `/noticias/${finalPrincipal.id}`;
+    ? `/noticia/${finalPrincipal.slug}`
+    : `/noticia/${finalPrincipal.id}`;
 
   const mainGeoTag = detectCityGeoTag(finalPrincipal);
   const mainHasVideo = hasVideoContent(finalPrincipal);
@@ -229,7 +229,7 @@ export default function EditorialBentoGrid({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {finalSubManchetes.slice(0, 3).map((sub) => {
-                  const href = sub.slug ? `/noticias/${sub.slug}` : `/noticias/${sub.id}`;
+                  const href = sub.slug ? `/noticia/${sub.slug}` : `/noticia/${sub.id}`;
                   const subGeo = detectCityGeoTag(sub);
                   const subHora = formatNewsTime(sub.published_at, sub.hora);
                   const subHasVideo = hasVideoContent(sub);
@@ -286,7 +286,7 @@ export default function EditorialBentoGrid({
         <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
           {/* 2 Destaques Regionais com Foto Horizontal */}
           {finalDestaques.slice(0, 2).map((reg) => {
-            const href = reg.slug ? `/noticias/${reg.slug}` : `/noticias/${reg.id}`;
+            const href = reg.slug ? `/noticia/${reg.slug}` : `/noticia/${reg.id}`;
             const regGeo = detectCityGeoTag(reg);
             const regHora = formatNewsTime(reg.published_at, reg.hora);
             const regHasVideo = hasVideoContent(reg);
@@ -392,7 +392,7 @@ export default function EditorialBentoGrid({
 
             <div className="divide-y divide-slate-100 flex flex-col">
               {finalPlantao.slice(0, 5).map((p) => {
-                const href = p.slug ? `/noticias/${p.slug}` : `/noticias/${p.id}`;
+                const href = p.slug ? `/noticia/${p.slug}` : `/noticia/${p.id}`;
                 const pHora = formatNewsTime(p.published_at, p.hora);
                 const pGeo = detectCityGeoTag(p);
 

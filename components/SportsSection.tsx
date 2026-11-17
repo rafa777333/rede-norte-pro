@@ -139,7 +139,7 @@ export default function SportsSection({
       {/* GRADE DE NOTÍCIAS DE ESPORTE (4 COLUNAS ELEGANTES) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {displayNews.map((n) => {
-          const href = n.slug ? `/noticias/${n.slug}` : `/noticias/${n.id}`;
+          const href = n.slug ? `/noticia/${n.slug}` : `/noticia/${n.id}`;
 
           return (
             <Link

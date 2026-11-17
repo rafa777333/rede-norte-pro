@@ -27,7 +27,7 @@ export async function GET() {
 
   const itemsXml = (news || [])
     .map((item) => {
-      const url = `${baseUrl}/noticias/${encodeURIComponent(item.slug || item.id)}`;
+      const url = `${baseUrl}/noticia/${encodeURIComponent(item.slug || item.id)}`;
       const pubDate = item.published_at
         ? new Date(item.published_at).toUTCString()
         : now;

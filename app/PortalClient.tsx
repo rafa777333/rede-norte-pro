@@ -272,7 +272,7 @@ function formatarNoticiasAdmin(items: any[]): Noticia[] {
 // Badge is imported from components/Badge
 
 function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: boolean }) {
-  const href = `/noticias/${encodeURIComponent(noticia.slug || noticia.id)}`;
+  const href = `/noticia/${noticia.slug || noticia.id}`;
   const geoTag = detectCityGeoTag(noticia);
   const temVideo = hasVideoContent(noticia);
   const horaFormatada = formatNewsTime(noticia.published_at, noticia.hora);
@@ -1445,7 +1445,7 @@ export default function PortalClient({
             {categoria !== "Todas" && (
               <div className="headline-layout">
                 {destaque ? (
-                  <a className="hero-story group" href={`/noticias/${encodeURIComponent(destaque.slug || destaque.id)}`}>
+                  <Link className="hero-story group" href={`/noticia/${destaque.slug || destaque.id}`}>
                     {destaque.img && destaque.img !== "/logo-rede-apucarana.png" ? (
                       <img
                         className="hero-image"
@@ -1472,7 +1472,7 @@ export default function PortalClient({
                       <span className="line-clamp-2">{destaque.sub}</span>
                       <small>Leia a matéria completa <b>→</b></small>
                     </span>
-                  </a>
+                  </Link>
                 ) : (
                   <div className="empty-state">
                     {carregandoNoticias ? "Carregando notícias mais recentes…" : `Ainda não há notícias cadastradas para ${cidade} na categoria ${categoria}.`}

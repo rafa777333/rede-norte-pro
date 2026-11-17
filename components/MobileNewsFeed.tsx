@@ -36,7 +36,7 @@ export default function MobileNewsFeed({
   const proximasNoticias = news.slice(1, 14);
 
   const getHref = (item: BentoNewsItem) =>
-    item.slug ? `/noticias/${item.slug}` : `/noticias/${item.id}`;
+    item.slug ? `/noticia/${item.slug}` : `/noticia/${item.id}`;
 
   return (
     <div

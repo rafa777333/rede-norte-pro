@@ -84,7 +84,7 @@ export default function DiscoverNationalSection({
       {/* GRADE HARMONIOSA DE NOTÍCIAS (4 COLUNAS SEM ESTICAMENTO) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {items.map((n) => {
-          const href = n.slug ? `/noticias/${n.slug}` : `/noticias/${n.id}`;
+          const href = n.slug ? `/noticia/${n.slug}` : `/noticia/${n.id}`;
           const horaFormatada = formatNewsTime(n.published_at, n.hora);
           const resumoFormatado = truncateWords(n.resumo || n.sub || "", 140);
           const hasVideo = hasVideoContent(n);
