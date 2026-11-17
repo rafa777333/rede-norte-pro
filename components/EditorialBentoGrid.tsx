@@ -8,6 +8,7 @@ import {
   detectCityGeoTag,
   hasVideoContent,
   truncateWords,
+  decodeHtmlEntities,
 } from "../lib/text-utils";
 import WhatsAppShareButton from "./WhatsAppShareButton";
 
@@ -215,7 +216,7 @@ export default function EditorialBentoGrid({
 
               <h2 className="editorial-headline group-hover:text-red-700 transition-colors">
                 <Link href={mainHref}>
-                  {finalPrincipal.titulo}
+                  {decodeHtmlEntities(finalPrincipal.titulo)}
                 </Link>
               </h2>
 
@@ -282,7 +283,7 @@ export default function EditorialBentoGrid({
                         </div>
 
                         <h3 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-red-600 line-clamp-3 leading-snug tracking-tight transition-colors">
-                          {sub.titulo}
+                          {decodeHtmlEntities(sub.titulo)}
                         </h3>
                       </Link>
 
@@ -293,7 +294,7 @@ export default function EditorialBentoGrid({
                         </span>
 
                         <WhatsAppShareButton
-                          titulo={sub.titulo}
+                          titulo={decodeHtmlEntities(sub.titulo)}
                           href={href}
                           variant="icon"
                         />
@@ -384,7 +385,7 @@ export default function EditorialBentoGrid({
 
                   <h3 className="font-display font-bold text-xs sm:text-sm text-slate-900 group-hover:text-red-600 line-clamp-2 leading-snug tracking-tight transition-colors">
                     <Link href={href}>
-                      {reg.titulo}
+                      {decodeHtmlEntities(reg.titulo)}
                     </Link>
                   </h3>
 
@@ -394,7 +395,7 @@ export default function EditorialBentoGrid({
                     </span>
 
                     <WhatsAppShareButton
-                      titulo={reg.titulo}
+                      titulo={decodeHtmlEntities(reg.titulo)}
                       href={href}
                       variant="icon"
                     />
@@ -434,7 +435,7 @@ export default function EditorialBentoGrid({
                         <span className="tabular-nums font-semibold text-slate-500">{pHora}</span>
                       </div>
                       <h4 className="font-display font-bold text-xs sm:text-sm text-slate-800 group-hover:text-red-600 line-clamp-2 leading-snug tracking-tight transition-colors">
-                        {p.titulo}
+                        {decodeHtmlEntities(p.titulo)}
                       </h4>
                     </Link>
                   </article>

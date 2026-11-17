@@ -93,7 +93,7 @@ function formatNewsItem(n: any): PortalNews {
     titulo: cleanTitle,
     sub: cleanResumo,
     resumo: cleanResumo,
-    texto: n.conteudo || "",
+    texto: decodeHtmlEntities(n.conteudo || ""),
     img: (n as any).cover_image || n.imagem || "/logo-rede-apucarana.png",
     cover_image: (n as any).cover_image || n.imagem || "/logo-rede-apucarana.png",
     video_format: (n as any).video_format || "16:9",

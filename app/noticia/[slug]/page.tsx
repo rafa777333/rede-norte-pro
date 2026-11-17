@@ -6,6 +6,7 @@ import { getSupabase } from "@/lib/supabase";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { ArrowLeft, Clock, Play } from "lucide-react";
 import ShareButtons from "./ShareButtons";
+import { decodeHtmlEntities } from "@/lib/text-utils";
 
 // Caching ISR inteligente: revalida a cada 60s em background
 // Sem 'force-dynamic' para permitir renderização ultra rápida (< 30ms)
@@ -296,14 +297,15 @@ const getNewsBySlug = cache(
         }
 
         const cover_image = (data as any).cover_image || data.imagem || null;
-        const rawTitle = data.title || data.titulo || "";
+        const rawTitle = decodeHtmlEntities(data.title || data.titulo || "");
         if (!rawTitle) return null;
 
-        const rawContent = data.content || data.conteudo || "";
-        const rawResumo =
+        const rawContent = decodeHtmlEntities(data.content || data.conteudo || "");
+        const rawResumo = decodeHtmlEntities(
           data.seo_description ||
           data.resumo ||
-          rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
+          rawContent.replace(/<[^>]+>/g, "").slice(0, 160)
+        );
 
         return {
           id: data.id,
@@ -340,13 +342,14 @@ const getNewsBySlug = cache(
       }
 
       if (portalData) {
-        const rawTitle = portalData.titulo_seo || portalData.titulo || "";
+        const rawTitle = decodeHtmlEntities(portalData.titulo_seo || portalData.titulo || "");
         if (!rawTitle) return null;
 
-        const rawContent = portalData.corpo_html || portalData.conteudo || "";
-        const rawResumo =
+        const rawContent = decodeHtmlEntities(portalData.corpo_html || portalData.conteudo || "");
+        const rawResumo = decodeHtmlEntities(
           portalData.resumo_meta ||
-          rawContent.replace(/<[^>]+>/g, "").slice(0, 160);
+          rawContent.replace(/<[^>]+>/g, "").slice(0, 160)
+        );
 
         return {
           id: portalData.id,
@@ -645,13 +648,13 @@ export default async function NewsArticlePage({
 
         {/* H1 Principal */}
         <h1 className="font-heading font-black text-2xl sm:text-4xl lg:text-5xl text-slate-900 leading-[1.18] tracking-tight mb-4">
-          {news.title}
+          {decodeHtmlEntities(news.title)}
         </h1>
 
         {/* Subtítulo / Linha Fina (Resumo SEO Google) */}
         {news.seo_description && (
           <p className="text-base sm:text-xl text-slate-600 font-sans leading-relaxed mb-6 font-normal">
-            {news.seo_description}
+            {decodeHtmlEntities(news.seo_description)}
           </p>
         )}
 
@@ -790,11 +793,11 @@ export default async function NewsArticlePage({
         {/* Corpo do Texto da Notícia */}
         <section className="prose prose-lg max-w-3xl mx-auto mt-6 text-slate-800 leading-relaxed font-sans">
           {isHtml ? (
-            <div dangerouslySetInnerHTML={{ __html: news.content }} />
+            <div dangerouslySetInnerHTML={{ __html: decodeHtmlEntities(news.content) }} />
           ) : (
             textParagraphs.map((paragraph, index) => (
               <p key={index} className="mb-4 text-base sm:text-lg leading-relaxed">
-                {paragraph}
+                {decodeHtmlEntities(paragraph)}
               </p>
             ))
           )}
@@ -816,7 +819,7 @@ export default async function NewsArticlePage({
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {related.map((item: any) => {
-                const itemTitle = item.title || item.titulo || "";
+                const itemTitle = decodeHtmlEntities(item.title || item.titulo || "");
                 const itemSlug = item.slug || item.id;
                 return (
                   <Link

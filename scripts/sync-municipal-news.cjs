@@ -74,18 +74,91 @@ const CIDADES = [
 
 function decodeEntities(str) {
   if (!str) return '';
-  return str
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#8211;/g, '-')
-    .replace(/&#8217;/g, "'")
-    .replace(/&#8220;/g, '"')
-    .replace(/&#8221;/g, '"')
-    .replace(/&ccedil;/g, 'ç')
-    .replace(/&atilde;/g, 'ã')
-    .replace(/&eacute;/g, 'é')
-    .replace(/&oacute;/g, 'ó')
+  let decoded = String(str);
+
+  // Normalizar casos de dupla codificação como &amp;#231;
+  decoded = decoded.replace(/&amp;#/gi, '&#');
+
+  // 1. Entidades numéricas decimais (ex: &#231; -> ç, &#8211; -> –)
+  decoded = decoded.replace(/&#(\d+);/g, (_, dec) => {
+    try {
+      const code = parseInt(dec, 10);
+      return code > 0 ? String.fromCodePoint(code) : _;
+    } catch {
+      return _;
+    }
+  });
+
+  // 2. Entidades numéricas hexadecimais (ex: &#xE7; -> ç, &#x2013; -> –)
+  decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+    try {
+      const code = parseInt(hex, 16);
+      return code > 0 ? String.fromCodePoint(code) : _;
+    } catch {
+      return _;
+    }
+  });
+
+  // 3. Entidades nomeadas
+  const namedEntities = {
+    '&quot;': '"',
+    '&apos;': "'",
+    '&#039;': "'",
+    '&#39;': "'",
+    '&lt;': '<',
+    '&gt;': '>',
+    '&nbsp;': ' ',
+    '&ndash;': '–',
+    '&mdash;': '—',
+    '&lsquo;': '‘',
+    '&rsquo;': '’',
+    '&sbquo;': '‚',
+    '&bdquo;': '„',
+    '&ldquo;': '“',
+    '&rdquo;': '”',
+    '&hellip;': '…',
+    '&bull;': '•',
+    '&copy;': '©',
+    '&reg;': '®',
+    '&trade;': '™',
+    '&ordf;': 'ª',
+    '&ordm;': 'º',
+    '&deg;': '°',
+    '&sect;': '§',
+    '&middot;': '·',
+    '&aacute;': 'á', '&Aacute;': 'Á',
+    '&agrave;': 'à', '&Agrave;': 'À',
+    '&atilde;': 'ã', '&Atilde;': 'Ã',
+    '&acirc;': 'â', '&Acirc;': 'Â',
+    '&auml;': 'ä', '&Auml;': 'Ä',
+    '&eacute;': 'é', '&Eacute;': 'É',
+    '&egrave;': 'è', '&Egrave;': 'È',
+    '&ecirc;': 'ê', '&Ecirc;': 'Ê',
+    '&euml;': 'ë', '&Euml;': 'Ë',
+    '&iacute;': 'í', '&Iacute;': 'Í',
+    '&igrave;': 'ì', '&Igrave;': 'Ì',
+    '&icirc;': 'î', '&Icirc;': 'Î',
+    '&iuml;': 'ï', '&Iuml;': 'Ï',
+    '&oacute;': 'ó', '&Oacute;': 'Ó',
+    '&ograve;': 'ò', '&Ograve;': 'Ò',
+    '&otilde;': 'õ', '&Otilde;': 'Õ',
+    '&ocirc;': 'ô', '&Ocirc;': 'Ô',
+    '&ouml;': 'ö', '&Ouml;': 'Ö',
+    '&uacute;': 'ú', '&Uacute;': 'Ú',
+    '&ugrave;': 'ù', '&Ugrave;': 'Ù',
+    '&ucirc;': 'û', '&Ucirc;': 'Û',
+    '&uuml;': 'ü', '&Uuml;': 'Ü',
+    '&ccedil;': 'ç', '&Ccedil;': 'Ç',
+    '&ntilde;': 'ñ', '&Ntilde;': 'Ñ'
+  };
+
+  for (const [entity, replacement] of Object.entries(namedEntities)) {
+    decoded = decoded.replace(new RegExp(entity, 'gi'), replacement);
+  }
+
+  decoded = decoded.replace(/&amp;/gi, '&');
+
+  return decoded
     .replace(/<[^>]+>/g, '')
     .trim();
 }

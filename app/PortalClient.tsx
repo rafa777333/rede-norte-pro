@@ -952,11 +952,11 @@ export default function PortalClient({
         <article className="article-shell">
           <div className="article-breadcrumb">Início / {sel.cat} / {sel.cidade}</div>
           <div className="article-category"><Badge category={sel.cat}>{sel.cat}</Badge><span>{sel.cidade}</span></div>
-          <h1>{sel.titulo}</h1>
-          <p className="article-dek">{sel.sub}</p>
+          <h1>{decodeHtmlEntities(sel.titulo)}</h1>
+          <p className="article-dek">{decodeHtmlEntities(sel.sub)}</p>
           <div className="article-byline"><img src="/logo-rede-apucarana.png" alt="Logo" className="avatar" style={{ objectFit: "contain", width: "34px", height: "34px", borderRadius: "50%" }} /><span><strong>{sel.autor || "Redação Rede Apucarana"}</strong><small>Publicado hoje às {sel.hora || "09:10"} · leitura de 2 min</small></span></div>
-          <figure className="article-figure"><img src={sel.img} alt={`Imagem ilustrativa da notícia: ${sel.titulo}`} /><figcaption>{sel.credit || "Imagem ilustrativa"}</figcaption></figure>
-          <div className="article-body">{sel.texto.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>
+          <figure className="article-figure"><img src={sel.img} alt={`Imagem ilustrativa da notícia: ${decodeHtmlEntities(sel.titulo)}`} /><figcaption>{sel.credit || "Imagem ilustrativa"}</figcaption></figure>
+          <div className="article-body">{decodeHtmlEntities(sel.texto).split("\n\n").map((p, i) => <p key={i}>{p}</p>)}</div>
           <div className="article-footer-note"><strong>Encontrou um erro?</strong><span> Fale com a redação para solicitar uma correção ou enviar informação.</span></div>
           <section className="related"><div className="section-heading"><span>Leia também</span><i /></div><div className="related-grid">{todas.filter((n) => n.id !== sel.id).slice(0, 3).map((n) => <NewsCard key={n.id} noticia={n} compact />)}</div></section>
         </article>

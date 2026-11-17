@@ -3,67 +3,125 @@
  */
 
 /**
- * Decodifica entidades HTML comuns em strings (ex: &#039; -> ', &quot; -> ", &atilde; -> ã)
- * Suporta entidades numéricas decimais (&#39;), hexadecimais (&#x27;) e nomeadas (&quot;).
+ * Decodifica entidades HTML comuns em strings (ex: &#039; -> ', &quot; -> ", &#231; -> ç, &atilde; -> ã)
+ * Suporta entidades numéricas decimais (&#231;), hexadecimais (&#xE7;) e nomeadas (&ccedil;).
  */
 export function decodeHtmlEntities(str: string): string {
   if (!str || typeof str !== "string") return "";
 
-  return str
-    .replace(/&#(\d+);/g, (_, dec) => {
-      try {
-        return String.fromCharCode(parseInt(dec, 10));
-      } catch {
-        return _;
-      }
-    })
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
-      try {
-        return String.fromCharCode(parseInt(hex, 16));
-      } catch {
-        return _;
-      }
-    })
-    .replace(/&quot;/gi, '"')
-    .replace(/&apos;/gi, "'")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&ndash;/gi, "–")
-    .replace(/&mdash;/gi, "—")
-    .replace(/&lsquo;/gi, "‘")
-    .replace(/&rsquo;/gi, "’")
-    .replace(/&ldquo;/gi, "“")
-    .replace(/&rdquo;/gi, "”")
-    .replace(/&hellip;/gi, "…")
-    .replace(/&bull;/gi, "•")
-    .replace(/&copy;/gi, "©")
-    .replace(/&reg;/gi, "®")
-    .replace(/&aacute;/gi, "á")
-    .replace(/&Aacute;/gi, "Á")
-    .replace(/&agrave;/gi, "à")
-    .replace(/&Agrave;/gi, "À")
-    .replace(/&atilde;/gi, "ã")
-    .replace(/&Atilde;/gi, "Ã")
-    .replace(/&acirc;/gi, "â")
-    .replace(/&Acirc;/gi, "Â")
-    .replace(/&eacute;/gi, "é")
-    .replace(/&Eacute;/gi, "É")
-    .replace(/&ecirc;/gi, "ê")
-    .replace(/&Ecirc;/gi, "Ê")
-    .replace(/&iacute;/gi, "í")
-    .replace(/&Iacute;/gi, "Í")
-    .replace(/&oacute;/gi, "ó")
-    .replace(/&Oacute;/gi, "Ó")
-    .replace(/&otilde;/gi, "õ")
-    .replace(/&Otilde;/gi, "Õ")
-    .replace(/&ocirc;/gi, "ô")
-    .replace(/&Ocirc;/gi, "Ô")
-    .replace(/&uacute;/gi, "ú")
-    .replace(/&Uacute;/gi, "Ú")
-    .replace(/&ccedil;/gi, "ç")
-    .replace(/&Ccedil;/gi, "Ç");
+  let decoded = str;
+
+  // Normalizar casos de dupla codificação como &amp;#231;
+  decoded = decoded.replace(/&amp;#/gi, "&#");
+
+  // 1. Entidades numéricas decimais (ex: &#231; -> ç, &#8211; -> –)
+  decoded = decoded.replace(/&#(\d+);/g, (_, dec) => {
+    try {
+      const code = parseInt(dec, 10);
+      return code > 0 ? String.fromCodePoint(code) : _;
+    } catch {
+      return _;
+    }
+  });
+
+  // 2. Entidades numéricas hexadecimais (ex: &#xE7; -> ç, &#x2013; -> –)
+  decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+    try {
+      const code = parseInt(hex, 16);
+      return code > 0 ? String.fromCodePoint(code) : _;
+    } catch {
+      return _;
+    }
+  });
+
+  // 3. Entidades nomeadas do português e HTML padrão
+  const namedEntities: Record<string, string> = {
+    "&quot;": '"',
+    "&apos;": "'",
+    "&#039;": "'",
+    "&#39;": "'",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&nbsp;": " ",
+    "&ndash;": "–",
+    "&mdash;": "—",
+    "&lsquo;": "‘",
+    "&rsquo;": "’",
+    "&sbquo;": "‚",
+    "&bdquo;": "„",
+    "&ldquo;": "“",
+    "&rdquo;": "”",
+    "&hellip;": "…",
+    "&bull;": "•",
+    "&copy;": "©",
+    "&reg;": "®",
+    "&trade;": "™",
+    "&ordf;": "ª",
+    "&ordm;": "º",
+    "&deg;": "°",
+    "&sect;": "§",
+    "&middot;": "·",
+    "&aacute;": "á",
+    "&Aacute;": "Á",
+    "&agrave;": "à",
+    "&Agrave;": "À",
+    "&atilde;": "ã",
+    "&Atilde;": "Ã",
+    "&acirc;": "â",
+    "&Acirc;": "Â",
+    "&auml;": "ä",
+    "&Auml;": "Ä",
+    "&eacute;": "é",
+    "&Eacute;": "É",
+    "&egrave;": "è",
+    "&Egrave;": "È",
+    "&ecirc;": "ê",
+    "&Ecirc;": "Ê",
+    "&euml;": "ë",
+    "&Euml;": "Ë",
+    "&iacute;": "í",
+    "&Iacute;": "Í",
+    "&igrave;": "ì",
+    "&Igrave;": "Ì",
+    "&icirc;": "î",
+    "&Icirc;": "Î",
+    "&iuml;": "ï",
+    "&Iuml;": "Ï",
+    "&oacute;": "ó",
+    "&Oacute;": "Ó",
+    "&ograve;": "ò",
+    "&Ograve;": "Ò",
+    "&otilde;": "õ",
+    "&Otilde;": "Õ",
+    "&ocirc;": "ô",
+    "&Ocirc;": "Ô",
+    "&ouml;": "ö",
+    "&Ouml;": "Ö",
+    "&uacute;": "ú",
+    "&Uacute;": "Ú",
+    "&ugrave;": "ù",
+    "&Ugrave;": "Ù",
+    "&ucirc;": "û",
+    "&Ucirc;": "Û",
+    "&uuml;": "ü",
+    "&Uuml;": "Ü",
+    "&ccedil;": "ç",
+    "&Ccedil;": "Ç",
+    "&ntilde;": "ñ",
+    "&Ntilde;": "Ñ",
+  };
+
+  for (const [entity, replacement] of Object.entries(namedEntities)) {
+    decoded = decoded.replace(new RegExp(entity, "gi"), replacement);
+  }
+
+  // 4. Limpeza de &amp; residual
+  decoded = decoded.replace(/&amp;/gi, "&");
+
+  // 5. Limpar entidade quebrada por corte de caracteres no final (ex: "texto &#25" ou "fim &am")
+  decoded = decoded.replace(/&#\d*$/, "").replace(/&[a-zA-Z0-9]*$/, "");
+
+  return decoded;
 }
 
 /**
