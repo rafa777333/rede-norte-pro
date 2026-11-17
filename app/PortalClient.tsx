@@ -28,7 +28,7 @@ import DarkMediaStrip, { type VideoPortalItem } from "../components/DarkMediaStr
 import VideosHubPage from "../components/VideosHubPage";
 import CitiesScrollTicker from "../components/CitiesScrollTicker";
 import CommercialAdSlot from "../components/CommercialAdSlot";
-import EditorialBentoGrid from "../components/EditorialBentoGrid";
+import EditorialBentoGrid, { temFotoReal } from "../components/EditorialBentoGrid";
 import ValePublicUtilitiesHub from "../components/ValePublicUtilitiesHub";
 import DiscoverNationalSection from "../components/DiscoverNationalSection";
 import SportsSection from "../components/SportsSection";
@@ -970,9 +970,12 @@ export default function PortalClient({
     );
   }
 
-  const destaque = filtradas[0];
-  const menores = filtradas.slice(1, 4);
-  const posteriores = filtradas.slice(4, limiteNoticias);
+  // Destaque Editorial: SEMPRE prioriza matéria com foto real!
+  const destaqueComFoto = filtradas.find(temFotoReal);
+  const destaque = destaqueComFoto || filtradas[0];
+  const poolMenores = filtradas.filter((n) => n.id !== destaque?.id);
+  const menores = poolMenores.slice(0, 3);
+  const posteriores = poolMenores.slice(3, limiteNoticias);
   const primeirasUltimas = posteriores.slice(0, 12);
   const restantesUltimas = posteriores.slice(12);
   const temMaisNoticias = filtradas.length > limiteNoticias;

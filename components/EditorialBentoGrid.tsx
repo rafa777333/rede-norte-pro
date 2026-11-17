@@ -29,6 +29,31 @@ export interface BentoNewsItem {
   video_url?: string;
 }
 
+export function temFotoReal(
+  n: BentoNewsItem | { img?: string; imagem?: string; cover_image?: string } | null | undefined
+): boolean {
+  if (!n) return false;
+  const img = (n as any).img || (n as any).imagem || (n as any).cover_image || "";
+  if (!img || typeof img !== "string") return false;
+  const lower = img.toLowerCase().trim();
+  if (!lower.startsWith("http")) return false;
+  if (
+    lower.includes("logo-rede-apucarana") ||
+    lower.includes("obama") ||
+    lower.includes("photo-1529107386315") ||
+    lower.includes("placeholder") ||
+    lower.includes("avatar") ||
+    lower.includes("brasao") ||
+    lower.includes("transparencia") ||
+    lower.includes("selo_diamante") ||
+    lower.endsWith(".svg") ||
+    lower.endsWith(".gif")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 interface EditorialBentoGridProps {
   news?: BentoNewsItem[];
   manchetePrincipal?: BentoNewsItem | null;
@@ -57,13 +82,18 @@ export default function EditorialBentoGrid({
   const outras = news.filter((n) => !isNoticiaRegional(n));
   const poolPrioritario = [...regionais, ...outras];
 
-  // 1. Super-Manchete Principal
-  const regComImg = regionais.find((n) => Boolean(n.img && n.img.startsWith("http")));
+  // 1. Super-Manchete Principal: DEVE ter foto real!
+  const principalCandidato =
+    manchetePrincipal && temFotoReal(manchetePrincipal) ? manchetePrincipal : null;
+  const regComFoto = regionais.find(temFotoReal);
+  const poolComFoto = poolPrioritario.find(temFotoReal);
+
   const finalPrincipal =
+    principalCandidato ||
+    regComFoto ||
+    poolComFoto ||
     manchetePrincipal ||
-    regComImg ||
     regionais[0] ||
-    poolPrioritario.find((n) => Boolean(n.img && n.img.startsWith("http"))) ||
     poolPrioritario[0] ||
     null;
 
@@ -80,13 +110,14 @@ export default function EditorialBentoGrid({
     ...finalSubManchetes.map((s) => s.id),
   ]);
 
-  // 3. Destaques Regionais (prioriza 2 notícias regionais com imagem)
-  const remainingReg = regionais.filter((n) => !usedIds.has(n.id) && Boolean(n.img));
+  // 3. Destaques Regionais (prioriza 2 notícias regionais com imagem real)
+  const remainingReg = regionais.filter((n) => !usedIds.has(n.id) && temFotoReal(n));
   const poolAfterSub = poolRestante.filter((n) => !usedIds.has(n.id));
+  const poolComFotoRestante = poolAfterSub.filter(temFotoReal);
   const finalDestaques =
     destaquesRegionais.length > 0
       ? destaquesRegionais
-      : (remainingReg.length >= 2 ? remainingReg : poolAfterSub).slice(0, 2);
+      : (remainingReg.length >= 2 ? remainingReg : poolComFotoRestante.length >= 2 ? poolComFotoRestante : poolAfterSub).slice(0, 2);
   finalDestaques.forEach((d) => usedIds.add(d.id));
 
   // 4. Plantão & Últimas (próximas 5 notícias)
@@ -120,12 +151,7 @@ export default function EditorialBentoGrid({
             <Link href={mainHref} className="block relative aspect-video w-full overflow-hidden bg-slate-900">
               {(() => {
                 const fotoPrincipal = finalPrincipal.cover_image || finalPrincipal.img;
-                const temFotoValida = Boolean(
-                  fotoPrincipal &&
-                  fotoPrincipal !== "/logo-rede-apucarana.png" &&
-                  !fotoPrincipal.includes("obama") &&
-                  !fotoPrincipal.includes("photo-1529107386315")
-                );
+                const temFotoValida = temFotoReal(finalPrincipal);
 
                 if (temFotoValida) {
                   return (

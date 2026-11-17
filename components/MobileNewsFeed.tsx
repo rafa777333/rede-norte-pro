@@ -11,6 +11,7 @@ import {
 } from "../lib/text-utils";
 import WhatsAppShareButton from "./WhatsAppShareButton";
 import type { BentoNewsItem } from "./EditorialBentoGrid";
+import { temFotoReal } from "./EditorialBentoGrid";
 
 interface MobileNewsFeedProps {
   news: BentoNewsItem[];
@@ -31,9 +32,10 @@ export default function MobileNewsFeed({
 }: MobileNewsFeedProps) {
   if (!news || news.length === 0) return null;
 
-  // Manchete principal mobile
-  const manchetePrincipal = news[0];
-  const proximasNoticias = news.slice(1, 14);
+  // Manchete principal mobile: prioriza sempre notícia com foto real
+  const mancheteComFoto = news.find(temFotoReal);
+  const manchetePrincipal = mancheteComFoto || news[0];
+  const proximasNoticias = news.filter((n) => n.id !== manchetePrincipal.id).slice(0, 13);
 
   const getHref = (item: BentoNewsItem) =>
     item.slug ? `/noticia/${item.slug}` : `/noticia/${item.id}`;

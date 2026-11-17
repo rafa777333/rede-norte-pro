@@ -73,6 +73,9 @@ function cleanImageUrl(img: string, base: string): string {
   if (!clean.startsWith("http")) {
     clean = base.replace(/\/$/, "") + (clean.startsWith("/") ? "" : "/") + clean;
   }
+  if (clean.startsWith("http://")) {
+    clean = "https://" + clean.slice(7);
+  }
   if (clean.includes("/tb_")) clean = clean.replace("/tb_", "/");
 
   const lower = clean.toLowerCase();
@@ -91,6 +94,50 @@ function cleanImageUrl(img: string, base: string): string {
     return "";
   }
   return clean;
+}
+
+export async function extractOgImageFromUrl(url: string): Promise<string> {
+  if (!url || !url.startsWith("http")) return "";
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return "";
+    const html = await res.text();
+
+    const ogMatch =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+
+    if (ogMatch && ogMatch[1]) {
+      const cleaned = cleanImageUrl(ogMatch[1], url);
+      if (cleaned) return cleaned;
+    }
+
+    const postImgMatch =
+      html.match(/<img[^>]+class=["'][^"']*(?:wp-post-image|featured|attachment|noticia)[^"']*["'][^>]+src=["']([^"']+)["']/i) ||
+      html.match(/<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*(?:wp-post-image|featured|attachment|noticia)[^"']*["']/i);
+    if (postImgMatch && postImgMatch[1]) {
+      const cleaned = cleanImageUrl(postImgMatch[1], url);
+      if (cleaned) return cleaned;
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
 }
 
 function parsePubDate(pubDate: string | undefined): string {
@@ -270,6 +317,12 @@ export async function runMunicipalNewsSync() {
           slug = `${slug}-${Math.floor(Math.random() * 1000)}`;
         }
 
+        // Tenta capturar a foto real diretamente da página original (og:image)
+        if (!item.image || !item.image.startsWith("http") || item.image.includes("logo-rede-apucarana")) {
+          const ogImg = await extractOgImageFromUrl(item.link);
+          if (ogImg) item.image = ogImg;
+        }
+
         const nowIso = new Date().toISOString();
         const payload = {
           id: crypto.randomUUID(),
@@ -333,6 +386,12 @@ export async function runMunicipalNewsSync() {
         let slug = slugify(title);
         if (existingSlugs.has(slug)) slug = `${slug}-${Math.floor(Math.random() * 1000)}`;
 
+        let finalImg = img;
+        if (!finalImg || !finalImg.startsWith("http") || finalImg.includes("logo-rede-apucarana")) {
+          const ogImg = await extractOgImageFromUrl(link);
+          if (ogImg) finalImg = ogImg;
+        }
+
         const nowIso = new Date().toISOString();
         const payload = {
           id: crypto.randomUUID(),
@@ -340,7 +399,7 @@ export async function runMunicipalNewsSync() {
           slug: slug,
           conteudo: desc,
           resumo: desc.slice(0, 160),
-          imagem: img || "/logo-rede-apucarana.png",
+          imagem: finalImg || "/logo-rede-apucarana.png",
           categoria: "Geral",
           cidade_slug: "geral",
           autor: "Agência Brasil",
