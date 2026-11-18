@@ -6,6 +6,7 @@ import { getSupabase } from "@/lib/supabase";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { ArrowLeft, Clock, Play } from "lucide-react";
 import ShareButtons from "./ShareButtons";
+import ArticleImage from "@/components/ArticleImage";
 import { decodeHtmlEntities, ensureHttps } from "@/lib/text-utils";
 
 // Caching ISR inteligente: revalida a cada 60s em background
@@ -778,20 +779,11 @@ export default async function NewsArticlePage({
         {/* Se NÃO houver vídeo, exibe imagem de capa com fallback neutro */}
         {!news.video_url && (news.cover_image || news.imagem) && (
           <figure className="my-6 sm:my-8 rounded-2xl overflow-hidden shadow-md border border-slate-100 bg-slate-900">
-            <img
-              src={ensureHttps(news.cover_image || news.imagem) || "/logo-rede-apucarana.png"}
+            <ArticleImage
+              src={ensureHttps(news.cover_image || news.imagem)}
               alt={news.title}
-              className={`w-full ${(news.cover_image || news.imagem) === "/logo-rede-apucarana.png" ? "h-64 object-contain p-6" : "h-auto max-h-[500px] object-cover"}`}
-              loading="eager"
-              onError={(e) => {
-                const target = e.currentTarget;
-                if (target.src.startsWith("http://")) {
-                  target.src = target.src.replace(/^http:\/\//i, "https://");
-                  return;
-                }
-                target.src = "/logo-rede-apucarana.png";
-                target.className = "w-full h-64 object-contain p-6 bg-slate-900";
-              }}
+              className="w-full h-auto max-h-[500px] object-cover"
+              priority={true}
             />
             <figcaption className="p-2.5 bg-slate-50 text-[11px] text-slate-500 text-center border-t border-slate-100">
               Foto: {news.autor} • Reprodução Jornalística Rede Apucarana
@@ -839,20 +831,10 @@ export default async function NewsArticlePage({
                   >
                     {item.imagem && (
                       <div className="aspect-video w-full overflow-hidden bg-slate-100">
-                        <img
+                        <ArticleImage
                           src={ensureHttps(item.imagem)}
                           alt={itemTitle}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            if (target.src.startsWith("http://")) {
-                              target.src = target.src.replace(/^http:\/\//i, "https://");
-                              return;
-                            }
-                            target.src = "/logo-rede-apucarana.png";
-                            target.className = "w-full h-full object-contain p-2 bg-slate-900";
-                          }}
                         />
                       </div>
                     )}
