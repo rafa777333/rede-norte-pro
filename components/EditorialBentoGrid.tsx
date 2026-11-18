@@ -9,6 +9,7 @@ import {
   hasVideoContent,
   truncateWords,
   decodeHtmlEntities,
+  ensureHttps,
 } from "../lib/text-utils";
 import WhatsAppShareButton from "./WhatsAppShareButton";
 
@@ -151,10 +152,11 @@ export default function EditorialBentoGrid({
             {/* Foto 16:9 com Prioridade de LCP */}
             <Link href={mainHref} className="block relative aspect-video w-full overflow-hidden bg-slate-900">
               {(() => {
-                const fotoPrincipal =
+                const rawFotoPrincipal =
                   (finalPrincipal as any).imagem ||
                   finalPrincipal.cover_image ||
                   finalPrincipal.img;
+                const fotoPrincipal = ensureHttps(rawFotoPrincipal);
                 const temFotoValida = temFotoReal(finalPrincipal);
 
                 if (temFotoValida && fotoPrincipal) {
@@ -167,8 +169,13 @@ export default function EditorialBentoGrid({
                       fetchPriority="high"
                       loading="eager"
                       onError={(e) => {
-                        e.currentTarget.src = "/logo-rede-apucarana.png";
-                        e.currentTarget.className = "w-full h-full object-contain p-8 bg-slate-900";
+                        const target = e.currentTarget;
+                        if (target.src.startsWith("http://")) {
+                          target.src = target.src.replace(/^http:\/\//i, "https://");
+                          return;
+                        }
+                        target.src = "/logo-rede-apucarana.png";
+                        target.className = "w-full h-full object-contain p-8 bg-slate-900";
                       }}
                     />
                   );
@@ -332,7 +339,8 @@ export default function EditorialBentoGrid({
                   className="w-24 sm:w-28 h-20 sm:h-24 rounded-lg overflow-hidden shrink-0 bg-slate-900 block relative"
                 >
                   {(() => {
-                    const regFoto = (reg as any).imagem || reg.cover_image || reg.img;
+                    const rawRegFoto = (reg as any).imagem || reg.cover_image || reg.img;
+                    const regFoto = ensureHttps(rawRegFoto);
                     const temRegFoto = temFotoReal(reg);
 
                     if (temRegFoto && regFoto) {
@@ -343,8 +351,13 @@ export default function EditorialBentoGrid({
                           className="w-full h-full object-cover transition-transform group-hover:scale-105"
                           loading="lazy"
                           onError={(e) => {
-                            e.currentTarget.src = "/logo-rede-apucarana.png";
-                            e.currentTarget.className = "w-full h-full object-contain p-2 bg-slate-900";
+                            const target = e.currentTarget;
+                            if (target.src.startsWith("http://")) {
+                              target.src = target.src.replace(/^http:\/\//i, "https://");
+                              return;
+                            }
+                            target.src = "/logo-rede-apucarana.png";
+                            target.className = "w-full h-full object-contain p-2 bg-slate-900";
                           }}
                         />
                       );

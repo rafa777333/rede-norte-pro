@@ -20,7 +20,24 @@ const trackerMap = new Map<string, ServerStreamTracker>();
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const targetUrl = searchParams.get("url") || DEFAULT_M3U8;
+    const targetUrl = searchParams.get("url") || "";
+
+    if (!targetUrl || targetUrl.includes("samcast.com.br")) {
+      return NextResponse.json(
+        {
+          isLive: false,
+          isFrozen: false,
+          reason: "Stream offline ou não configurado",
+          checkedAt: new Date().toISOString(),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          },
+        }
+      );
+    }
+
     const cacheKey = targetUrl.trim().toLowerCase();
     const now = Date.now();
 

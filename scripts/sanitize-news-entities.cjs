@@ -123,62 +123,123 @@ function decodeHtmlEntities(str) {
 }
 
 async function sanitizeDatabase() {
-  console.log('--- Iniciando sanitização de entidades HTML no Supabase ---');
+  console.log('--- Iniciando sanitização de entidades HTML e imagens no Supabase ---');
 
-  // Buscar todas as notícias
+  // 1. Sanitizar tabela 'news'
   const { data: allNews, error } = await supabase
     .from('news')
-    .select('id, slug, titulo, resumo, conteudo')
+    .select('id, slug, titulo, resumo, conteudo, imagem')
     .order('published_at', { ascending: false });
 
   if (error) {
-    console.error('Erro ao buscar notícias:', error);
-    process.exit(1);
-  }
+    console.error('Erro ao buscar notícias da tabela news:', error);
+  } else {
+    console.log(`Total de notícias na tabela news: ${allNews.length}`);
+    let updatedCount = 0;
 
-  console.log(`Total de notícias no banco: ${allNews.length}`);
-  let updatedCount = 0;
+    for (const item of allNews) {
+      const rawTitulo = item.titulo || '';
+      const rawResumo = item.resumo || '';
+      const rawConteudo = item.conteudo || '';
+      const rawImagem = item.imagem || '';
 
-  for (const item of allNews) {
-    const rawTitulo = item.titulo || '';
-    const rawResumo = item.resumo || '';
-    const rawConteudo = item.conteudo || '';
+      const cleanTitulo = decodeHtmlEntities(rawTitulo);
+      const cleanResumo = decodeHtmlEntities(rawResumo);
+      const cleanConteudo = decodeHtmlEntities(rawConteudo);
+      let cleanImagem = rawImagem;
+      if (cleanImagem && cleanImagem.startsWith('http://')) {
+        cleanImagem = 'https://' + cleanImagem.slice(7);
+      }
 
-    const cleanTitulo = decodeHtmlEntities(rawTitulo);
-    const cleanResumo = decodeHtmlEntities(rawResumo);
-    const cleanConteudo = decodeHtmlEntities(rawConteudo);
+      const changed =
+        cleanTitulo !== rawTitulo ||
+        cleanResumo !== rawResumo ||
+        cleanConteudo !== rawConteudo ||
+        cleanImagem !== rawImagem;
 
-    const changed =
-      cleanTitulo !== rawTitulo ||
-      cleanResumo !== rawResumo ||
-      cleanConteudo !== rawConteudo;
+      if (changed) {
+        console.log(`Atualizando [${item.slug}]:`);
+        if (cleanTitulo !== rawTitulo) console.log(`  Titulo: "${rawTitulo}" -> "${cleanTitulo}"`);
+        if (cleanResumo !== rawResumo) console.log(`  Resumo: corrigido`);
+        if (cleanConteudo !== rawConteudo) console.log(`  Conteudo: corrigido`);
+        if (cleanImagem !== rawImagem) console.log(`  Imagem: "${rawImagem}" -> "${cleanImagem}"`);
 
-    if (changed) {
-      console.log(`Atualizando [${item.slug}]:`);
-      if (cleanTitulo !== rawTitulo) console.log(`  Titulo: "${rawTitulo}" -> "${cleanTitulo}"`);
-      if (cleanResumo !== rawResumo) console.log(`  Resumo: alterado`);
-      if (cleanConteudo !== rawConteudo) console.log(`  Conteudo: alterado`);
+        const { error: updateError } = await supabase
+          .from('news')
+          .update({
+            titulo: cleanTitulo,
+            resumo: cleanResumo,
+            conteudo: cleanConteudo,
+            imagem: cleanImagem,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', item.id);
 
-      const { error: updateError } = await supabase
-        .from('news')
-        .update({
-          titulo: cleanTitulo,
-          resumo: cleanResumo,
-          conteudo: cleanConteudo,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', item.id);
-
-      if (updateError) {
-        console.error(`Erro ao atualizar notícia ${item.id}:`, updateError);
-      } else {
-        updatedCount++;
+        if (updateError) {
+          console.error(`Erro ao atualizar notícia ${item.id}:`, updateError);
+        } else {
+          updatedCount++;
+        }
       }
     }
+    console.log(`Total de notícias corrigidas na tabela news: ${updatedCount}`);
   }
 
-  console.log(`\n=== CONCLUÍDO ===`);
-  console.log(`Total de notícias corrigidas no banco de dados: ${updatedCount}`);
+  // 2. Sanitizar tabela 'noticias_portal'
+  const { data: portalNews, error: portalErr } = await supabase
+    .from('noticias_portal')
+    .select('id, slug, titulo, resumo_meta, conteudo, imagem, imagem_url')
+    .limit(500);
+
+  if (portalErr) {
+    console.log('Tabela noticias_portal não encontrada ou inacessível:', portalErr.message);
+  } else if (portalNews && portalNews.length > 0) {
+    console.log(`Total de notícias na tabela noticias_portal: ${portalNews.length}`);
+    let portalUpdated = 0;
+
+    for (const item of portalNews) {
+      const rawTitulo = item.titulo || '';
+      const rawResumo = item.resumo_meta || '';
+      const rawConteudo = item.conteudo || '';
+      let cleanImg = item.imagem_url || item.imagem || '';
+      if (cleanImg && cleanImg.startsWith('http://')) {
+        cleanImg = 'https://' + cleanImg.slice(7);
+      }
+
+      const cleanTitulo = decodeHtmlEntities(rawTitulo);
+      const cleanResumo = decodeHtmlEntities(rawResumo);
+      const cleanConteudo = decodeHtmlEntities(rawConteudo);
+
+      const changed =
+        cleanTitulo !== rawTitulo ||
+        cleanResumo !== rawResumo ||
+        cleanConteudo !== rawConteudo ||
+        (cleanImg && cleanImg !== (item.imagem_url || item.imagem));
+
+      if (changed) {
+        console.log(`Atualizando noticias_portal [${item.slug}]:`);
+        const { error: updateError } = await supabase
+          .from('noticias_portal')
+          .update({
+            titulo: cleanTitulo,
+            resumo_meta: cleanResumo,
+            conteudo: cleanConteudo,
+            imagem: cleanImg,
+            imagem_url: cleanImg,
+          })
+          .eq('id', item.id);
+
+        if (updateError) {
+          console.error(`Erro ao atualizar noticias_portal ${item.id}:`, updateError);
+        } else {
+          portalUpdated++;
+        }
+      }
+    }
+    console.log(`Total de notícias corrigidas na tabela noticias_portal: ${portalUpdated}`);
+  }
+
+  console.log(`\n=== SANITIZAÇÃO CONCLUÍDA COM SUCESSO ===`);
 }
 
 sanitizeDatabase();

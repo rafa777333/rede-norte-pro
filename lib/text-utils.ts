@@ -11,118 +11,138 @@ export function decodeHtmlEntities(str: string): string {
 
   let decoded = str;
 
-  // Normalizar casos de dupla codificação como &amp;#231;
-  decoded = decoded.replace(/&amp;#/gi, "&#");
+  // Realiza até 2 passadas para resolver entidades duplamente codificadas (&amp;#231; ou &amp;ccedil;)
+  for (let pass = 0; pass < 2; pass++) {
+    if (!decoded.includes("&")) break;
 
-  // 1. Entidades numéricas decimais (ex: &#231; -> ç, &#8211; -> –)
-  decoded = decoded.replace(/&#(\d+);/g, (_, dec) => {
-    try {
-      const code = parseInt(dec, 10);
-      return code > 0 ? String.fromCodePoint(code) : _;
-    } catch {
-      return _;
-    }
-  });
+    // Normalizar casos de dupla codificação como &amp;#231; ou &amp;ccedil;
+    decoded = decoded.replace(/&amp;#/gi, "&#");
+    decoded = decoded.replace(/&amp;([a-zA-Z0-9#]+;)/gi, "&$1");
 
-  // 2. Entidades numéricas hexadecimais (ex: &#xE7; -> ç, &#x2013; -> –)
-  decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
-    try {
-      const code = parseInt(hex, 16);
-      return code > 0 ? String.fromCodePoint(code) : _;
-    } catch {
-      return _;
-    }
-  });
+    // 1. Entidades numéricas decimais (ex: &#231; -> ç, &#8211; -> –, &#225; -> á, com ou sem ponto-e-vírgula)
+    decoded = decoded.replace(/&#(\d+);?/g, (_, dec) => {
+      try {
+        const code = parseInt(dec, 10);
+        return code > 0 && code < 65536 ? String.fromCodePoint(code) : _;
+      } catch {
+        return _;
+      }
+    });
 
-  // 3. Entidades nomeadas do português e HTML padrão
-  const namedEntities: Record<string, string> = {
-    "&quot;": '"',
-    "&apos;": "'",
-    "&#039;": "'",
-    "&#39;": "'",
-    "&lt;": "<",
-    "&gt;": ">",
-    "&nbsp;": " ",
-    "&ndash;": "–",
-    "&mdash;": "—",
-    "&lsquo;": "‘",
-    "&rsquo;": "’",
-    "&sbquo;": "‚",
-    "&bdquo;": "„",
-    "&ldquo;": "“",
-    "&rdquo;": "”",
-    "&hellip;": "…",
-    "&bull;": "•",
-    "&copy;": "©",
-    "&reg;": "®",
-    "&trade;": "™",
-    "&ordf;": "ª",
-    "&ordm;": "º",
-    "&deg;": "°",
-    "&sect;": "§",
-    "&middot;": "·",
-    "&aacute;": "á",
-    "&Aacute;": "Á",
-    "&agrave;": "à",
-    "&Agrave;": "À",
-    "&atilde;": "ã",
-    "&Atilde;": "Ã",
-    "&acirc;": "â",
-    "&Acirc;": "Â",
-    "&auml;": "ä",
-    "&Auml;": "Ä",
-    "&eacute;": "é",
-    "&Eacute;": "É",
-    "&egrave;": "è",
-    "&Egrave;": "È",
-    "&ecirc;": "ê",
-    "&Ecirc;": "Ê",
-    "&euml;": "ë",
-    "&Euml;": "Ë",
-    "&iacute;": "í",
-    "&Iacute;": "Í",
-    "&igrave;": "ì",
-    "&Igrave;": "Ì",
-    "&icirc;": "î",
-    "&Icirc;": "Î",
-    "&iuml;": "ï",
-    "&Iuml;": "Ï",
-    "&oacute;": "ó",
-    "&Oacute;": "Ó",
-    "&ograve;": "ò",
-    "&Ograve;": "Ò",
-    "&otilde;": "õ",
-    "&Otilde;": "Õ",
-    "&ocirc;": "ô",
-    "&Ocirc;": "Ô",
-    "&ouml;": "ö",
-    "&Ouml;": "Ö",
-    "&uacute;": "ú",
-    "&Uacute;": "Ú",
-    "&ugrave;": "ù",
-    "&Ugrave;": "Ù",
-    "&ucirc;": "û",
-    "&Ucirc;": "Û",
-    "&uuml;": "ü",
-    "&Uuml;": "Ü",
-    "&ccedil;": "ç",
-    "&Ccedil;": "Ç",
-    "&ntilde;": "ñ",
-    "&Ntilde;": "Ñ",
-  };
+    // 2. Entidades numéricas hexadecimais (ex: &#xE7; -> ç, &#x2013; -> –)
+    decoded = decoded.replace(/&#x([0-9a-fA-F]+);?/g, (_, hex) => {
+      try {
+        const code = parseInt(hex, 16);
+        return code > 0 && code < 65536 ? String.fromCodePoint(code) : _;
+      } catch {
+        return _;
+      }
+    });
 
-  // 3. Substituição segura e rápida de entidades nomeadas
-  decoded = decoded.replace(/&([a-zA-Z]+);/g, (match) => {
-    return namedEntities[match] || namedEntities[match.toLowerCase()] || match;
-  });
+    // 3. Entidades nomeadas do português e HTML padrão
+    const namedEntities: Record<string, string> = {
+      "&quot;": '"',
+      "&apos;": "'",
+      "&#039;": "'",
+      "&#39;": "'",
+      "&lt;": "<",
+      "&gt;": ">",
+      "&nbsp;": " ",
+      "&ndash;": "–",
+      "&mdash;": "—",
+      "&lsquo;": "‘",
+      "&rsquo;": "’",
+      "&sbquo;": "‚",
+      "&bdquo;": "„",
+      "&ldquo;": "“",
+      "&rdquo;": "”",
+      "&hellip;": "…",
+      "&bull;": "•",
+      "&copy;": "©",
+      "&reg;": "®",
+      "&trade;": "™",
+      "&ordf;": "ª",
+      "&ordm;": "º",
+      "&deg;": "°",
+      "&sect;": "§",
+      "&middot;": "·",
+      "&aacute;": "á",
+      "&Aacute;": "Á",
+      "&agrave;": "à",
+      "&Agrave;": "À",
+      "&atilde;": "ã",
+      "&Atilde;": "Ã",
+      "&acirc;": "â",
+      "&Acirc;": "Â",
+      "&auml;": "ä",
+      "&Auml;": "Ä",
+      "&eacute;": "é",
+      "&Eacute;": "É",
+      "&egrave;": "è",
+      "&Egrave;": "È",
+      "&ecirc;": "ê",
+      "&Ecirc;": "Ê",
+      "&euml;": "ë",
+      "&Euml;": "Ë",
+      "&iacute;": "í",
+      "&Iacute;": "Í",
+      "&igrave;": "ì",
+      "&Igrave;": "Ì",
+      "&icirc;": "î",
+      "&Icirc;": "Î",
+      "&iuml;": "ï",
+      "&Iuml;": "Ï",
+      "&oacute;": "ó",
+      "&Oacute;": "Ó",
+      "&ograve;": "ò",
+      "&Ograve;": "Ò",
+      "&otilde;": "õ",
+      "&Otilde;": "Õ",
+      "&ocirc;": "ô",
+      "&Ocirc;": "Ô",
+      "&ouml;": "ö",
+      "&Ouml;": "Ö",
+      "&uacute;": "ú",
+      "&Uacute;": "Ú",
+      "&ugrave;": "ù",
+      "&Ugrave;": "Ù",
+      "&ucirc;": "û",
+      "&Ucirc;": "Û",
+      "&uuml;": "ü",
+      "&Uuml;": "Ü",
+      "&ccedil;": "ç",
+      "&Ccedil;": "Ç",
+      "&ntilde;": "ñ",
+      "&Ntilde;": "Ñ",
+    };
 
-  // 4. Limpeza de &amp; residual
-  decoded = decoded.replace(/&amp;/gi, "&");
+    // 3. Substituição segura e rápida de entidades nomeadas
+    decoded = decoded.replace(/&([a-zA-Z]+);?/g, (match) => {
+      const formatted = match.endsWith(";") ? match : match + ";";
+      return namedEntities[formatted] || namedEntities[formatted.toLowerCase()] || namedEntities[match] || match;
+    });
+
+    // 4. Limpeza de &amp; residual
+    decoded = decoded.replace(/&amp;/gi, "&");
+  }
 
   // 5. Limpar entidade quebrada por corte de caracteres no final (ex: "texto &#25" ou "fim &am")
   decoded = decoded.replace(/&#\d*$/, "").replace(/&[a-zA-Z0-9]*$/, "");
 
   return decoded;
+}
+
+/**
+ * Garante que qualquer URL de imagem utilize HTTPS para evitar bloqueios por Conteúdo Misto (Mixed Content)
+ * em navegadores modernos (Chrome, Safari, Edge).
+ */
+export function ensureHttps(url: string | null | undefined): string {
+  if (!url || typeof url !== "string") return "";
+  let trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("//")) return "https:" + trimmed;
+  if (trimmed.startsWith("http://")) return "https://" + trimmed.slice(7);
+  return trimmed;
 }
 
 /**

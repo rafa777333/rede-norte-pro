@@ -40,6 +40,7 @@ import { MOCK_CLASSIFICADOS, normalizeClassifiedAd } from "../lib/classificados-
 import type { PortalInitialData } from "../lib/portal-data";
 import {
   decodeHtmlEntities,
+  ensureHttps,
   truncateWords,
   formatNewsTime,
   refineNewsCategory,
@@ -287,11 +288,12 @@ function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: bo
   const temVideo = hasVideoContent(noticia);
   const horaFormatada = formatNewsTime(noticia.published_at, noticia.hora);
   const resumoFormatado = truncateWords(noticia.resumo || noticia.sub || "", compact ? 90 : 160);
+  const safeImg = ensureHttps(noticia.img);
   const temFotoValida = Boolean(
-    noticia.img &&
-    noticia.img !== "/logo-rede-apucarana.png" &&
-    !noticia.img.includes("obama") &&
-    !noticia.img.includes("photo-1529107386315")
+    safeImg &&
+    safeImg !== "/logo-rede-apucarana.png" &&
+    !safeImg.includes("obama") &&
+    !safeImg.includes("photo-1529107386315")
   );
 
   return (
@@ -299,13 +301,18 @@ function NewsCard({ noticia, compact = false }: { noticia: Noticia; compact?: bo
       <Link href={href} prefetch={false} className="block relative overflow-hidden aspect-video bg-slate-900">
         {temFotoValida ? (
           <img
-            src={noticia.img}
+            src={safeImg}
             alt={`Imagem da notícia: ${noticia.titulo}`}
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
             onError={(event) => {
-              event.currentTarget.src = "/logo-rede-apucarana.png";
-              event.currentTarget.className = "w-full h-full object-contain p-4 bg-slate-900";
+              const target = event.currentTarget;
+              if (target.src.startsWith("http://")) {
+                target.src = target.src.replace(/^http:\/\//i, "https://");
+                return;
+              }
+              target.src = "/logo-rede-apucarana.png";
+              target.className = "w-full h-full object-contain p-4 bg-slate-900";
             }}
           />
         ) : (
@@ -592,7 +599,8 @@ export default function PortalClient({
                   const cleanTitulo = decodeHtmlEntities(n.titulo || "").trim();
                   const cleanResumo = decodeHtmlEntities(resumoSeguro(n.conteudo, n.resumo));
                   const cleanTexto = decodeHtmlEntities(n.conteudo || n.resumo || "");
-                  const realImg = (n as any).cover_image || n.imagem || (n as any).img || "/logo-rede-apucarana.png";
+                  const rawImg = (n as any).cover_image || n.imagem || (n as any).img || "";
+                  const realImg = ensureHttps(rawImg) || "/logo-rede-apucarana.png";
 
                   return {
                     id: n.id,
@@ -694,7 +702,8 @@ export default function PortalClient({
         const cleanTitulo = decodeHtmlEntities(n.titulo || "").trim();
         const cleanResumo = decodeHtmlEntities(resumoSeguro(n.conteudo, n.resumo));
         const cleanTexto = decodeHtmlEntities(n.conteudo || n.resumo || "");
-        const realImg = (n as any).cover_image || n.imagem || (n as any).img || "/logo-rede-apucarana.png";
+        const rawImg = (n as any).cover_image || n.imagem || (n as any).img || "";
+        const realImg = ensureHttps(rawImg) || "/logo-rede-apucarana.png";
 
         return {
           id: n.id,
@@ -1479,11 +1488,16 @@ export default function PortalClient({
                     {destaque.img && destaque.img !== "/logo-rede-apucarana.png" ? (
                       <img
                         className="hero-image"
-                        src={destaque.img}
+                        src={ensureHttps(destaque.img)}
                         alt={`Imagem da notícia: ${destaque.titulo}`}
                         onError={(event) => {
-                          event.currentTarget.src = "/logo-rede-apucarana.png";
-                          event.currentTarget.className = "hero-image bg-slate-900 object-contain p-6";
+                          const target = event.currentTarget;
+                          if (target.src.startsWith("http://")) {
+                            target.src = target.src.replace(/^http:\/\//i, "https://");
+                            return;
+                          }
+                          target.src = "/logo-rede-apucarana.png";
+                          target.className = "hero-image bg-slate-900 object-contain p-6";
                         }}
                       />
                     ) : (

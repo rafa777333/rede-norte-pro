@@ -399,14 +399,18 @@ export async function runMunicipalNewsSync() {
           if (ogImg) item.image = ogImg;
         }
 
+        const cleanTitle = decodeEntities(item.title);
+        const cleanContent = decodeEntities(item.content || item.title);
+        const cleanImg = cleanImageUrl(item.image, city.site_oficial);
+
         const nowIso = new Date().toISOString();
         const payload = {
           id: crypto.randomUUID(),
-          titulo: item.title,
+          titulo: cleanTitle,
           slug: slug,
-          conteudo: item.content || item.title,
-          resumo: (item.content || item.title).slice(0, 160),
-          imagem: item.image || "/logo-rede-apucarana.png",
+          conteudo: cleanContent,
+          resumo: cleanContent.slice(0, 160),
+          imagem: cleanImg || "/logo-rede-apucarana.png",
           categoria: "Cidade",
           cidade_slug: city.cidade_slug,
           autor: `Fonte oficial: Prefeitura de ${city.cidade_nome}`,
@@ -468,14 +472,18 @@ export async function runMunicipalNewsSync() {
           if (ogImg) finalImg = ogImg;
         }
 
+        const cleanAbTitle = decodeEntities(title);
+        const cleanAbDesc = decodeEntities(desc);
+        const cleanAbImg = cleanImageUrl(finalImg, "https://agenciabrasil.ebc.com.br");
+
         const nowIso = new Date().toISOString();
         const payload = {
           id: crypto.randomUUID(),
-          titulo: title,
+          titulo: cleanAbTitle,
           slug: slug,
-          conteudo: desc,
-          resumo: desc.slice(0, 160),
-          imagem: finalImg || "/logo-rede-apucarana.png",
+          conteudo: cleanAbDesc,
+          resumo: cleanAbDesc.slice(0, 160),
+          imagem: cleanAbImg || "/logo-rede-apucarana.png",
           categoria: "Geral",
           cidade_slug: "geral",
           autor: "Agência Brasil",

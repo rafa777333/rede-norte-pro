@@ -256,15 +256,14 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setIsLiveTvOpen(true)}
+            <a
+              href="/tv-online"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold shadow-lg shadow-red-600/30 transition-all cursor-pointer transform hover:scale-105 active:scale-95"
               title="Assistir TV Rede Apucarana Ao Vivo"
             >
               <span className="w-2 h-2 rounded-full bg-white animate-ping" />
               <span>Assistir TV Ao Vivo ▶</span>
-            </button>
+            </a>
 
             <a
               href="/tv-online"
@@ -301,10 +300,9 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
           style={{ scrollbarWidth: "none" }}
         >
           {/* CARD DESTAQUE: TV REDE APUCARANA AO VIVO */}
-          <button
-            type="button"
-            onClick={() => setIsLiveTvOpen(true)}
-            className="group relative w-56 sm:w-64 shrink-0 aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-b from-red-950/80 via-slate-950 to-black border-2 border-red-600/80 shadow-2xl snap-start text-left focus:outline-none cursor-pointer transform hover:-translate-y-1.5 transition-all duration-300 p-0"
+          <a
+            href="/tv-online"
+            className="group relative w-56 sm:w-64 shrink-0 aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-b from-red-950/80 via-slate-950 to-black border-2 border-red-600/80 shadow-2xl snap-start text-left focus:outline-none cursor-pointer transform hover:-translate-y-1.5 transition-all duration-300 p-0 block"
             title="Sintonizar TV Rede Apucarana Ao Vivo em HD"
           >
             {/* Imagem de Fundo de Estúdio / Broadcast */}
@@ -354,7 +352,7 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
                 <span>Toque para assistir</span>
               </div>
             </div>
-          </button>
+          </a>
           {displayList.map((v) => {
             const thumb = getVideoThumbnail(v);
             const badge = getPlatformBadge(v.plataforma);
@@ -660,11 +658,15 @@ export default function DarkMediaStrip({ videos, cidade = "Geral" }: DarkMediaSt
             </div>
 
             {/* Player de TV HLS com Aspect-Video e Object-Cover */}
-            <div className="p-3 sm:p-5 bg-black">
-              <LiveTvPlayer
-                streamUrl="https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8"
-                showTheaterButton={false}
-              />
+            <div className="p-3 sm:p-5 bg-black flex flex-col items-center justify-center text-center aspect-video">
+              <p className="text-sm font-bold text-white mb-3">Assistir à programação da TV Rede Apucarana 24h</p>
+              <a
+                href="/tv-online"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm transition-all shadow-lg hover:scale-105"
+              >
+                <span>Assistir TV Online Ao Vivo</span>
+                <span>→</span>
+              </a>
             </div>
 
             {/* Rodapé do Modal */}

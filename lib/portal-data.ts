@@ -1,6 +1,7 @@
 import { getSupabase } from "./supabase";
 import {
   decodeHtmlEntities,
+  ensureHttps,
   truncateWords,
   formatNewsTime,
   refineNewsCategory,
@@ -84,7 +85,8 @@ function formatNewsItem(n: any): PortalNews {
       : "Vale do Ivaí";
 
   const hora = formatNewsTime(n.published_at);
-  const foto = (n as any).cover_image || n.imagem || (n as any).img || "/logo-rede-apucarana.png";
+  const rawFoto = (n as any).cover_image || n.imagem || (n as any).img || "";
+  const foto = ensureHttps(rawFoto) || "/logo-rede-apucarana.png";
 
   return {
     id: n.id,

@@ -6,7 +6,7 @@ import { getSupabase } from "@/lib/supabase";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { ArrowLeft, Clock, Play } from "lucide-react";
 import ShareButtons from "./ShareButtons";
-import { decodeHtmlEntities } from "@/lib/text-utils";
+import { decodeHtmlEntities, ensureHttps } from "@/lib/text-utils";
 
 // Caching ISR inteligente: revalida a cada 60s em background
 // Sem 'force-dynamic' para permitir renderização ultra rápida (< 30ms)
@@ -296,7 +296,7 @@ const getNewsBySlug = cache(
           extractedFormat = "9:16";
         }
 
-        const cover_image = (data as any).cover_image || data.imagem || null;
+        const cover_image = ensureHttps((data as any).cover_image || data.imagem || null);
         const rawTitle = decodeHtmlEntities(data.title || data.titulo || "");
         if (!rawTitle) return null;
 
@@ -316,7 +316,7 @@ const getNewsBySlug = cache(
           video_url: extractedVideo,
           video_format: extractedFormat,
           cover_image,
-          imagem: cover_image || data.imagem || null,
+          imagem: cover_image || ensureHttps(data.imagem) || null,
           categoria: data.categoria || "Geral",
           cidade: data.cidade_slug || "Apucarana",
           autor: data.autor || "Redação Rede Apucarana",
@@ -358,8 +358,8 @@ const getNewsBySlug = cache(
           seo_description: rawResumo,
           content: rawContent,
           video_url: null,
-          imagem: portalData.imagem_url || portalData.imagem || null,
-          cover_image: portalData.imagem_url || portalData.imagem || null,
+          imagem: ensureHttps(portalData.imagem_url || portalData.imagem || null),
+          cover_image: ensureHttps(portalData.imagem_url || portalData.imagem || null),
           categoria: portalData.categoria || "Geral",
           cidade: "Apucarana",
           autor: portalData.credito_imagem || portalData.fonte_nome || "Redação Rede Apucarana",
@@ -779,10 +779,19 @@ export default async function NewsArticlePage({
         {!news.video_url && (news.cover_image || news.imagem) && (
           <figure className="my-6 sm:my-8 rounded-2xl overflow-hidden shadow-md border border-slate-100 bg-slate-900">
             <img
-              src={news.cover_image || news.imagem || "/logo-rede-apucarana.png"}
+              src={ensureHttps(news.cover_image || news.imagem) || "/logo-rede-apucarana.png"}
               alt={news.title}
               className={`w-full ${(news.cover_image || news.imagem) === "/logo-rede-apucarana.png" ? "h-64 object-contain p-6" : "h-auto max-h-[500px] object-cover"}`}
               loading="eager"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (target.src.startsWith("http://")) {
+                  target.src = target.src.replace(/^http:\/\//i, "https://");
+                  return;
+                }
+                target.src = "/logo-rede-apucarana.png";
+                target.className = "w-full h-64 object-contain p-6 bg-slate-900";
+              }}
             />
             <figcaption className="p-2.5 bg-slate-50 text-[11px] text-slate-500 text-center border-t border-slate-100">
               Foto: {news.autor} • Reprodução Jornalística Rede Apucarana
@@ -831,10 +840,19 @@ export default async function NewsArticlePage({
                     {item.imagem && (
                       <div className="aspect-video w-full overflow-hidden bg-slate-100">
                         <img
-                          src={item.imagem}
+                          src={ensureHttps(item.imagem)}
                           alt={itemTitle}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (target.src.startsWith("http://")) {
+                              target.src = target.src.replace(/^http:\/\//i, "https://");
+                              return;
+                            }
+                            target.src = "/logo-rede-apucarana.png";
+                            target.className = "w-full h-full object-contain p-2 bg-slate-900";
+                          }}
                         />
                       </div>
                     )}

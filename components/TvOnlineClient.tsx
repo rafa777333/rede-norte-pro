@@ -427,6 +427,7 @@ const YouTubeFastGridPlayer = React.forwardRef<YouTubeFastGridPlayerHandle, YouT
             videoId: initialYtId,
             playerVars: {
               autoplay: 1,
+              mute: 1, // Permite autoplay contínuo sem ser bloqueado pelo navegador
               controls: 0, // TV REAL: SEM Barra de tempo do YouTube (impede avançar/voltar)
               disablekb: 1, // TV REAL: Sem atalhos de teclado
               fs: 0, // Sem botão nativo de Fullscreen do YouTube (usamos a barra da TV)

@@ -63,7 +63,7 @@ export function getDayShortLabel(day: number): string {
 
 export const DEFAULT_TV_SETTINGS: TvSettings = {
   mode: "auto",
-  live_m3u8_url: "https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8",
+  live_m3u8_url: "",
   live_program_title: "🔴 AO VIVO: Jornalismo & Giro Rede Apucarana",
 };
 

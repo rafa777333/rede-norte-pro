@@ -8,6 +8,7 @@ import {
   hasVideoContent,
   truncateWords,
   decodeHtmlEntities,
+  ensureHttps,
 } from "../lib/text-utils";
 import WhatsAppShareButton from "./WhatsAppShareButton";
 import type { BentoNewsItem } from "./EditorialBentoGrid";
@@ -99,10 +100,19 @@ export default function MobileNewsFeed({
               {manchetePrincipal.img && (
                 <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-slate-100 mb-3 shadow-xs">
                   <img
-                    src={manchetePrincipal.img}
+                    src={ensureHttps(manchetePrincipal.img)}
                     alt={decodeHtmlEntities(manchetePrincipal.titulo)}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
                     loading="eager"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (target.src.startsWith("http://")) {
+                        target.src = target.src.replace(/^http:\/\//i, "https://");
+                        return;
+                      }
+                      target.src = "/logo-rede-apucarana.png";
+                      target.className = "w-full h-full object-contain p-6 bg-slate-900";
+                    }}
                   />
                   {/* Badges Flutuantes */}
                   <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
@@ -200,10 +210,19 @@ export default function MobileNewsFeed({
                   <Link href={href} className="shrink-0">
                     <div className="w-24 h-20 sm:w-28 sm:h-24 rounded-xl overflow-hidden bg-slate-100 shadow-2xs">
                       <img
-                        src={item.img}
+                        src={ensureHttps(item.img)}
                         alt={decodeHtmlEntities(item.titulo)}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (target.src.startsWith("http://")) {
+                            target.src = target.src.replace(/^http:\/\//i, "https://");
+                            return;
+                          }
+                          target.src = "/logo-rede-apucarana.png";
+                          target.className = "w-full h-full object-contain p-2 bg-slate-900";
+                        }}
                       />
                     </div>
                   </Link>

@@ -12,8 +12,22 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawn, execSync } = require('child_process');
 const { createClient } = require('@supabase/supabase-js');
+
+function getLocalIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+const hostIp = getLocalIp();
 
 const projectRoot = path.resolve(__dirname, '..');
 const mediamtxExe = path.join(__dirname, 'mediamtx.exe');
@@ -80,8 +94,24 @@ mtxProcess.stdout.on('data', (data) => {
   const line = data.toString();
   if (line.includes('is publishing to path')) {
     console.log('\n🔴 [OBS CONECTADO!] Sinal de vídeo e áudio ao vivo recebido do estúdio!');
+    if (supabase) {
+      const channel = supabase.channel('tv_channel_realtime_sync');
+      channel.send({
+        type: 'broadcast',
+        event: 'stream_started',
+        payload: { status: 'live', timestamp: Date.now() },
+      }).catch(() => {});
+    }
   } else if (line.includes('closed:') && line.includes('path')) {
     console.log('\n⚪ [OBS DESCONECTADO] O sinal do OBS foi encerrado. O site volta à Grade YouTube.');
+    if (supabase) {
+      const channel = supabase.channel('tv_channel_realtime_sync');
+      channel.send({
+        type: 'broadcast',
+        event: 'stream_ended',
+        payload: { status: 'offline', timestamp: Date.now() },
+      }).catch(() => {});
+    }
   }
 });
 
@@ -118,7 +148,10 @@ async function onTunnelReady(publicUrl) {
   console.log('='.repeat(78));
   console.log('  🎥 CONFIGURE SEU OBS STUDIO (Configurações -> Transmissão):');
   console.log('     • Serviço:              Personalizado (Custom)');
-  console.log('     • Servidor:             rtmp://localhost:1935/live');
+  console.log('     • Servidor (neste PC):  rtmp://localhost:1935/live');
+  if (hostIp && hostIp !== 'localhost') {
+    console.log(`     • Servidor (outro PC):  rtmp://${hostIp}:1935/live (use este se o OBS estiver em outro PC do estúdio)`);
+  }
   console.log('     • Chave de Transmissão: tvapucarana');
   console.log('-'.repeat(78));
   console.log('  🌐 LINK PÚBLICO HTTPS HLS (Gerado pelo Cloudflare Tunnel):');

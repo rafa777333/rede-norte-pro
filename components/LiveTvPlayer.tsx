@@ -45,8 +45,7 @@ interface LiveTvPlayerProps {
   onStreamActive?: () => void;
 }
 
-const DEFAULT_STREAM =
-  "https://Stmv1.samcast.com.br/tvapucarana/tvapucarana/playlist.m3u8";
+const DEFAULT_STREAM = "";
 
 const LiveTvPlayer = forwardRef<LiveTvPlayerHandle, LiveTvPlayerProps>(
   function LiveTvPlayer(
