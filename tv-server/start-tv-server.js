@@ -18,14 +18,21 @@ const { createClient } = require('@supabase/supabase-js');
 
 function getLocalIp() {
   const interfaces = os.networkInterfaces();
+  const candidates = [];
   for (const name of Object.keys(interfaces)) {
+    const isVirtual = /radmin|vpn|virtual|loopback|teredo|pseudo/i.test(name);
     for (const iface of interfaces[name] || []) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
+        if (!isVirtual && (iface.address.startsWith('192.168.') || iface.address.startsWith('10.') || iface.address.startsWith('172.'))) {
+          return iface.address;
+        }
+        if (!isVirtual) {
+          candidates.push(iface.address);
+        }
       }
     }
   }
-  return 'localhost';
+  return candidates[0] || 'localhost';
 }
 const hostIp = getLocalIp();
 
