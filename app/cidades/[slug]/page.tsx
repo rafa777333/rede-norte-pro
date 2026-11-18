@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
 import PortalClient from "../../PortalClient";
+import { getInitialPortalData } from "@/lib/portal-data";
+
+export const revalidate = 60; // ISR - revalidação inteligente a cada 60s por cidade
 
 const CITY_NAMES: Record<string, string> = {
   apucarana: "Apucarana",
@@ -42,10 +45,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default function CityPage({ params }: { params: { slug: string } }) {
+export default async function CityPage({ params }: { params: { slug: string } }) {
   const slug = decodeURIComponent(params.slug);
   const cityName = CITY_NAMES[slug];
   if (!cityName) notFound();
 
-  return <PortalClient initialCity={cityName} />;
+  const initialData = await getInitialPortalData(cityName);
+
+  return <PortalClient initialCity={cityName} initialData={initialData} />;
 }

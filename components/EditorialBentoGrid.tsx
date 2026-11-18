@@ -134,7 +134,7 @@ export default function EditorialBentoGrid({
   const mainGeoTag = detectCityGeoTag(finalPrincipal);
   const mainHasVideo = hasVideoContent(finalPrincipal);
   const mainHoraFormatada = formatNewsTime(finalPrincipal.published_at, finalPrincipal.hora);
-  const mainResumo = truncateWords(finalPrincipal.resumo || finalPrincipal.sub || "", 180);
+  const mainResumo = truncateWords(decodeHtmlEntities(finalPrincipal.resumo || finalPrincipal.sub || ""), 180);
 
   return (
     <section
@@ -151,10 +151,13 @@ export default function EditorialBentoGrid({
             {/* Foto 16:9 com Prioridade de LCP */}
             <Link href={mainHref} className="block relative aspect-video w-full overflow-hidden bg-slate-900">
               {(() => {
-                const fotoPrincipal = finalPrincipal.cover_image || finalPrincipal.img;
+                const fotoPrincipal =
+                  (finalPrincipal as any).imagem ||
+                  finalPrincipal.cover_image ||
+                  finalPrincipal.img;
                 const temFotoValida = temFotoReal(finalPrincipal);
 
-                if (temFotoValida) {
+                if (temFotoValida && fotoPrincipal) {
                   return (
                     <img
                       src={fotoPrincipal}
@@ -329,15 +332,10 @@ export default function EditorialBentoGrid({
                   className="w-24 sm:w-28 h-20 sm:h-24 rounded-lg overflow-hidden shrink-0 bg-slate-900 block relative"
                 >
                   {(() => {
-                    const regFoto = reg.cover_image || reg.img;
-                    const temRegFoto = Boolean(
-                      regFoto &&
-                      regFoto !== "/logo-rede-apucarana.png" &&
-                      !regFoto.includes("obama") &&
-                      !regFoto.includes("photo-1529107386315")
-                    );
+                    const regFoto = (reg as any).imagem || reg.cover_image || reg.img;
+                    const temRegFoto = temFotoReal(reg);
 
-                    if (temRegFoto) {
+                    if (temRegFoto && regFoto) {
                       return (
                         <img
                           src={regFoto}

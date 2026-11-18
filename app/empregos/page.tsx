@@ -6,7 +6,7 @@ import { MOCK_AUTONOMOS, AutonomoItem } from "@/lib/autonomos-data";
 import EmpregosHubClient from "@/components/EmpregosHubClient";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
-export const revalidate = 30;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Vagas de Emprego & Autônomos no Vale do Ivaí | Rede Apucarana",

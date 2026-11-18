@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "./supabase-admin";
 import { getSupabase } from "./supabase";
+import { decodeHtmlEntities } from "./text-utils";
 
 export interface CitySource {
   cidade_nome: string;
@@ -382,6 +383,8 @@ export async function runMunicipalNewsSync() {
 
       for (const item of parsedItems) {
         if (!item.title || item.title.length < 15) continue;
+        item.title = decodeHtmlEntities(item.title).trim();
+        item.content = decodeHtmlEntities(item.content || item.title).trim();
         if (existingFontes.has(item.link)) continue;
         if (existingTitles.has(item.title.toLowerCase().trim())) continue;
 

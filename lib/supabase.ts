@@ -18,6 +18,19 @@ export function getSupabase(): SupabaseClient | null {
       persistSession: typeof window !== "undefined",
       autoRefreshToken: typeof window !== "undefined",
     },
+    global: {
+      fetch: (input, init = {}) => {
+        // No servidor (Next.js 14), impede que o Data Cache congele as consultas ao Supabase em force-cache.
+        // O controle de cache é feito pelo ISR (export const revalidate = 60) e pelo webhook on-demand.
+        if (typeof window === "undefined") {
+          return fetch(input, {
+            ...init,
+            cache: "no-store",
+          });
+        }
+        return fetch(input, init);
+      },
+    },
   });
 
   return cachedClient;

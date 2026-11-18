@@ -405,6 +405,8 @@ async function syncAll() {
 
       for (const item of parsedItems) {
         if (!item.title || item.title.length < 15) continue;
+        item.title = decodeEntities(item.title).trim();
+        item.content = decodeEntities(item.content || item.title).trim();
         if (existingFontes.has(item.link)) continue;
         if (existingTitles.has(item.title.toLowerCase().trim())) continue;
 

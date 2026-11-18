@@ -111,9 +111,10 @@ export function decodeHtmlEntities(str: string): string {
     "&Ntilde;": "Ñ",
   };
 
-  for (const [entity, replacement] of Object.entries(namedEntities)) {
-    decoded = decoded.replace(new RegExp(entity, "gi"), replacement);
-  }
+  // 3. Substituição segura e rápida de entidades nomeadas
+  decoded = decoded.replace(/&([a-zA-Z]+);/g, (match) => {
+    return namedEntities[match] || namedEntities[match.toLowerCase()] || match;
+  });
 
   // 4. Limpeza de &amp; residual
   decoded = decoded.replace(/&amp;/gi, "&");

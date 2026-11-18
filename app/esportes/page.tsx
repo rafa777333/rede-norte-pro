@@ -3,7 +3,7 @@ import FutebolWidget, { FutebolJogo, FutebolClassificacao } from "../../componen
 import MobileBottomNav from "../../components/MobileBottomNav";
 import { getSupabase } from "@/lib/supabase";
 
-export const revalidate = 30;
+export const revalidate = 60; // ISR - revalidação a cada 60s
 
 export const metadata = {
   title: "Jogos de Hoje, Placares ao Vivo e Classificação | Rede Apucarana Esportes",

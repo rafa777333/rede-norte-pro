@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSupabase, cidadeSlug } from "@/lib/supabase";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { refineNewsCategory, truncateWords } from "@/lib/text-utils";
+import { refineNewsCategory, truncateWords, decodeHtmlEntities } from "@/lib/text-utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 function generateSlug(text: string): string {
-  return text
+  return decodeHtmlEntities(text)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -143,10 +144,10 @@ function formatItem(item: any) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const title = (body.title || body.titulo || "").trim();
+    const title = decodeHtmlEntities(body.title || body.titulo || "").trim();
     const rawSlug = (body.slug || "").trim();
-    const seo_description = (body.seo_description || body.resumo || "").trim().slice(0, 160);
-    const content = (body.content || body.conteudo || "").trim();
+    const seo_description = truncateWords(decodeHtmlEntities(body.seo_description || body.resumo || ""), 180);
+    const content = decodeHtmlEntities(body.content || body.conteudo || "").trim();
     const video_url = (body.video_url || "").trim();
     const rawCoverImage = (body.cover_image || body.imagem || body.image || "").trim();
     const video_format = (body.video_format || "16:9").trim();
@@ -282,6 +283,13 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Revalidação sob demanda imediata no Next.js / Vercel
+    try {
+      revalidatePath("/", "layout");
+      revalidatePath("/noticias");
+      if (finalSlug) revalidatePath(`/noticia/${finalSlug}`);
+    } catch {}
 
     return NextResponse.json({
       success: true,

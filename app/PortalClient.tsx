@@ -226,13 +226,17 @@ const noticiasFixas: Noticia[] = [
 ];
 
 function resumoSeguro(conteudo: unknown, resumo: unknown): string {
-  if (typeof resumo === "string" && resumo.trim()) return truncateWords(resumo, 180);
-  let texto = typeof conteudo === "string" ? conteudo : "";
+  let texto = "";
+  if (typeof resumo === "string" && resumo.trim()) {
+    texto = resumo;
+  } else if (typeof conteudo === "string") {
+    texto = conteudo;
+  }
   try {
     const parsed = JSON.parse(texto);
     if (Array.isArray(parsed)) texto = parsed.filter((part) => typeof part === "string").join(" ");
   } catch { /* usa o texto recebido */ }
-  return truncateWords(texto, 180);
+  return truncateWords(decodeHtmlEntities(texto), 180);
 }
 
 function noticiaValida(item: any): boolean {
@@ -240,6 +244,8 @@ function noticiaValida(item: any): boolean {
   if (titulo.length < 5 || titulo.length > 220) return false;
   if (titulo.startsWith("[") || titulo.startsWith("{") || titulo.includes("\"Offline") || titulo.includes("https://") || titulo.includes("http://")) return false;
   if (/\b(offline|whatsapp|instagram\.com|facebook\.com|youtube\.com)\b/i.test(titulo)) return false;
+  // Filtrar páginas institucionais fixas capturadas por scrapers de prefeituras
+  if (/^(Portal da Transpar[êe]ncia|Organograma|Acesso Servidor|Webmail|Galeria de Prefeitos|Hino do Munic[íi]pio|Perguntas Frequentes|Editais de Licita[çc][ãa]o|Contratos na [Íi]ntegra)/i.test(titulo)) return false;
   return Boolean(item?.conteudo || item?.resumo);
 }
 
@@ -582,23 +588,31 @@ export default function PortalClient({
             .limit(50)
             .then(({ data }) => {
               if (data && data.length) {
-                const formatados = data.filter(noticiaValida).map((n: any) => ({
-                  id: n.id,
-                  slug: n.slug || n.id,
-                  cidade: cidade,
-                  cidade_slug: n.cidade_slug,
-                  cat: refineNewsCategory(n.categoria, n.titulo, n.conteudo || n.resumo),
-                  titulo: n.titulo,
-                  sub: resumoSeguro(n.conteudo, n.resumo),
-                  resumo: resumoSeguro(n.conteudo, n.resumo),
-                  texto: n.conteudo || n.resumo || "",
-                  img: n.imagem || "",
-                  hora: formatNewsTime(n.published_at),
-                  autor: n.autor || "Redação Rede Apucarana",
-                  credit: n.autor || "Redação Rede Apucarana",
-                  published_at: n.published_at,
-                  video_url: n.video_url,
-                }));
+                const formatados = data.filter(noticiaValida).map((n: any) => {
+                  const cleanTitulo = decodeHtmlEntities(n.titulo || "").trim();
+                  const cleanResumo = decodeHtmlEntities(resumoSeguro(n.conteudo, n.resumo));
+                  const cleanTexto = decodeHtmlEntities(n.conteudo || n.resumo || "");
+                  const realImg = (n as any).cover_image || n.imagem || (n as any).img || "/logo-rede-apucarana.png";
+
+                  return {
+                    id: n.id,
+                    slug: n.slug || n.id,
+                    cidade: cidade,
+                    cidade_slug: n.cidade_slug,
+                    cat: refineNewsCategory(n.categoria, cleanTitulo, cleanTexto || cleanResumo),
+                    titulo: cleanTitulo,
+                    sub: cleanResumo,
+                    resumo: cleanResumo,
+                    texto: cleanTexto,
+                    img: realImg,
+                    cover_image: realImg,
+                    hora: formatNewsTime(n.published_at),
+                    autor: n.autor || "Redação Rede Apucarana",
+                    credit: n.autor || "Redação Rede Apucarana",
+                    published_at: n.published_at,
+                    video_url: n.video_url,
+                  };
+                });
                 setNoticiasAdmin((prev) => {
                   const idSet = new Set(prev.map((p) => p.id));
                   const novos = formatados.filter((n: any) => !idSet.has(n.id));
@@ -676,25 +690,32 @@ export default function PortalClient({
       }
 
       const cityMap = new Map((cities || []).map((city: any) => [city.slug, city.nome]));
-      if (news.length) setNoticiasAdmin(news.filter((n: any) => noticiaValida(n)).map((n: any) => ({
-        id: n.id,
-        slug: n.slug || n.id,
-        cidade: cityMap.get(n.cidade_slug) || (n.cidade_slug === "geral" ? "Geral" : n.cidade_slug) || "Geral",
-        cidade_slug: n.cidade_slug || "geral",
-        cat: refineNewsCategory(n.categoria, n.titulo, n.conteudo || n.resumo),
-        titulo: n.titulo,
-        sub: resumoSeguro(n.conteudo, n.resumo),
-        resumo: resumoSeguro(n.conteudo, n.resumo),
-        texto: n.conteudo || n.resumo || "",
-        img: n.cover_image || n.imagem || "/logo-rede-apucarana.png",
-        cover_image: n.cover_image || n.imagem || "/logo-rede-apucarana.png",
-        video_format: n.video_format || "16:9",
-        hora: formatNewsTime(n.published_at),
-        autor: n.autor || "Redação Rede Apucarana",
-        credit: n.autor || "Redação Rede Apucarana",
-        published_at: n.published_at,
-        video_url: n.video_url,
-      })));
+      if (news.length) setNoticiasAdmin(news.filter((n: any) => noticiaValida(n)).map((n: any) => {
+        const cleanTitulo = decodeHtmlEntities(n.titulo || "").trim();
+        const cleanResumo = decodeHtmlEntities(resumoSeguro(n.conteudo, n.resumo));
+        const cleanTexto = decodeHtmlEntities(n.conteudo || n.resumo || "");
+        const realImg = (n as any).cover_image || n.imagem || (n as any).img || "/logo-rede-apucarana.png";
+
+        return {
+          id: n.id,
+          slug: n.slug || n.id,
+          cidade: cityMap.get(n.cidade_slug) || (n.cidade_slug === "geral" ? "Geral" : n.cidade_slug) || "Geral",
+          cidade_slug: n.cidade_slug || "geral",
+          cat: refineNewsCategory(n.categoria, cleanTitulo, cleanTexto || cleanResumo),
+          titulo: cleanTitulo,
+          sub: cleanResumo,
+          resumo: cleanResumo,
+          texto: cleanTexto,
+          img: realImg,
+          cover_image: realImg,
+          video_format: n.video_format || "16:9",
+          hora: formatNewsTime(n.published_at),
+          autor: n.autor || "Redação Rede Apucarana",
+          credit: n.autor || "Redação Rede Apucarana",
+          published_at: n.published_at,
+          video_url: n.video_url,
+        };
+      }));
       if (services?.length) setLocaisAdmin(services.map((item: any) => ({ id: item.id, nome: item.nome, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, end: item.endereco || "", zap: item.whatsapp || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (jobs?.length) setVagasAdmin(jobs.map((item: any) => ({ id: item.id, cargo: item.vaga, empresa: item.empresa, cidade: cityMap.get(item.cidade_slug) || "Apucarana", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));
       if (ads?.length) setClassifAdmin(ads.map((item: any) => ({ id: item.id, titulo: item.titulo, cidade: cityMap.get(item.cidade_slug) || "Apucarana", cat: item.categoria, preco: item.preco || "", zap: item.contato || "", img: item.imagem || "", detalhes: item.descricao || "" })));

@@ -73,7 +73,8 @@ const CITY_NAME_MAP: Record<string, string> = {
 function formatNewsItem(n: any): PortalNews {
   const cleanTitle = decodeHtmlEntities(n.titulo || "").trim();
   const refinedCategory = refineNewsCategory(n.categoria, cleanTitle, n.conteudo || n.resumo);
-  const cleanResumo = truncateWords(n.resumo || n.conteudo || "", 180);
+  const rawResumo = decodeHtmlEntities(n.resumo || n.conteudo || "");
+  const cleanResumo = truncateWords(rawResumo, 180);
 
   const cityName =
     n.cidade_slug && CITY_NAME_MAP[n.cidade_slug]
@@ -83,6 +84,7 @@ function formatNewsItem(n: any): PortalNews {
       : "Vale do Ivaí";
 
   const hora = formatNewsTime(n.published_at);
+  const foto = (n as any).cover_image || n.imagem || (n as any).img || "/logo-rede-apucarana.png";
 
   return {
     id: n.id,
@@ -94,8 +96,8 @@ function formatNewsItem(n: any): PortalNews {
     sub: cleanResumo,
     resumo: cleanResumo,
     texto: decodeHtmlEntities(n.conteudo || ""),
-    img: (n as any).cover_image || n.imagem || "/logo-rede-apucarana.png",
-    cover_image: (n as any).cover_image || n.imagem || "/logo-rede-apucarana.png",
+    img: foto,
+    cover_image: foto,
     video_format: (n as any).video_format || "16:9",
     hora,
     autor: n.autor || "Redação Rede Apucarana",

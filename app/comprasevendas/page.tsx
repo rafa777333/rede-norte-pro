@@ -10,7 +10,7 @@ import {
 import ClassificadosMarketplace from "@/components/ClassificadosMarketplace";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
-export const revalidate = 30; // ISR inteligente
+export const revalidate = 60; // ISR inteligente
 
 export const metadata: Metadata = {
   title: "Compras e Vendas no Vale do Ivaí | Classificados & Negócios Rede Apucarana",

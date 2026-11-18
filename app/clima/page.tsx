@@ -1,6 +1,8 @@
 import React from "react";
 import PortalClient from "../PortalClient";
 
+export const revalidate = 60; // ISR - atualiza previsões e clima a cada 60s
+
 export const metadata = {
   title: "Previsão do Tempo e Clima no Vale do Ivaí e Paraná | Rede Apucarana",
   description:

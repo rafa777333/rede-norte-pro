@@ -20,6 +20,14 @@ export function getSupabaseAdmin(): SupabaseClient {
       autoRefreshToken: false,
       persistSession: false,
     },
+    global: {
+      fetch: (input, init = {}) => {
+        return fetch(input, {
+          ...init,
+          cache: "no-store",
+        });
+      },
+    },
   });
 
   return adminClient;
