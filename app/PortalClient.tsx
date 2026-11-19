@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  CloudSun,
-  Trophy,
-  PlayCircle,
-  Utensils,
-  Briefcase,
-  Tag,
+  Newspaper,
+  Tv,
   ShoppingBag,
+  Briefcase,
+  Compass,
+  Tag,
   Search,
 } from "lucide-react";
 import { cidadeSlug, getSupabase } from "../lib/supabase";
@@ -19,17 +18,15 @@ import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner
 import ImpostometroWidget from "../components/ImpostometroWidget";
 import FutebolWidget from "../components/FutebolWidget";
 import Badge from "../components/Badge";
-import TopUtilityCockpit from "../components/TopUtilityCockpit";
 import MobileBottomNav from "../components/MobileBottomNav";
 import InstallAppBanner from "../components/InstallAppBanner";
 import MobileNewsFeed from "../components/MobileNewsFeed";
 import QuickUtilitiesHub from "../components/QuickUtilitiesHub";
-import DarkMediaStrip, { type VideoPortalItem } from "../components/DarkMediaStrip";
+import type { VideoPortalItem } from "../components/DarkMediaStrip";
 import VideosHubPage from "../components/VideosHubPage";
 import CitiesScrollTicker from "../components/CitiesScrollTicker";
 import CommercialAdSlot from "../components/CommercialAdSlot";
 import EditorialBentoGrid, { temFotoReal } from "../components/EditorialBentoGrid";
-import ValePublicUtilitiesHub from "../components/ValePublicUtilitiesHub";
 import DiscoverNationalSection from "../components/DiscoverNationalSection";
 import SportsSection from "../components/SportsSection";
 import WeatherHubView from "../components/WeatherHubView";
@@ -1103,233 +1100,181 @@ export default function PortalClient({
             />
           </Link>
 
-          {/* Direita: Temperatura (Apucarana 24°C ⛅) + Botão Compacto ▶ AO VIVO */}
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => trocarAba("clima")}
-              className="text-[11px] font-bold text-slate-200 hover:text-white flex items-center gap-1 justify-end transition-colors cursor-pointer"
-              title="Previsão do tempo de Apucarana"
-            >
-              <span>Apucarana 24°C</span>
-              <span className="text-sm">⛅</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={alternarRadio}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer ${
-                radioTocando
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse"
-                  : "bg-red-600 hover:bg-red-700 text-white"
-              }`}
-              title={radioTocando ? "Pausar rádio" : "Ouvir rádio ao vivo"}
-            >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-              </span>
-              <span>{radioTocando ? "TOCANDO" : "▶ AO VIVO"}</span>
-            </button>
-          </div>
+          {/* Direita: Botão Rádio Apucarana FM Limpo e Discreto */}
+          <button
+            type="button"
+            onClick={alternarRadio}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer ${
+              radioTocando
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse"
+                : "bg-red-600 hover:bg-red-700 text-white"
+            }`}
+            title={radioTocando ? "Pausar rádio" : "Ouvir rádio ao vivo"}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+            </span>
+            <span>{radioTocando ? "RÁDIO NO AR" : "RÁDIO FM"}</span>
+          </button>
         </div>
       </header>
 
       {/* =========================================================================
           CABEÇALHO DESKTOP COMPLETO (hidden md:block)
-          Preserva a barra utilitária, a marca de 144px, busca, rádio e menu sticky
+          Preserva a marca, busca, rádio e as 6 abas oficiais idênticas ao app
          ========================================================================= */}
       <div className="hidden md:block">
-        <TopUtilityCockpit
-          radioTocando={radioTocando}
-          onToggleRadio={alternarRadio}
-          whatsappUrl={grupoWhatsApp}
-          onOpenClima={() => trocarAba("clima")}
-        />
-        
-        {/* Faixa da Marca e Ações (Marca Imponente 100% Maior na Esquerda + Busca Suave e Player Rádio na Direita) */}
+        {/* Faixa da Marca e Ações (Marca Imponente na Esquerda + Busca Suave e Player Rádio na Direita) */}
         <div className="header-brand-bar bg-white border-b border-slate-200/80 py-2.5 sm:py-3.5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6">
-          {/* 1. Marca / Logo Oficial Imponente (Arte Completa Integrada - 100% Maior) */}
-          <div className="flex items-center justify-center md:justify-start shrink-0">
-            <Link
-              href="/"
-              className="inline-flex items-center shrink-0 transition-opacity hover:opacity-95"
-              title="Rede Apucarana de Comunicação - Início"
-            >
-              <img
-                src="/logo-rede-apucarana-grande.png"
-                alt="Rede Apucarana de Comunicação - Tudo em um só lugar"
-                className="h-28 sm:h-32 lg:h-[144px] w-auto max-w-full object-contain"
-              />
-            </Link>
-          </div>
-
-          {/* 2. Direita: Busca Suave e Player da Rádio Integrado com Espaçamento Nobre */}
-          <div className="flex items-center justify-center md:justify-end gap-2.5 sm:gap-3 shrink-0 w-full md:w-auto">
-            {/* Caixa de Busca com Fundo Cinza Suave (Sem Caixa Pesada) */}
-            <div className="relative flex items-center bg-slate-100/80 hover:bg-slate-100 focus-within:bg-white border border-transparent focus-within:border-slate-300 rounded-lg transition-all">
-              <div className="pl-3 sm:pl-3.5 pointer-events-none text-slate-400 flex items-center shrink-0">
-                <Search className="w-4 h-4" />
-              </div>
-              <input
-                type="search"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar notícias, ofertas, vagas..."
-                aria-label="Buscar no portal"
-                className="w-36 sm:w-56 md:w-64 lg:w-72 py-2 pl-2.5 pr-3 text-xs sm:text-sm bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none"
-              />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6">
+            {/* 1. Marca / Logo Oficial */}
+            <div className="flex items-center justify-center md:justify-start shrink-0">
+              <Link
+                href="/"
+                className="inline-flex items-center shrink-0 transition-opacity hover:opacity-95"
+                title="Rede Apucarana de Comunicação - Início"
+              >
+                <img
+                  src="/logo-rede-apucarana-grande.png"
+                  alt="Rede Apucarana de Comunicação - Tudo em um só lugar"
+                  className="h-28 sm:h-32 lg:h-[144px] w-auto max-w-full object-contain"
+                />
+              </Link>
             </div>
 
-            {/* Botão Rádio Ao Vivo Integrado, Compacto e Elegante */}
-            <button
-              type="button"
-              onClick={alternarRadio}
-              className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-2.5 shadow-sm hover:shadow transition-all shrink-0 cursor-pointer group"
-              title={radioTocando ? "Pausar Rádio Rede Apucarana" : "Ouvir Rádio Rede Apucarana ao vivo"}
-              aria-label={radioTocando ? "Pausar rádio ao vivo" : "Tocar rádio ao vivo"}
-            >
-              {/* Bolinha vermelha pulsante */}
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              </span>
-
-              {/* Ícone Play/Pause Limpo */}
-              {radioTocando ? (
-                <svg className="w-3.5 h-3.5 fill-current text-white shrink-0" viewBox="0 0 24 24">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
-              ) : (
-                <svg className="w-3.5 h-3.5 fill-current text-white shrink-0 ml-0.5" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-
-              {/* Texto RÁDIO AO VIVO */}
-              <span className="text-xs font-bold tracking-wider uppercase text-white whitespace-nowrap hidden sm:inline">
-                {radioTocando ? "NO AR" : "RÁDIO AO VIVO"}
-              </span>
-
-              {/* Equalizador sutil de ondas sonoras */}
-              <div className="flex items-end gap-0.5 h-3.5 w-3 justify-center shrink-0">
-                <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-1" : "h-1.5 opacity-60"}`} />
-                <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-2" : "h-3 opacity-80"}`} />
-                <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-3" : "h-2 opacity-60"}`} />
+            {/* 2. Direita: Busca Suave e Player da Rádio Integrado */}
+            <div className="flex items-center justify-center md:justify-end gap-2.5 sm:gap-3 shrink-0 w-full md:w-auto">
+              {/* Caixa de Busca */}
+              <div className="relative flex items-center bg-slate-100/80 hover:bg-slate-100 focus-within:bg-white border border-transparent focus-within:border-slate-300 rounded-lg transition-all">
+                <div className="pl-3 sm:pl-3.5 pointer-events-none text-slate-400 flex items-center shrink-0">
+                  <Search className="w-4 h-4" />
+                </div>
+                <input
+                  type="search"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar notícias..."
+                  aria-label="Buscar no portal"
+                  className="w-36 sm:w-56 md:w-64 lg:w-72 py-2 pl-2.5 pr-3 text-xs sm:text-sm bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none"
+                />
               </div>
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Barra de Abas Sticky (Notícias, Jogos, Clima, TV + Cidades) - Linha única perfeita, ícones vetoriais e cápsulas sofisticadas */}
-      <header className="site-header sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <nav className="w-full" aria-label="Navegação principal">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8">
-            <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 overflow-x-auto no-scrollbar h-13 sm:h-14 py-1.5 whitespace-nowrap">
-              {/* 1. Notícias (Editorial Puro) */}
+              {/* Botão Rádio Ao Vivo Integrado, Compacto e Elegante */}
               <button
                 type="button"
-                onClick={() => trocarAba("noticias")}
-                className={`relative inline-flex items-center h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
-                  aba === "noticias"
-                    ? "text-slate-950 font-extrabold bg-slate-100/90"
-                    : "text-slate-600 hover:text-slate-950 hover:bg-slate-100/60"
-                }`}
+                onClick={alternarRadio}
+                className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-2.5 shadow-sm hover:shadow transition-all shrink-0 cursor-pointer group"
+                title={radioTocando ? "Pausar Rádio Rede Apucarana" : "Ouvir Rádio Rede Apucarana ao vivo"}
+                aria-label={radioTocando ? "Pausar rádio ao vivo" : "Tocar rádio ao vivo"}
               >
-                <span>Notícias</span>
-                {aba === "noticias" && (
-                  <span className="absolute bottom-1 left-2.5 right-2.5 h-0.5 bg-red-600 rounded-full" />
-                )}
-              </button>
-
-              {/* 2. Clima & Tempo */}
-              <button
-                type="button"
-                onClick={() => trocarAba("clima")}
-                className={`inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
-                  aba === "clima"
-                    ? "text-sky-700 bg-sky-50 font-bold"
-                    : "text-slate-600 hover:text-sky-700 hover:bg-sky-50/70"
-                }`}
-              >
-                <CloudSun className="w-4 h-4 text-sky-500 shrink-0" strokeWidth={2} />
-                <span>Clima & Tempo</span>
-              </button>
-
-              {/* 3. Jogos & Placares */}
-              <Link
-                href="/esportes"
-                className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-2 sm:px-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 shrink-0"
-              >
-                <Trophy className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={2} />
-                <span>Jogos & Placares</span>
-              </Link>
-
-              {/* 4. TV & Vídeos (Hub Integrado) */}
-              <Link
-                href="/tv-online"
-                className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg text-slate-800 hover:text-red-700 hover:bg-red-50/70 shrink-0"
-              >
+                {/* Bolinha vermelha pulsante */}
                 <span className="relative flex h-2 w-2 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
                 </span>
-                <span>TV & Vídeos</span>
-              </Link>
 
-              {/* Separador Editorial vs. Hub de Serviços */}
-              <div
-                className="h-4.5 w-px bg-slate-200/90 mx-0.5 lg:mx-1 shrink-0 hidden sm:block"
-                aria-hidden="true"
-              />
+                {/* Ícone Play/Pause Limpo */}
+                {radioTocando ? (
+                  <svg className="w-3.5 h-3.5 fill-current text-white shrink-0" viewBox="0 0 24 24">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5 fill-current text-white shrink-0 ml-0.5" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                )}
 
-              {/* 6. Onde Ir (Cápsula Suavizada) */}
-              <Link
-                href="/onde-ir"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-amber-50/50 hover:bg-amber-50/90 border border-amber-200/50 text-amber-900 shrink-0"
-              >
-                <Utensils className="w-3.5 h-3.5 text-amber-700 shrink-0" strokeWidth={2} />
-                <span>Onde Ir</span>
-                <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-amber-100/80 text-amber-900 border border-amber-200/40 leading-none">
-                  CUPONS
+                {/* Texto RÁDIO AO VIVO */}
+                <span className="text-xs font-bold tracking-wider uppercase text-white whitespace-nowrap hidden sm:inline">
+                  {radioTocando ? "NO AR" : "RÁDIO AO VIVO"}
                 </span>
-              </Link>
 
-              {/* 7. Empregos & Autônomos (Cápsula Suavizada) */}
-              <Link
-                href="/empregos"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-blue-50/50 hover:bg-blue-50/90 border border-blue-200/50 text-blue-900 shrink-0"
-              >
-                <Briefcase className="w-3.5 h-3.5 text-blue-700 shrink-0" strokeWidth={2} />
-                <span>Empregos & Autônomos</span>
-                <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-blue-100/80 text-blue-900 border border-blue-200/40 leading-none">
-                  VAGAS
-                </span>
-              </Link>
-
-              {/* 8. Compras & Vendas (Cápsula Suavizada) */}
-              <Link
-                href="/comprasevendas"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-orange-50/50 hover:bg-orange-50/90 border border-orange-200/50 text-orange-900 shrink-0"
-              >
-                <Tag className="w-3.5 h-3.5 text-orange-600 shrink-0" strokeWidth={2} />
-                <span>Compras & Vendas</span>
-              </Link>
-
-              {/* 9. Ofertas & Encartes (Cápsula Suavizada) */}
-              <Link
-                href="/ofertas"
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-2.5 sm:px-3 rounded-full text-xs font-semibold whitespace-nowrap transition-all bg-emerald-50/50 hover:bg-emerald-50/90 border border-emerald-200/50 text-emerald-900 shrink-0"
-              >
-                <ShoppingBag className="w-3.5 h-3.5 text-emerald-600 shrink-0" strokeWidth={2} />
-                <span>Ofertas & Encartes</span>
-              </Link>
+                {/* Equalizador sutil de ondas sonoras */}
+                <div className="flex items-end gap-0.5 h-3.5 w-3 justify-center shrink-0">
+                  <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-1" : "h-1.5 opacity-60"}`} />
+                  <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-2" : "h-3 opacity-80"}`} />
+                  <span className={`w-0.5 bg-red-400 rounded-full ${radioTocando ? "animate-soundwave-3" : "h-2 opacity-60"}`} />
+                </div>
+              </button>
             </div>
           </div>
-        </nav>
-      </header>
+        </div>
+
+        {/* Menu Principal Sticky: EXATAMENTE as 6 Abas Oficiais do Aplicativo */}
+        <header className="site-header sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+          <nav className="w-full" aria-label="Navegação principal">
+            <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8">
+              <div className="flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 lg:gap-3 overflow-x-auto no-scrollbar h-12 sm:h-13 py-1.5 whitespace-nowrap">
+                {/* 1. Notícias */}
+                <button
+                  type="button"
+                  onClick={() => trocarAba("noticias")}
+                  className={`relative inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg shrink-0 ${
+                    aba === "noticias"
+                      ? "text-slate-950 font-extrabold bg-slate-100/90"
+                      : "text-slate-600 hover:text-slate-950 hover:bg-slate-100/60"
+                  }`}
+                >
+                  <Newspaper className="w-4 h-4 text-red-600" />
+                  <span>Notícias</span>
+                  {aba === "noticias" && (
+                    <span className="absolute bottom-1 left-3 right-3 h-0.5 bg-red-600 rounded-full" />
+                  )}
+                </button>
+
+                {/* 2. TV ao Vivo */}
+                <Link
+                  href="/tv-online"
+                  className="inline-flex items-center gap-2 h-9 sm:h-10 px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg text-slate-800 hover:text-red-700 hover:bg-red-50/70 shrink-0"
+                >
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  </span>
+                  <Tv className="w-4 h-4 text-red-600" />
+                  <span>TV ao Vivo</span>
+                </Link>
+
+                {/* 3. Compras e Vendas */}
+                <Link
+                  href="/comprasevendas"
+                  className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-orange-700 hover:bg-orange-50/70 shrink-0"
+                >
+                  <ShoppingBag className="w-4 h-4 text-orange-600" />
+                  <span>Compras e Vendas</span>
+                </Link>
+
+                {/* 4. Empregos */}
+                <Link
+                  href="/empregos"
+                  className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-blue-700 hover:bg-blue-50/70 shrink-0"
+                >
+                  <Briefcase className="w-4 h-4 text-blue-600" />
+                  <span>Empregos</span>
+                </Link>
+
+                {/* 5. Para Onde Ir */}
+                <Link
+                  href="/onde-ir"
+                  className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-amber-700 hover:bg-amber-50/70 shrink-0"
+                >
+                  <Compass className="w-4 h-4 text-amber-600" />
+                  <span>Para Onde Ir</span>
+                </Link>
+
+                {/* 6. Promoções */}
+                <Link
+                  href="/ofertas"
+                  className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors rounded-lg text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 shrink-0"
+                >
+                  <Tag className="w-4 h-4 text-emerald-600" />
+                  <span>Promoções</span>
+                </Link>
+              </div>
+            </div>
+          </nav>
+        </header>
       </div>
       <audio ref={radioRef} src={RADIO_STREAM_URL} preload="none" />
 
@@ -1427,25 +1372,9 @@ export default function PortalClient({
         </div>
 
         {/* =========================================================================
-            DOBRA 2: VÍDEOS CURTOS (CORTES & REELS 9:16 DA REDE APUCARANA)
-            Imediatamente abaixo da dobra principal de notícias, antes do Hub de Serviços
-           ========================================================================= */}
-        <DarkMediaStrip videos={videosPortal} cidade={cidade} />
-
-        {/* =========================================================================
-            DOBRA 3: ESPAÇO COMERCIAL / BANNER PRINCIPAL
+            DOBRA 2: ESPAÇO COMERCIAL / BANNER PRINCIPAL
            ========================================================================= */}
         <CommercialAdSlot slotId="main_1" houseAdType="anuncie" />
-
-        {/* =========================================================================
-            DOBRA 4: SUPER-APP (HUB DE SERVIÇOS & UTILIDADE PÚBLICA DO VALE DO IVAÍ)
-            Empregos, Ofertas, Onde Ir, Classificados, Utilidades e Horóscopo
-           ========================================================================= */}
-        <ValePublicUtilitiesHub
-          initialCity={cidade}
-          jobs={vagasAdmin}
-          classifieds={classifAdmin}
-        />
 
         {/* =========================================================================
             DOBRA 5: NOTICIÁRIO NACIONAL (BRASIL, ECONOMIA & MUNDO + IMPOSTÔMETRO)

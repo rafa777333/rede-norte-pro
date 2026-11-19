@@ -165,6 +165,15 @@ const INSTITUTIONAL_FALLBACKS: Record<string, NormalizedNews> = {
   },
 };
 
+function safeSlug(slug: string | null | undefined): string {
+  if (!slug) return "";
+  try {
+    return encodeURIComponent(slug);
+  } catch {
+    return encodeURIComponent(String(slug).replace(/[\uD800-\uDFFF]/g, ""));
+  }
+}
+
 /**
  * Timeout seguro para evitar que consultas remotas travem o servidor
  */
@@ -267,7 +276,16 @@ const getNewsBySlug = cache(
         query = query.eq("slug", decodedSlug);
       }
 
-      const { data, error } = await withTimeout(query.maybeSingle(), 4000);
+      let { data, error } = await withTimeout(query.maybeSingle(), 4000);
+
+      // Fallback case-insensitive se não encontrar pelo slug exato
+      if (!data && !isUuid) {
+        try {
+          const ilikeQuery = supabase.from("news").select("*").ilike("slug", decodedSlug.toLowerCase()).limit(1);
+          const { data: ilikeData } = await withTimeout(ilikeQuery.maybeSingle(), 2000);
+          if (ilikeData) data = ilikeData;
+        } catch {}
+      }
 
       if (error) {
         console.warn("[getNewsBySlug news warning]:", error.message);
@@ -396,7 +414,7 @@ export async function generateMetadata({
       };
     }
 
-    const pageUrl = `${SITE_URL}/noticia/${encodeURIComponent(news.slug)}`;
+    const pageUrl = `${SITE_URL}/noticia/${safeSlug(news.slug)}`;
     const description =
       news.seo_description ||
       "Confira a reportagem completa com detalhes apurados na Rede Apucarana de Comunicação.";
@@ -507,7 +525,7 @@ export default async function NewsArticlePage({
   }
 
   const supabase = getSupabase();
-  const pageUrl = `${SITE_URL}/noticia/${encodeURIComponent(news.slug)}`;
+  const pageUrl = `${SITE_URL}/noticia/${safeSlug(news.slug)}`;
 
   // 4. Notícias relacionadas com timeout seguro e try/catch
   let related: any[] = [];
@@ -608,7 +626,9 @@ export default async function NewsArticlePage({
       {/* Injeção de Dados Estruturados para o Googlebot */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaArticle) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(schemaArticle).replace(/</g, "\\u003c"),
+        }}
       />
 
       {/* Barra de Topo Limpa com Navegação */}
@@ -825,7 +845,7 @@ export default async function NewsArticlePage({
                 return (
                   <Link
                     key={item.id}
-                    href={`/noticia/${encodeURIComponent(itemSlug)}`}
+                    href={`/noticia/${safeSlug(itemSlug)}`}
                     prefetch={false}
                     className="group block rounded-xl overflow-hidden border border-slate-200 bg-white hover:shadow-md transition-all"
                   >

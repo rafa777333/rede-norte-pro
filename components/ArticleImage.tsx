@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface ArticleImageProps {
   src?: string | null;
@@ -17,14 +17,25 @@ export default function ArticleImage({
   priority = false,
   fallback = "/logo-rede-apucarana.png",
 }: ArticleImageProps) {
-  const initial = src && typeof src === "string" && src.startsWith("http") ? src : fallback;
-  const [imgSrc, setImgSrc] = useState<string>(initial);
+  const getValidSrc = (val?: string | null) => {
+    if (typeof val === "string" && (val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/"))) {
+      return val;
+    }
+    return fallback;
+  };
+
+  const [imgSrc, setImgSrc] = useState<string>(() => getValidSrc(src));
+
+  useEffect(() => {
+    setImgSrc(getValidSrc(src));
+  }, [src, fallback]);
+
   const isFallback = !imgSrc || imgSrc === fallback;
 
   return (
     <img
       src={imgSrc}
-      alt={alt}
+      alt={alt || "Imagem da notícia"}
       loading={priority ? "eager" : "lazy"}
       className={isFallback ? "w-full h-64 object-contain p-6 bg-slate-900" : className}
       onError={() => {
