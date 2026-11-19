@@ -14,7 +14,6 @@ import {
 import { cidadeSlug, getSupabase } from "../lib/supabase";
 import { getHoroscopoDoDia, type SignoPrevisao } from "../lib/horoscope";
 import HoroscopeModal from "../components/HoroscopeModal";
-import TopHeroBanner, { type TopBannerConfig } from "../components/TopHeroBanner";
 import ImpostometroWidget from "../components/ImpostometroWidget";
 import FutebolWidget from "../components/FutebolWidget";
 import Badge from "../components/Badge";
@@ -792,7 +791,7 @@ export default function PortalClient({
     return passaCidade && passaCategoria && passaBusca;
   }), [todas, cidade, categoria, busca, noticiasPromovidasGeral, noticiasAdmin.length]);
 
-  // Desduplicação Estrita entre Topo Editorial e Seções Inferiores (Brasil, Economia & Mundo)
+  // Desduplicação Estrita entre Topo Editorial, Giro Nacional e Mais Notícias
   const topBentoIds = useMemo(() => {
     const newsPool = filtradas.length > 0 ? filtradas : todas;
     if (!newsPool.length) return new Set<string>();
@@ -801,28 +800,60 @@ export default function PortalClient({
     const outras = newsPool.filter((n) => !isNoticiaRegional(n));
     const poolPrioritario = [...regionais, ...outras];
 
-    const regComImg = regionais.find((n) => Boolean(n.img && n.img.startsWith("http")));
-    const principal = regComImg || regionais[0] || poolPrioritario[0];
+    const regComFoto = regionais.find(temFotoReal);
+    const poolComFoto = poolPrioritario.find(temFotoReal);
+    const principal = regComFoto || poolComFoto || regionais[0] || poolPrioritario[0];
 
     const poolRestante = poolPrioritario.filter((n) => n.id !== principal?.id);
     const sub = poolRestante.slice(0, 3);
     const used = new Set<string>([principal?.id, ...sub.map((s) => s.id)].filter(Boolean) as string[]);
 
-    const remainingReg = regionais.filter((n) => !used.has(n.id) && Boolean(n.img));
+    const remainingReg = regionais.filter((n) => !used.has(n.id) && temFotoReal(n));
     const poolAfterSub = poolRestante.filter((n) => !used.has(n.id));
-    const destaques = (remainingReg.length >= 2 ? remainingReg : poolAfterSub).slice(0, 2);
-    destaques.forEach((d) => used.add(d.id));
+    const poolComFotoRestante = poolAfterSub.filter(temFotoReal);
+    const destaques = (remainingReg.length >= 2 ? remainingReg : poolComFotoRestante.length >= 2 ? poolComFotoRestante : poolAfterSub).slice(0, 2);
+    destaques.forEach((d) => {
+      used.add(d.id);
+      if (d.slug) used.add(d.slug);
+    });
 
     const plantao = newsPool.filter((n) => !used.has(n.id)).slice(0, 5);
-    plantao.forEach((p) => used.add(p.id));
+    plantao.forEach((p) => {
+      used.add(p.id);
+      if (p.slug) used.add(p.slug);
+    });
 
     const allTopItems = [principal, ...sub, ...destaques, ...plantao].filter(Boolean);
     allTopItems.forEach((item) => {
+      if (item?.id) used.add(item.id);
       if (item?.slug) used.add(item.slug);
     });
 
     return used;
   }, [filtradas, todas]);
+
+  // 2. Matérias selecionadas para "Brasil, Economia & Mundo" (exclui tudo já selecionado no Topo Bento)
+  const nationalItems = useMemo(() => {
+    const sourceList = todas.filter(
+      (n) => !topBentoIds.has(n.id) && (!n.slug || !topBentoIds.has(n.slug))
+    );
+    const filteredFromNews = sourceList.filter((n) => {
+      const cat = (n.cat || "").toLowerCase();
+      return [
+        "brasil",
+        "economia",
+        "mundo",
+        "política",
+        "politica",
+        "justiça",
+        "agronegócio",
+        "paraná",
+        "parana",
+      ].some((c) => cat.includes(c));
+    });
+    const candidates = filteredFromNews.length >= 4 ? filteredFromNews : sourceList;
+    return candidates.length >= 8 ? candidates.slice(0, 8) : candidates.slice(0, 4);
+  }, [todas, topBentoIds]);
 
   const horoscopoSignos = useMemo<SignoPrevisao[]>(() => {
     const customStr = settingsMap.get("horoscopo_diario");
@@ -913,18 +944,6 @@ export default function PortalClient({
     return result;
   }, [cidade, settingsMap]);
 
-  const topBannerConfig = useMemo<TopBannerConfig | null>(() => {
-    const raw = settingsMap.get("top_banner_config");
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") return parsed;
-    } catch (e) {
-      console.warn("Erro ao parsear top_banner_config:", e);
-    }
-    return null;
-  }, [settingsMap]);
-
   const alternarRadio = async () => {
     const audio = radioRef.current;
     if (!audio) return;
@@ -997,15 +1016,42 @@ export default function PortalClient({
     );
   }
 
-  // Destaque Editorial: SEMPRE prioriza matéria com foto real!
+  // Destaque Editorial: SEMPRE prioriza matéria com foto real! (usado quando categoria !== "Todas")
   const destaqueComFoto = filtradas.find(temFotoReal);
   const destaque = destaqueComFoto || filtradas[0];
   const poolMenores = filtradas.filter((n) => n.id !== destaque?.id);
   const menores = poolMenores.slice(0, 3);
-  const posteriores = poolMenores.slice(3, limiteNoticias);
-  const primeirasUltimas = posteriores.slice(0, 12);
-  const restantesUltimas = posteriores.slice(12);
-  const temMaisNoticias = filtradas.length > limiteNoticias;
+
+  // Conjunto de todos os IDs/slugs já exibidos nas dobras superiores (Bento Grid + Brasil/Mundo + Destaque Filtrado)
+  const displayedHomeIds = useMemo(() => {
+    const set = new Set<string>();
+    if (categoria === "Todas") {
+      topBentoIds.forEach((id) => set.add(id));
+      nationalItems.forEach((n) => {
+        if (n.id) set.add(n.id);
+        if (n.slug) set.add(n.slug);
+      });
+    } else {
+      if (destaque?.id) set.add(destaque.id);
+      if (destaque?.slug) set.add(destaque.slug);
+      menores.forEach((m) => {
+        if (m.id) set.add(m.id);
+        if (m.slug) set.add(m.slug);
+      });
+    }
+    return set;
+  }, [topBentoIds, nationalItems, categoria, destaque, menores]);
+
+  // Lista para a seção "Mais Notícias": filtradas SEM duplicações com o restante da Home
+  const poolMaisNoticias = useMemo(() => {
+    return filtradas.filter(
+      (n) => !displayedHomeIds.has(n.id) && (!n.slug || !displayedHomeIds.has(n.slug))
+    );
+  }, [filtradas, displayedHomeIds]);
+
+  const primeirasUltimas = useMemo(() => {
+    return poolMaisNoticias.slice(0, limiteNoticias);
+  }, [poolMaisNoticias, limiteNoticias]);
 
   const renderTvLoop = (index: number) => {
     const tv = currentTvAds[index];
@@ -1382,6 +1428,7 @@ export default function PortalClient({
            ========================================================================= */}
         <DiscoverNationalSection
           news={todas}
+          noticiasNacionais={nationalItems}
           excludeIds={topBentoIds}
           cidadeAtual={cidade}
         />
@@ -1464,23 +1511,23 @@ export default function PortalClient({
             {/* PUBLICIDADE PRINCIPAL 3 */}
             <CommercialAdSlot slotId="main_3" houseAdType="tv_podcast" />
 
-            {/* MAIS NOTÍCIAS DA REGIÃO COM PAGINAÇÃO */}
+            {/* MAIS NOTÍCIAS DA REGIÃO COM PAGINAÇÃO (SEM MATÉRIAS REPETIDAS) */}
             <section className="news-section latest-section" style={{ marginTop: "1rem" }}>
               <div className="section-heading">
                 <span>{cidade !== "Geral" ? `Mais notícias de ${cidade}` : "Mais notícias do Norte do PR e Vale do Ivaí"}</span>
                 <i />
               </div>
               <div className="latest-visual-grid" id="ultimas">
-                {primeirasUltimas.slice(0, limiteNoticias).map((n) => <NewsCard key={n.id} noticia={n} />)}
+                {primeirasUltimas.map((n) => <NewsCard key={n.id} noticia={n} />)}
               </div>
-              {primeirasUltimas.length > limiteNoticias && (
+              {poolMaisNoticias.length > limiteNoticias && (
                 <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
                   <button
                     type="button"
                     onClick={() => setLimiteNoticias((prev) => prev + 12)}
                     className="px-6 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-sm"
                   >
-                    Carregar mais notícias ({primeirasUltimas.length - limiteNoticias} restantes) ↓
+                    Carregar mais notícias ({poolMaisNoticias.length - limiteNoticias} restantes) ↓
                   </button>
                 </div>
               )}
@@ -1505,10 +1552,7 @@ export default function PortalClient({
               }}
             />
 
-            {/* 3. Publicidade Comercial Lateral 2 */}
-            <CommercialAdSlot variant="sidebar" slotId="lateral_2" houseAdType="vagas_classificados" />
-
-            {/* 4. Carrossel de Grandes Patrocinadores em Loop */}
+            {/* 3. Carrossel de Grandes Patrocinadores em Loop */}
             <LargeSponsorCarousel sponsors={sponsors} />
 
             {/* 5. Comunidade WhatsApp */}
@@ -1651,11 +1695,6 @@ export default function PortalClient({
           </div>
         </section>
       )}
-
-      {/* DOBRA 5: BANNER INSTITUCIONAL NO FINAL DA HOME */}
-      <div className="container" style={{ margin: "2rem auto 1rem" }}>
-        <TopHeroBanner config={topBannerConfig} />
-      </div>
 
       {/* RODAPÉ EDITORIAL PROFISSIONAL 2026 */}
       <footer className="site-footer">
