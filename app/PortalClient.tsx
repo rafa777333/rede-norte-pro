@@ -802,16 +802,27 @@ export default function PortalClient({
 
     const regComFoto = regionais.find(temFotoReal);
     const poolComFoto = poolPrioritario.find(temFotoReal);
-    const principal = regComFoto || poolComFoto || regionais[0] || poolPrioritario[0];
+    const principal =
+      cidade === "Geral"
+        ? newsPool.find(temFotoReal) || newsPool[0]
+        : regComFoto || poolComFoto || regionais[0] || poolPrioritario[0];
 
-    const poolRestante = poolPrioritario.filter((n) => n.id !== principal?.id);
+    const poolRestante = (cidade === "Geral" ? newsPool : poolPrioritario).filter(
+      (n) => n.id !== principal?.id
+    );
     const sub = poolRestante.slice(0, 3);
     const used = new Set<string>([principal?.id, ...sub.map((s) => s.id)].filter(Boolean) as string[]);
 
     const remainingReg = regionais.filter((n) => !used.has(n.id) && temFotoReal(n));
     const poolAfterSub = poolRestante.filter((n) => !used.has(n.id));
     const poolComFotoRestante = poolAfterSub.filter(temFotoReal);
-    const destaques = (remainingReg.length >= 2 ? remainingReg : poolComFotoRestante.length >= 2 ? poolComFotoRestante : poolAfterSub).slice(0, 2);
+    const destaques = (
+      remainingReg.length >= 2
+        ? remainingReg
+        : poolComFotoRestante.length >= 2
+        ? poolComFotoRestante
+        : poolAfterSub
+    ).slice(0, 2);
     destaques.forEach((d) => {
       used.add(d.id);
       if (d.slug) used.add(d.slug);
@@ -830,7 +841,7 @@ export default function PortalClient({
     });
 
     return used;
-  }, [filtradas, todas]);
+  }, [filtradas, todas, cidade]);
 
   // 2. Matérias selecionadas para "Brasil, Economia & Mundo" (exclui tudo já selecionado no Topo Bento)
   const nationalItems = useMemo(() => {

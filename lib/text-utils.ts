@@ -342,3 +342,32 @@ export function hasVideoContent(item: any): boolean {
   if (titulo.startsWith("[vídeo]") || titulo.startsWith("[video]") || titulo.includes("em vídeo") || titulo.includes("veja o vídeo")) return true;
   return false;
 }
+
+/**
+ * Validador rigoroso de imagens reais de reportagem
+ * Rejeita logotipos, placeholders, brasões e imagens institucionais genéricas
+ */
+export function temFotoReal(
+  n: { img?: string | null; imagem?: string | null; cover_image?: string | null } | null | undefined
+): boolean {
+  if (!n) return false;
+  const img = (n as any).img || (n as any).imagem || (n as any).cover_image || "";
+  if (!img || typeof img !== "string") return false;
+  const lower = img.toLowerCase().trim();
+  if (!lower.startsWith("http")) return false;
+  if (
+    lower.includes("logo-rede-apucarana") ||
+    lower.includes("obama") ||
+    lower.includes("photo-1529107386315") ||
+    lower.includes("placeholder") ||
+    lower.includes("avatar") ||
+    lower.includes("brasao") ||
+    lower.includes("transparencia") ||
+    lower.includes("selo_diamante") ||
+    lower.endsWith(".svg") ||
+    lower.endsWith(".gif")
+  ) {
+    return false;
+  }
+  return true;
+}

@@ -6,6 +6,7 @@ import {
   formatNewsTime,
   refineNewsCategory,
   isNoticiaRegional,
+  temFotoReal,
 } from "./text-utils";
 
 export interface PortalNews {
@@ -150,22 +151,24 @@ export async function getInitialPortalData(cidade: string = "Geral"): Promise<Po
       }
     }
 
-    // Organização Editorial com PRIORIDADE REGIONAL no Topo e DESDUPLICAÇÃO ESTRITA:
-    // Separa notícias regionais do Vale do Ivaí e outras (Agência Brasil / nacionais)
+    // Organização Editorial com DESDUPLICAÇÃO ESTRITA:
+    // Na capa "Geral", a Manchete Principal reflete a matéria mais recente com foto do portal (incluindo Agência Brasil e notícias gerais).
+    // Quando filtrado por cidade, prioriza matérias locais daquela região.
     const regionais = formattedNews.filter(isNoticiaRegional);
     const outras = formattedNews.filter((n) => !isNoticiaRegional(n));
     const poolPrioritario = [...regionais, ...outras];
 
-    // 1. Manchete Principal: prioriza notícia regional com imagem válida (fallback: nacional com imagem)
-    const regionalComImagem = regionais.find((n) => Boolean(n.img && n.img !== "/logo-rede-apucarana.png" && n.img.startsWith("http")));
+    // 1. Manchete Principal (DEVE ter foto real):
     const manchetePrincipal =
-      regionalComImagem ||
-      regionais[0] ||
-      poolPrioritario.find((n) => Boolean(n.img && n.img !== "/logo-rede-apucarana.png" && n.img.startsWith("http"))) ||
-      poolPrioritario[0] ||
+      (cidade === "Geral"
+        ? formattedNews.find((n) => temFotoReal(n))
+        : regionais.find((n) => temFotoReal(n)) || formattedNews.find((n) => temFotoReal(n))) ||
+      formattedNews[0] ||
       null;
 
-    const poolRestante = poolPrioritario.filter((n) => n.id !== manchetePrincipal?.id);
+    const poolRestante = (cidade === "Geral" ? formattedNews : poolPrioritario).filter(
+      (n) => n.id !== manchetePrincipal?.id
+    );
 
     // 2. Sub-manchetes (próximas 3 notícias prioritárias)
     const subManchetes = poolRestante.slice(0, 3);
@@ -174,10 +177,17 @@ export async function getInitialPortalData(cidade: string = "Geral"): Promise<Po
       ...subManchetes.map((s) => s.id),
     ]);
 
-    // 3. Destaques Regionais (prioriza 2 notícias regionais que sobraram com imagem)
-    const remainingRegionais = regionais.filter((n) => !usedTopIds.has(n.id) && Boolean(n.img && n.img !== "/logo-rede-apucarana.png"));
+    // 3. Destaques Regionais (prioriza 2 notícias regionais com imagem que sobraram)
+    const remainingRegionais = regionais.filter((n) => !usedTopIds.has(n.id) && temFotoReal(n));
     const poolAfterSub = poolRestante.filter((n) => !usedTopIds.has(n.id));
-    const destaquesRegionais = (remainingRegionais.length >= 2 ? remainingRegionais : poolAfterSub).slice(0, 2);
+    const poolComFotoRestante = poolAfterSub.filter(temFotoReal);
+    const destaquesRegionais = (
+      remainingRegionais.length >= 2
+        ? remainingRegionais
+        : poolComFotoRestante.length >= 2
+        ? poolComFotoRestante
+        : poolAfterSub
+    ).slice(0, 2);
     destaquesRegionais.forEach((d) => usedTopIds.add(d.id));
 
     // 4. Plantão & Últimas (próximas 5 notícias para a coluna da direita)

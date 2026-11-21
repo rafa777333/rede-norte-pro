@@ -10,8 +10,11 @@ import {
   truncateWords,
   decodeHtmlEntities,
   ensureHttps,
+  temFotoReal,
 } from "../lib/text-utils";
 import WhatsAppShareButton from "./WhatsAppShareButton";
+
+export { temFotoReal };
 
 export interface BentoNewsItem {
   id: string;
@@ -29,31 +32,6 @@ export interface BentoNewsItem {
   autor?: string;
   published_at?: string;
   video_url?: string;
-}
-
-export function temFotoReal(
-  n: BentoNewsItem | { img?: string; imagem?: string; cover_image?: string } | null | undefined
-): boolean {
-  if (!n) return false;
-  const img = (n as any).img || (n as any).imagem || (n as any).cover_image || "";
-  if (!img || typeof img !== "string") return false;
-  const lower = img.toLowerCase().trim();
-  if (!lower.startsWith("http")) return false;
-  if (
-    lower.includes("logo-rede-apucarana") ||
-    lower.includes("obama") ||
-    lower.includes("photo-1529107386315") ||
-    lower.includes("placeholder") ||
-    lower.includes("avatar") ||
-    lower.includes("brasao") ||
-    lower.includes("transparencia") ||
-    lower.includes("selo_diamante") ||
-    lower.endsWith(".svg") ||
-    lower.endsWith(".gif")
-  ) {
-    return false;
-  }
-  return true;
 }
 
 interface EditorialBentoGridProps {
@@ -77,33 +55,40 @@ export default function EditorialBentoGrid({
 }: EditorialBentoGridProps) {
   const activeCity = cidadeAtual || currentCity || "Geral";
 
-  // Priorização Regional no Topo:
-  // Notícias locais e do Vale do Ivaí ganham a capa principal e os destaques.
-  // Notícias nacionais (Agência Brasil, etc.) entram como fallback caso faltem regionais.
+  // Classificação regional vs geral
   const regionais = news.filter(isNoticiaRegional);
   const outras = news.filter((n) => !isNoticiaRegional(n));
   const poolPrioritario = [...regionais, ...outras];
 
   // 1. Super-Manchete Principal: DEVE ter foto real!
-  const principalCandidato =
-    manchetePrincipal && temFotoReal(manchetePrincipal) ? manchetePrincipal : null;
-  const regComFoto = regionais.find(temFotoReal);
-  const poolComFoto = poolPrioritario.find(temFotoReal);
-
-  const finalPrincipal =
-    principalCandidato ||
-    regComFoto ||
-    poolComFoto ||
-    manchetePrincipal ||
-    regionais[0] ||
-    poolPrioritario[0] ||
-    null;
+  // Na capa "Geral", a Super-Manchete é a notícia mais quente/recente com foto do portal (incluindo Agência Brasil/nacional).
+  // Quando filtrado por cidade específica, prioriza matérias locais daquela região.
+  let finalPrincipal: BentoNewsItem | null = null;
+  if (activeCity === "Geral") {
+    finalPrincipal =
+      (manchetePrincipal && temFotoReal(manchetePrincipal) ? manchetePrincipal : null) ||
+      news.find(temFotoReal) ||
+      manchetePrincipal ||
+      news[0] ||
+      null;
+  } else {
+    finalPrincipal =
+      (manchetePrincipal && temFotoReal(manchetePrincipal) ? manchetePrincipal : null) ||
+      regionais.find(temFotoReal) ||
+      poolPrioritario.find(temFotoReal) ||
+      manchetePrincipal ||
+      regionais[0] ||
+      poolPrioritario[0] ||
+      null;
+  }
 
   if (!finalPrincipal) return null;
 
-  const poolRestante = poolPrioritario.filter((n) => n.id !== finalPrincipal.id);
+  const poolRestante = (activeCity === "Geral" ? news : poolPrioritario).filter(
+    (n) => n.id !== finalPrincipal!.id
+  );
 
-  // 2. Sub-Manchetes (3 itens prioritários)
+  // 2. Sub-Manchetes (3 itens prioritários da sequência mais recente)
   const finalSubManchetes =
     subManchetes.length > 0 ? subManchetes : poolRestante.slice(0, 3);
 
@@ -119,10 +104,15 @@ export default function EditorialBentoGrid({
   const finalDestaques =
     destaquesRegionais.length > 0
       ? destaquesRegionais
-      : (remainingReg.length >= 2 ? remainingReg : poolComFotoRestante.length >= 2 ? poolComFotoRestante : poolAfterSub).slice(0, 2);
+      : (remainingReg.length >= 2
+          ? remainingReg
+          : poolComFotoRestante.length >= 2
+          ? poolComFotoRestante
+          : poolAfterSub
+        ).slice(0, 2);
   finalDestaques.forEach((d) => usedIds.add(d.id));
 
-  // 4. Plantão & Últimas (próximas 5 notícias)
+  // 4. Plantão & Últimas (próximas 5 notícias sem repetições)
   const finalPlantao =
     plantaoUltimas.length > 0
       ? plantaoUltimas

@@ -177,7 +177,7 @@ function safeSlug(slug: string | null | undefined): string {
 /**
  * Timeout seguro para evitar que consultas remotas travem o servidor
  */
-function withTimeout<T>(promise: PromiseLike<T>, ms: number = 4000): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms: number = 8000): Promise<T> {
   return Promise.race([
     Promise.resolve(promise),
     new Promise<never>((_, reject) =>
@@ -276,13 +276,13 @@ const getNewsBySlug = cache(
         query = query.eq("slug", decodedSlug);
       }
 
-      let { data, error } = await withTimeout(query.maybeSingle(), 4000);
+      let { data, error } = await withTimeout(query.maybeSingle(), 8000);
 
       // Fallback case-insensitive se não encontrar pelo slug exato
       if (!data && !isUuid) {
         try {
           const ilikeQuery = supabase.from("news").select("*").ilike("slug", decodedSlug.toLowerCase()).limit(1);
-          const { data: ilikeData } = await withTimeout(ilikeQuery.maybeSingle(), 2000);
+          const { data: ilikeData } = await withTimeout(ilikeQuery.maybeSingle(), 4000);
           if (ilikeData) data = ilikeData;
         } catch {}
       }
@@ -539,7 +539,7 @@ export default async function NewsArticlePage({
           .eq("status", "published")
           .order("published_at", { ascending: false })
           .limit(3),
-        2500
+        4000
       );
       if (data) related = data;
     }

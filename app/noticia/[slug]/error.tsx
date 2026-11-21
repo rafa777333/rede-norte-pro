@@ -50,7 +50,12 @@ export default function NoticiaError({
         {/* Ações com botões estilizados */}
         <div className="w-full flex flex-col sm:flex-row items-center gap-3">
           <button
-            onClick={() => reset()}
+            onClick={() => {
+              reset();
+              if (typeof window !== "undefined") {
+                window.location.reload();
+              }
+            }}
             className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
