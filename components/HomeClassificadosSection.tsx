@@ -106,6 +106,7 @@ export default function HomeClassificadosSection({
                     alt={ad.titulo}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    referrerPolicy="no-referrer"
                   />
                   <div className="absolute top-2 left-2 flex flex-wrap gap-1">
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-900/80 text-white backdrop-blur-xs">

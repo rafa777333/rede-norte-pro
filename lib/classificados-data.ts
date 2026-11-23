@@ -22,6 +22,7 @@ export const CLASSIFICADOS_CATEGORIAS = [
   { id: "todas", label: "🔥 Tudo", nome: "Todas" },
   { id: "veiculos", label: "🚗 Veículos & Motos", nome: "Veículos & Motos" },
   { id: "imoveis", label: "🏠 Imóveis & Aluguel", nome: "Imóveis & Aluguel" },
+  { id: "fretes", label: "🚚 Fretes & Carretos", nome: "Fretes & Carretos" },
   { id: "eletronicos", label: "📱 Celulares & Eletrônicos", nome: "Celulares & Eletrônicos" },
   { id: "moveis", label: "🛋️ Móveis & Casa", nome: "Móveis & Casa" },
   { id: "agro", label: "🚜 Agro & Ferramentas", nome: "Agro & Ferramentas" },

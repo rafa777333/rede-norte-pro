@@ -363,6 +363,7 @@ export default function AdminClassificadosManager() {
                 >
                   <option>Veículos & Motos</option>
                   <option>Imóveis & Aluguel</option>
+                  <option>Fretes & Carretos</option>
                   <option>Celulares & Eletrônicos</option>
                   <option>Móveis & Casa</option>
                   <option>Agro & Ferramentas</option>
@@ -473,6 +474,7 @@ export default function AdminClassificadosManager() {
                     src={f}
                     alt="Foto"
                     className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
                   />
                   <button
                     type="button"
@@ -634,6 +636,7 @@ export default function AdminClassificadosManager() {
                         src={ad.imagem}
                         alt={ad.titulo}
                         className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
                       />
                     </div>
 

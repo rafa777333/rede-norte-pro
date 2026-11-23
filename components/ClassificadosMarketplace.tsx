@@ -98,6 +98,22 @@ export default function ClassificadosMarketplace({
       // Filtro de Categoria
       if (categoriaAtiva === "troca") {
         if (!ad.aceita_troca) return false;
+      } else if (categoriaAtiva === "fretes") {
+        const cat = (ad.categoria || "").toLowerCase();
+        const tit = (ad.titulo || "").toLowerCase();
+        const desc = (ad.descricao || "").toLowerCase();
+        const isFrete =
+          cat.includes("fret") ||
+          cat.includes("carret") ||
+          cat.includes("mudan") ||
+          cat.includes("transport") ||
+          tit.includes("frete") ||
+          tit.includes("carreto") ||
+          tit.includes("mudança") ||
+          tit.includes("mudanca") ||
+          desc.includes("frete") ||
+          desc.includes("carreto");
+        if (!isFrete) return false;
       } else if (categoriaAtiva !== "todas") {
         const catObj = CLASSIFICADOS_CATEGORIAS.find(
           (c) => c.id === categoriaAtiva
@@ -530,6 +546,7 @@ export default function ClassificadosMarketplace({
                       alt={ad.titulo}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
+                      referrerPolicy="no-referrer"
                     />
 
                     {/* Badge de Multiplas Fotos */}
@@ -631,6 +648,7 @@ export default function ClassificadosMarketplace({
                   alt={anuncioModal.titulo}
                   className="w-full h-full object-contain pointer-events-none"
                   draggable={false}
+                  referrerPolicy="no-referrer"
                 />
 
                 {/* Dica sutil de gesto no celular */}
@@ -696,6 +714,7 @@ export default function ClassificadosMarketplace({
                         src={f}
                         alt={`Miniatura ${i + 1}`}
                         className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
                       />
                       {i === 0 && (
                         <span className="absolute bottom-0 inset-x-0 bg-amber-500 text-slate-950 font-black text-[8px] uppercase tracking-wider text-center py-0.5">
@@ -809,6 +828,7 @@ export default function ClassificadosMarketplace({
                               src={outro.imagem}
                               alt={outro.titulo}
                               className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
                             />
                           </div>
                           <div>
@@ -904,6 +924,7 @@ export default function ClassificadosMarketplace({
                         >
                           <option>Veículos & Motos</option>
                           <option>Imóveis & Aluguel</option>
+                          <option>Fretes & Carretos</option>
                           <option>Celulares & Eletrônicos</option>
                           <option>Móveis & Casa</option>
                           <option>Agro & Ferramentas</option>
