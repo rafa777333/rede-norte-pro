@@ -410,10 +410,25 @@ export default function EmpregosHubClient({
           vagasFiltradas.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {vagasFiltradas.map((v) => {
-                const zapNumber = (v.contato || "").replace(/\D/g, "");
-                const zapUrl = `https://wa.me/55${zapNumber}?text=${encodeURIComponent(
-                  `Olá! Vi a vaga de *${v.vaga || v.cargo}* na Rede Apucarana e gostaria de me candidatar.`
-                )}`;
+                // Extrai número válido de WhatsApp (10 ou 11 dígitos) mesmo com múltiplos telefones/endereço
+                let zapNumber = "";
+                const rawContato = v.contato || "";
+                const zapMatch = rawContato.match(/(?:(?:\+|0)?55\s*)?(?:\(?([1-9]{2})\)?\s*)?(9\s*\d{4}[-\s]?\d{4})/);
+                if (zapMatch) {
+                  const ddd = zapMatch[1] || "43";
+                  const tel = zapMatch[2].replace(/\D/g, "");
+                  zapNumber = `${ddd}${tel}`;
+                } else if (rawContato.replace(/\D/g, "").length >= 10 && rawContato.replace(/\D/g, "").length <= 11) {
+                  zapNumber = rawContato.replace(/\D/g, "");
+                } else if ((v.cidade_slug === "apucarana" || !v.cidade_slug) && (rawContato.includes("Agência") || rawContato.includes("Prefeitura") || rawContato.includes("9654"))) {
+                  zapNumber = "43996549318";
+                }
+
+                const zapUrl = zapNumber
+                  ? `https://wa.me/55${zapNumber}?text=${encodeURIComponent(
+                      `Olá! Vi a vaga de *${v.vaga || v.cargo}* no portal Rede Apucarana e gostaria de mais informações para me candidatar.`
+                    )}`
+                  : "";
 
                 return (
                   <article
