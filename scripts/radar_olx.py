@@ -65,6 +65,35 @@ def buscar_links_radar(termo_ou_url, max_links=50):
         print(f"❌ Erro de conexão com a OLX: {e}")
         return []
 
+def extrair_telefone(texto):
+    if not texto:
+        return ""
+    m1 = re.search(r'(?:(?:\+|0)?55\s*)?(?:\(?0?([1-9]{2})\)?\s*)?(?:9\s*[0-9]{4}[-\s.]?[0-9]{4})', texto)
+    if m1:
+        raw = re.sub(r'\D', '', m1.group(0))
+        if raw.startswith('55') and len(raw) in [12, 13]:
+            raw = raw[2:]
+        if raw.startswith('0') and len(raw) == 12:
+            raw = raw[1:]
+        if len(raw) == 11 and raw[2] == '9':
+            return raw
+        if len(raw) == 9 and raw[0] == '9':
+            return '43' + raw
+        if len(raw) == 10:
+            return raw
+
+    m2 = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel|celular)[\s:]*([0-9\(\)\s-]{8,16})', texto, re.I)
+    if m2:
+        digits = re.sub(r'\D', '', m2.group(1))
+        if len(digits) == 11:
+            return digits
+        if len(digits) == 9:
+            return '43' + digits
+        if len(digits) == 8:
+            return '439' + digits
+
+    return ""
+
 def extrair_dados_anuncio(url_olx):
     """Extrai título, preço, fotos reais, descrição e contato em multicamadas"""
     try:
@@ -181,9 +210,8 @@ def extrair_dados_anuncio(url_olx):
     elif any(k in cat_lower for k in ["trator", "agro", "ferramenta", "gado", "rocadeira"]):
         categoria = "Agro & Ferramentas"
 
-    # WhatsApp
-    zap_m = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel)[\s:]*([0-9\(\)\s-]{10,16})', clean_desc, re.I)
-    contato = re.sub(r'\D', '', zap_m.group(1)) if zap_m else "43999809454"
+    # WhatsApp (extração precisa - nunca usa número pessoal como fallback)
+    contato = extrair_telefone(clean_desc)
 
     clean_id = re.sub(r'\D', '', url_olx)[-6:]
     slug = f"{cidade_slug}-{re.sub(r'[^a-z0-9]+', '-', titulo.lower()).strip('-')[:80]}-{clean_id}"
@@ -312,6 +340,7 @@ def executar_radar(termo, limite=5):
             continue
 
         print(f"  📌 {ad_data['titulo'][:50]} | 💰 {ad_data['preco']} | 🏙️ {ad_data['cidade_slug'].capitalize()} | 📂 {ad_data['categoria']}")
+        print(f"  📱 WhatsApp do Vendedor: {ad_data['contato'] if ad_data['contato'] else 'Não divulgado (negociação via chat original)'}")
         print(f"  📸 Baixando e salvando {len(ad_data['images'])} fotos reais no Supabase...")
         
         ad_id = salvar_no_supabase(ad_data, env)

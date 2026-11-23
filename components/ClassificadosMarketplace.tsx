@@ -284,7 +284,8 @@ export default function ClassificadosMarketplace({
 
   // Monta link do WhatsApp com mensagem viral pré-formatada
   const getWhatsAppLink = (ad: ClassifiedAdItem) => {
-    const rawNum = ad.contato.replace(/\D/g, "");
+    const rawNum = (ad.contato || "").replace(/\D/g, "");
+    if (!rawNum) return "#";
     const ddiNum = rawNum.length <= 11 ? `55${rawNum}` : rawNum;
     const msg = `Olá! Vi seu anúncio "*${ad.titulo}*" (Valor: ${ad.preco}) nos Classificados da *Rede Apucarana* e tenho interesse! Ainda está disponível?`;
     return `https://wa.me/${ddiNum}?text=${encodeURIComponent(msg)}`;
@@ -784,15 +785,36 @@ export default function ClassificadosMarketplace({
                 {/* BOTÕES DE CONVERSÃO VIRAL */}
                 <div className="space-y-3 pt-2">
                   {/* Botão Principal: Chamar Vendedor */}
-                  <a
-                    href={getWhatsAppLink(anuncioModal)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-base py-4 rounded-2xl shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center gap-2.5 transition-all text-center"
-                  >
-                    <span className="text-2xl">💬</span>
-                    <span>Chamar Vendedor no WhatsApp</span>
-                  </a>
+                  {anuncioModal.contato &&
+                  anuncioModal.contato.replace(/\D/g, "").length >= 8 ? (
+                    <div className="space-y-1.5">
+                      <a
+                        href={getWhatsAppLink(anuncioModal)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-base py-4 rounded-2xl shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center gap-2.5 transition-all text-center cursor-pointer"
+                      >
+                        <span className="text-2xl">💬</span>
+                        <span>Chamar Vendedor no WhatsApp</span>
+                      </a>
+                      <p className="text-center text-xs text-slate-500 font-medium">
+                        WhatsApp do vendedor:{" "}
+                        <strong className="text-slate-700">
+                          {anuncioModal.contato}
+                        </strong>
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+                      <div className="flex items-center justify-center gap-2 text-slate-700 font-bold text-sm mb-1">
+                        <span>💬</span>
+                        <span>Vendedor não divulgou WhatsApp no anúncio</span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Este anunciante optou por negociar através do chat da plataforma original.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Botão Viral: Compartilhar no Zap */}
                   <button

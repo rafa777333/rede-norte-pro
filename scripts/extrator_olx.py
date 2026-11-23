@@ -17,6 +17,35 @@ def carregar_env():
                     env[k.strip()] = v.strip().strip('"').strip("'")
     return env
 
+def extrair_telefone(texto):
+    if not texto:
+        return ""
+    m1 = re.search(r'(?:(?:\+|0)?55\s*)?(?:\(?0?([1-9]{2})\)?\s*)?(?:9\s*[0-9]{4}[-\s.]?[0-9]{4})', texto)
+    if m1:
+        raw = re.sub(r'\D', '', m1.group(0))
+        if raw.startswith('55') and len(raw) in [12, 13]:
+            raw = raw[2:]
+        if raw.startswith('0') and len(raw) == 12:
+            raw = raw[1:]
+        if len(raw) == 11 and raw[2] == '9':
+            return raw
+        if len(raw) == 9 and raw[0] == '9':
+            return '43' + raw
+        if len(raw) == 10:
+            return raw
+
+    m2 = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel|celular)[\s:]*([0-9\(\)\s-]{8,16})', texto, re.I)
+    if m2:
+        digits = re.sub(r'\D', '', m2.group(1))
+        if len(digits) == 11:
+            return digits
+        if len(digits) == 9:
+            return '43' + digits
+        if len(digits) == 8:
+            return '439' + digits
+
+    return ""
+
 def extrair_e_publicar(url_olx):
     url_olx = url_olx.strip()
     if not url_olx.startswith("http"):
@@ -148,12 +177,8 @@ def extrair_e_publicar(url_olx):
     elif any(k in cat_lower for k in ["trator", "agro", "ferramenta", "gado", "rocadeira"]):
         categoria = "Agro & Ferramentas"
 
-    # 6. WhatsApp do anunciante
-    zap_m = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel)[\s:]*([0-9\(\)\s-]{10,16})', clean_desc, re.I)
-    if zap_m:
-        contato = re.sub(r'\D', '', zap_m.group(1))
-    else:
-        contato = "43999809454" # Contato padrão Rede Apucarana
+    # 6. WhatsApp do anunciante (extração precisa - nunca usa número pessoal como fallback)
+    contato = extrair_telefone(clean_desc)
 
     # 7. Slug único
     clean_id = re.sub(r'\D', '', url_olx)[-6:]
@@ -218,7 +243,7 @@ def extrair_e_publicar(url_olx):
     print(f"  🏙️ Cidade:    {payload['cidade_slug'].capitalize()}")
     print(f"  📂 Categoria: {payload['categoria']}")
     print(f"  📸 Fotos:     {len(hosted_images)} fotos reais salvas")
-    print(f"  📱 WhatsApp:  {payload['contato']}")
+    print(f"  📱 WhatsApp:  {payload['contato'] if payload['contato'] else 'Não divulgado (negociação via chat original)'}")
 
     sb_url = f"{sb_base}/rest/v1/classified_ads"
     headers = {
