@@ -18,11 +18,16 @@ def carregar_env():
     return env
 
 def extrair_e_publicar(url_olx):
-    print(f"\n[1/3] Acessando OLX e contornando proteções...")
+    url_olx = url_olx.strip()
+    if not url_olx.startswith("http"):
+        print("❌ Por favor, informe um link válido iniciando com http:// ou https://")
+        return False
+
+    print(f"\n[1/3] Acessando anúncio na OLX e contornando proteções...")
     try:
-        resp = requests.get(url_olx, impersonate="chrome120", timeout=20)
+        resp = requests.get(url_olx, impersonate="chrome120", timeout=25)
         if resp.status_code != 200:
-            print(f"❌ Erro ao acessar OLX (Status {resp.status_code})")
+            print(f"❌ Erro ao acessar OLX (Status HTTP {resp.status_code}). O anúncio pode ter expirado ou sido removido.")
             return False
     except Exception as e:
         print(f"❌ Erro de conexão com a OLX: {e}")
@@ -30,31 +35,77 @@ def extrair_e_publicar(url_olx):
 
     html = resp.text
 
-    # 1. Parse JSON-LD (Schema.org)
-    json_ld_m = re.search(r'<script type="application/ld\+json">([\s\S]*?)</script>', html)
-    if not json_ld_m:
-        print("❌ Não foi possível ler a estrutura do anúncio na OLX.")
+    titulo = None
+    raw_desc = ""
+    images = []
+
+    # Camada 1: JSON-LD (Schema.org) - lê todos os blocos
+    json_ld_matches = re.findall(r'<script type="application/ld\+json">([\s\S]*?)</script>', html)
+    for jm in json_ld_matches:
+        try:
+            d = json.loads(jm)
+            items = d if isinstance(d, list) else [d]
+            for it in items:
+                o = it.get("Object") if isinstance(it.get("Object"), dict) else it
+                if not titulo and o.get("name"):
+                    titulo = str(o.get("name")).strip()
+                if not raw_desc and o.get("description"):
+                    raw_desc = str(o.get("description")).strip()
+                imgs = o.get("image", [])
+                if isinstance(imgs, list):
+                    for img in imgs:
+                        u = img.get("contentUrl") if isinstance(img, dict) else img
+                        if u and isinstance(u, str) and u.startswith("http") and u not in images:
+                            images.append(u)
+                elif isinstance(imgs, str) and imgs.startswith("http") and imgs not in images:
+                    images.append(imgs)
+        except Exception:
+            pass
+
+    # Camada 2: __NEXT_DATA__ (dados internos da OLX)
+    nd_m = re.search(r'<script id="__NEXT_DATA__" type="application/json">([\s\S]*?)</script>', html)
+    if nd_m:
+        try:
+            nd = json.loads(nd_m.group(1))
+            ad_data = nd.get("props", {}).get("pageProps", {}).get("ad", {})
+            if not titulo and ad_data.get("subject"):
+                titulo = str(ad_data.get("subject")).strip()
+            if not raw_desc and ad_data.get("description"):
+                raw_desc = str(ad_data.get("description")).strip()
+            for img in ad_data.get("images", []):
+                u = img.get("original") or img.get("url")
+                if u and u.startswith("http") and u not in images:
+                    images.append(u)
+        except Exception:
+            pass
+
+    # Camada 3: Fallbacks HTML
+    if not titulo:
+        og_t = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+        if og_t:
+            titulo = og_t.group(1).split(" - ")[0].strip()
+        else:
+            t_tag = re.search(r'<title>([^<]+)</title>', html)
+            if t_tag:
+                titulo = t_tag.group(1).split(" - ")[0].strip()
+
+    if not images:
+        html_imgs = list(dict.fromkeys(re.findall(r'https://img\.olx\.com\.br/images/\d+/\d+\.jpg', html)))
+        images.extend(html_imgs)
+
+    # Validação rigorosa: Nunca publica anúncio fantasma
+    if not titulo or titulo == "Anúncio da Região":
+        print("❌ Não foi possível extrair o título real do anúncio.")
+        print("   Verifique se o link está correto e se o anúncio ainda está no ar na OLX.")
         return False
 
-    try:
-        data_ld = json.loads(json_ld_m.group(1))
-    except Exception as e:
-        print(f"❌ Erro ao ler dados do anúncio: {e}")
+    if not images:
+        print("❌ Nenhuma foto real encontrada neste anúncio.")
+        print("   Para manter o portal com alta qualidade, anúncios sem foto não são publicados.")
         return False
 
-    obj = data_ld.get("Object", {})
-    titulo = obj.get("name") or "Anúncio da Região"
-    raw_desc = obj.get("description", "")
     clean_desc = re.sub(r'<[^>]+>', ' ', raw_desc).replace('&nbsp;', ' ').strip()
     clean_desc = re.sub(r'\s+', ' ', clean_desc)
-
-    # 2. Imagens em alta resolução
-    images = []
-    for item in obj.get("image", []):
-        if isinstance(item, dict) and "contentUrl" in item:
-            images.append(item["contentUrl"])
-        elif isinstance(item, str):
-            images.append(item)
 
     # 3. Preço
     price_m = re.search(r'"price":"?(\d+)"?', html)
@@ -81,24 +132,24 @@ def extrair_e_publicar(url_olx):
             cidade_slug = slug
             break
 
-    # 5. Categoria (incluindo Fretes & Carretos)
+    # 5. Categoria
     categoria = "Outros"
     cat_lower = url_lower + " " + text_lower
     if any(k in cat_lower for k in ["frete", "carreto", "mudanca", "mudança", "transporte", "guincho", "entulho", "caminhaozinho"]):
         categoria = "Fretes & Carretos"
-    elif any(k in cat_lower for k in ["imoveis", "apartamento", "casa", "terreno", "sobrado", "aluguel", "venda"]):
+    elif any(k in cat_lower for k in ["imoveis", "apartamento", "casa", "terreno", "sobrado", "aluguel", "venda", "chacara", "sitio", "barracao"]):
         categoria = "Imóveis & Aluguel"
-    elif any(k in cat_lower for k in ["autos", "carros", "motos", "veiculo", "caminhao", "honda", "yamaha", "volkswagen", "fiat", "chevrolet"]):
+    elif any(k in cat_lower for k in ["autos", "carros", "motos", "veiculo", "caminhao", "honda", "yamaha", "volkswagen", "fiat", "chevrolet", "ford"]):
         categoria = "Veículos & Motos"
     elif any(k in cat_lower for k in ["celular", "iphone", "samsung", "motorola", "xiaomi", "notebook", "tv", "videogame", "playstation", "xbox"]):
         categoria = "Celulares & Eletrônicos"
-    elif any(k in cat_lower for k in ["moveis", "sofa", "mesa", "armario", "cama", "colchao"]):
+    elif any(k in cat_lower for k in ["moveis", "sofa", "mesa", "armario", "cama", "colchao", "guarda-roupa"]):
         categoria = "Móveis & Casa"
     elif any(k in cat_lower for k in ["trator", "agro", "ferramenta", "gado", "rocadeira"]):
         categoria = "Agro & Ferramentas"
 
     # 6. WhatsApp do anunciante
-    zap_m = re.search(r'(?:whats(?:app)?|contato|fone|tel)[\s:]*([0-9\(\)\s-]{10,16})', clean_desc, re.I)
+    zap_m = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel)[\s:]*([0-9\(\)\s-]{10,16})', clean_desc, re.I)
     if zap_m:
         contato = re.sub(r'\D', '', zap_m.group(1))
     else:
@@ -113,10 +164,11 @@ def extrair_e_publicar(url_olx):
     sb_base = env.get("NEXT_PUBLIC_SUPABASE_URL", "")
     sb_key = env.get("SUPABASE_SERVICE_ROLE_KEY") or env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
 
-    # 8. Upload das Fotos para Supabase Storage (CDN Permanente da Rede Apucarana)
-    print(f"\n[2/3] Processando e hospedando {len(images[:10])} fotos no Supabase...")
+    # 8. Upload das Fotos Reais para Supabase Storage (CDN Permanente da Rede Apucarana)
+    fotos_para_salvar = images[:10]
+    print(f"\n[2/3] Baixando e salvando {len(fotos_para_salvar)} fotos reais no servidor permanente...")
     hosted_images = []
-    for idx, img_url in enumerate(images[:10]):
+    for idx, img_url in enumerate(fotos_para_salvar):
         try:
             req_dl = urllib.request.Request(img_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
             with urllib.request.urlopen(req_dl, timeout=12) as r_dl:
@@ -141,17 +193,12 @@ def extrair_e_publicar(url_olx):
 
             pub_url = f"{sb_base}/storage/v1/object/public/rede-norte-media/{storage_rel}"
             hosted_images.append(pub_url)
-            print(f"  📸 Foto {idx+1}/{len(images[:10])} salva no Storage do portal")
+            print(f"  📸 Foto {idx+1}/{len(fotos_para_salvar)} salva com sucesso")
         except Exception as err:
-            print(f"  ⚠️ Foto {idx+1} manteve link original: {err}")
+            print(f"  ⚠️ Foto {idx+1} manteve URL original: {err}")
             hosted_images.append(img_url)
 
-    if not hosted_images:
-        final_images = "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800"
-    elif len(hosted_images) == 1:
-        final_images = hosted_images[0]
-    else:
-        final_images = json.dumps(hosted_images)
+    final_images = json.dumps(hosted_images) if len(hosted_images) > 1 else hosted_images[0]
 
     payload = {
         "titulo": titulo,
@@ -170,7 +217,7 @@ def extrair_e_publicar(url_olx):
     print(f"  💰 Preço:     {payload['preco']}")
     print(f"  🏙️ Cidade:    {payload['cidade_slug'].capitalize()}")
     print(f"  📂 Categoria: {payload['categoria']}")
-    print(f"  📸 Fotos:     {len(hosted_images)} fotos salvas")
+    print(f"  📸 Fotos:     {len(hosted_images)} fotos reais salvas")
     print(f"  📱 WhatsApp:  {payload['contato']}")
 
     sb_url = f"{sb_base}/rest/v1/classified_ads"
