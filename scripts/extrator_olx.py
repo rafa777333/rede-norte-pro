@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import re
+import html
 import urllib.request
 from curl_cffi import requests
 
@@ -17,9 +18,43 @@ def carregar_env():
                     env[k.strip()] = v.strip().strip('"').strip("'")
     return env
 
+def formatar_titulo_limpo(titulo):
+    if not titulo:
+        return "Anúncio da Região"
+    t = html.unescape(titulo).strip()
+    # Substitui barras verticais | por traço elegante com espaçamento
+    t = re.sub(r'\s*\|\s*', ' - ', t)
+    t = re.sub(r'\s*-\s*-\s*', ' - ', t)
+    t = re.sub(r'\s+', ' ', t).strip(' -')
+    return t
+
+def formatar_descricao_profissional(texto):
+    if not texto:
+        return ""
+    t = html.unescape(texto)
+    t = re.sub(r'<\s*br\s*/?>', '\n', t, flags=re.I)
+    t = re.sub(r'</\s*(?:p|div|li|tr|h\d)\s*>', '\n', t, flags=re.I)
+    t = re.sub(r'<[^>]+>', ' ', t)
+    t = t.replace('\r\n', '\n').replace('\r', '\n')
+
+    # Transforma asteriscos soltos "* item" ou " * " em marcadores de lista limpos "• "
+    t = re.sub(r'(?:\n|\s)[\*\•]\s*', '\n• ', t)
+    # Transforma tópicos separados por traço em marcadores de lista "• "
+    t = re.sub(r'(?:\n|[:\.!])\s*-\s+([A-Z0-9À-Ú])', r'\n• \1', t)
+    # Seções com dois pontos pulam linha para organizar tópicos
+    t = re.sub(r'([:\?!])\s+(?=[A-ZÀ-Ú•])', r'\1\n\n', t)
+
+    linhas = [re.sub(r'[ \t]+', ' ', l).strip() for l in t.split('\n')]
+    linhas = [l for l in linhas if l]
+
+    texto_final = '\n'.join(linhas).strip()
+    texto_final = re.sub(r'\n{3,}', '\n\n', texto_final)
+    return texto_final
+
 def extrair_telefone(texto):
     if not texto:
         return ""
+    # Padrão 1: DDD explícito (ex: (43) 99934-5256, 43 99934 5256, 43999345256)
     m1 = re.search(r'(?:(?:\+|0)?55\s*)?(?:\(?0?([1-9]{2})\)?\s*)?(?:9\s*[0-9]{4}[-\s.]?[0-9]{4})', texto)
     if m1:
         raw = re.sub(r'\D', '', m1.group(0))
@@ -34,6 +69,7 @@ def extrair_telefone(texto):
         if len(raw) == 10:
             return raw
 
+    # Padrão 2: após termos de contato (whats, fone, etc.)
     m2 = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel|celular)[\s:]*([0-9\(\)\s-]{8,16})', texto, re.I)
     if m2:
         digits = re.sub(r'\D', '', m2.group(1))
@@ -62,14 +98,13 @@ def extrair_e_publicar(url_olx):
         print(f"❌ Erro de conexão com a OLX: {e}")
         return False
 
-    html = resp.text
-
+    html_content = resp.text
     titulo = None
     raw_desc = ""
     images = []
 
-    # Camada 1: JSON-LD (Schema.org) - lê todos os blocos
-    json_ld_matches = re.findall(r'<script type="application/ld\+json">([\s\S]*?)</script>', html)
+    # Camada 1: JSON-LD (Schema.org)
+    json_ld_matches = re.findall(r'<script type="application/ld\+json">([\s\S]*?)</script>', html_content)
     for jm in json_ld_matches:
         try:
             d = json.loads(jm)
@@ -91,8 +126,8 @@ def extrair_e_publicar(url_olx):
         except Exception:
             pass
 
-    # Camada 2: __NEXT_DATA__ (dados internos da OLX)
-    nd_m = re.search(r'<script id="__NEXT_DATA__" type="application/json">([\s\S]*?)</script>', html)
+    # Camada 2: __NEXT_DATA__
+    nd_m = re.search(r'<script id="__NEXT_DATA__" type="application/json">([\s\S]*?)</script>', html_content)
     if nd_m:
         try:
             nd = json.loads(nd_m.group(1))
@@ -110,41 +145,50 @@ def extrair_e_publicar(url_olx):
 
     # Camada 3: Fallbacks HTML
     if not titulo:
-        og_t = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+        og_t = re.search(r'<meta property="og:title" content="([^"]+)"', html_content)
         if og_t:
             titulo = og_t.group(1).split(" - ")[0].strip()
         else:
-            t_tag = re.search(r'<title>([^<]+)</title>', html)
+            t_tag = re.search(r'<title>([^<]+)</title>', html_content)
             if t_tag:
                 titulo = t_tag.group(1).split(" - ")[0].strip()
 
     if not images:
-        html_imgs = list(dict.fromkeys(re.findall(r'https://img\.olx\.com\.br/images/\d+/\d+\.jpg', html)))
+        html_imgs = list(dict.fromkeys(re.findall(r'https://img\.olx\.com\.br/images/\d+/\d+\.jpg', html_content)))
         images.extend(html_imgs)
 
-    # Validação rigorosa: Nunca publica anúncio fantasma
+    # Validação rigorosa de título e fotos
     if not titulo or titulo == "Anúncio da Região":
         print("❌ Não foi possível extrair o título real do anúncio.")
-        print("   Verifique se o link está correto e se o anúncio ainda está no ar na OLX.")
         return False
 
     if not images:
-        print("❌ Nenhuma foto real encontrada neste anúncio.")
-        print("   Para manter o portal com alta qualidade, anúncios sem foto não são publicados.")
+        print("❌ Nenhuma foto real encontrada neste anúncio. Ignorado.")
         return False
 
-    clean_desc = re.sub(r'<[^>]+>', ' ', raw_desc).replace('&nbsp;', ' ').strip()
-    clean_desc = re.sub(r'\s+', ' ', clean_desc)
+    # Formatação tipográfica profissional de Título e Descrição
+    titulo = formatar_titulo_limpo(titulo)
+    clean_desc = formatar_descricao_profissional(raw_desc)
 
-    # 3. Preço
-    price_m = re.search(r'"price":"?(\d+)"?', html)
+    # REGRA DE OURO: Só aceita anúncio com WhatsApp ou Telefone real
+    contato = extrair_telefone(clean_desc)
+    if not contato or len(contato) < 8:
+        print("\n" + "="*60)
+        print("⚠️ ANÚNCIO RECUSADO: O vendedor não divulgou WhatsApp nem telefone.")
+        print("   Para garantir que todos os anúncios tenham botão de Zap funcionando,")
+        print("   o portal só aceita anúncios com contato telefônico direto.")
+        print("="*60 + "\n")
+        return False
+
+    # Preço
+    price_m = re.search(r'"price":"?(\d+)"?', html_content)
     if price_m:
         preco_val = int(price_m.group(1))
         preco = f"R$ {preco_val:,}".replace(",", ".")
     else:
         preco = "A combinar"
 
-    # 4. Cidade
+    # Cidade
     cidades_slugs = [
         ('apucarana', 'Apucarana'), ('arapongas', 'Arapongas'), ('ivaipora', 'Ivaiporã'),
         ('jandaia-do-sul', 'Jandaia do Sul'), ('faxinal', 'Faxinal'), ('cambira', 'Cambira'),
@@ -152,7 +196,7 @@ def extrair_e_publicar(url_olx):
         ('maua-da-serra', 'Mauá da Serra'), ('borrazopolis', 'Borrazópolis'),
         ('sao-pedro-do-ivai', 'São Pedro do Ivaí'), ('sao-joao-do-ivai', 'São João do Ivaí')
     ]
-    cidade_slug = "apucarana" # padrão
+    cidade_slug = "apucarana"
     url_lower = url_olx.lower()
     text_lower = (titulo + " " + clean_desc).lower()
     
@@ -161,7 +205,7 @@ def extrair_e_publicar(url_olx):
             cidade_slug = slug
             break
 
-    # 5. Categoria
+    # Categoria
     categoria = "Outros"
     cat_lower = url_lower + " " + text_lower
     if any(k in cat_lower for k in ["frete", "carreto", "mudanca", "mudança", "transporte", "guincho", "entulho", "caminhaozinho"]):
@@ -177,19 +221,14 @@ def extrair_e_publicar(url_olx):
     elif any(k in cat_lower for k in ["trator", "agro", "ferramenta", "gado", "rocadeira"]):
         categoria = "Agro & Ferramentas"
 
-    # 6. WhatsApp do anunciante (extração precisa - nunca usa número pessoal como fallback)
-    contato = extrair_telefone(clean_desc)
-
-    # 7. Slug único
     clean_id = re.sub(r'\D', '', url_olx)[-6:]
     slug = f"{cidade_slug}-{re.sub(r'[^a-z0-9]+', '-', titulo.lower()).strip('-')[:80]}-{clean_id}"
 
-    # Carregar credenciais Supabase
     env = carregar_env()
     sb_base = env.get("NEXT_PUBLIC_SUPABASE_URL", "")
     sb_key = env.get("SUPABASE_SERVICE_ROLE_KEY") or env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
 
-    # 8. Upload das Fotos Reais para Supabase Storage (CDN Permanente da Rede Apucarana)
+    # Upload das Fotos Reais para Supabase Storage
     fotos_para_salvar = images[:10]
     print(f"\n[2/3] Baixando e salvando {len(fotos_para_salvar)} fotos reais no servidor permanente...")
     hosted_images = []
@@ -243,7 +282,7 @@ def extrair_e_publicar(url_olx):
     print(f"  🏙️ Cidade:    {payload['cidade_slug'].capitalize()}")
     print(f"  📂 Categoria: {payload['categoria']}")
     print(f"  📸 Fotos:     {len(hosted_images)} fotos reais salvas")
-    print(f"  📱 WhatsApp:  {payload['contato'] if payload['contato'] else 'Não divulgado (negociação via chat original)'}")
+    print(f"  📱 WhatsApp:  {payload['contato']}")
 
     sb_url = f"{sb_base}/rest/v1/classified_ads"
     headers = {
@@ -269,6 +308,7 @@ def extrair_e_publicar(url_olx):
 if __name__ == "__main__":
     print("========================================================")
     print("   EXTRATOR INSTANTÂNEO DE ANÚNCIOS - REDE APUCARANA")
+    print("   (Publica somente anúncios com WhatsApp/Telefone real)")
     print("========================================================")
     if len(sys.argv) > 1:
         url = sys.argv[1].strip()

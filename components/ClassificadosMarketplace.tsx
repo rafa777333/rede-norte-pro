@@ -761,14 +761,14 @@ export default function ClassificadosMarketplace({
                   </h2>
                 </div>
 
-                {/* Descrição */}
+                {/* Descrição Formatada */}
                 <div className="space-y-3 pt-4 border-t border-slate-100">
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
                     Descrição do Produto / Negócio
                   </h4>
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                  <div className="text-[15px] sm:text-base text-slate-700 leading-relaxed sm:leading-7 whitespace-pre-line bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-200/80 font-sans">
                     {anuncioModal.descricao}
-                  </p>
+                  </div>
                 </div>
 
                 {/* Box de Segurança */}

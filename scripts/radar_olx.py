@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import re
+import html
 import time
 import urllib.parse
 import urllib.request
@@ -19,8 +20,68 @@ def carregar_env():
                     env[k.strip()] = v.strip().strip('"').strip("'")
     return env
 
+def formatar_titulo_limpo(titulo):
+    if not titulo:
+        return "Anúncio da Região"
+    t = html.unescape(titulo).strip()
+    t = re.sub(r'\s*\|\s*', ' - ', t)
+    t = re.sub(r'\s*-\s*-\s*', ' - ', t)
+    t = re.sub(r'\s+', ' ', t).strip(' -')
+    return t
+
+def formatar_descricao_profissional(texto):
+    if not texto:
+        return ""
+    t = html.unescape(texto)
+    t = re.sub(r'<\s*br\s*/?>', '\n', t, flags=re.I)
+    t = re.sub(r'</\s*(?:p|div|li|tr|h\d)\s*>', '\n', t, flags=re.I)
+    t = re.sub(r'<[^>]+>', ' ', t)
+    t = t.replace('\r\n', '\n').replace('\r', '\n')
+
+    # Transforma marcadores de lista em tópicos com bullets elegantes
+    t = re.sub(r'(?:\n|\s)[\*\•]\s*', '\n• ', t)
+    t = re.sub(r'(?:\n|[:\.!])\s*-\s+([A-Z0-9À-Ú])', r'\n• \1', t)
+    t = re.sub(r'([:\?!])\s+(?=[A-ZÀ-Ú•])', r'\1\n\n', t)
+
+    linhas = [re.sub(r'[ \t]+', ' ', l).strip() for l in t.split('\n')]
+    linhas = [l for l in linhas if l]
+
+    texto_final = '\n'.join(linhas).strip()
+    texto_final = re.sub(r'\n{3,}', '\n\n', texto_final)
+    return texto_final
+
+def extrair_telefone(texto):
+    if not texto:
+        return ""
+    # Padrão 1: DDD explícito
+    m1 = re.search(r'(?:(?:\+|0)?55\s*)?(?:\(?0?([1-9]{2})\)?\s*)?(?:9\s*[0-9]{4}[-\s.]?[0-9]{4})', texto)
+    if m1:
+        raw = re.sub(r'\D', '', m1.group(0))
+        if raw.startswith('55') and len(raw) in [12, 13]:
+            raw = raw[2:]
+        if raw.startswith('0') and len(raw) == 12:
+            raw = raw[1:]
+        if len(raw) == 11 and raw[2] == '9':
+            return raw
+        if len(raw) == 9 and raw[0] == '9':
+            return '43' + raw
+        if len(raw) == 10:
+            return raw
+
+    # Padrão 2: após termos de contato
+    m2 = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel|celular)[\s:]*([0-9\(\)\s-]{8,16})', texto, re.I)
+    if m2:
+        digits = re.sub(r'\D', '', m2.group(1))
+        if len(digits) == 11:
+            return digits
+        if len(digits) == 9:
+            return '43' + digits
+        if len(digits) == 8:
+            return '439' + digits
+
+    return ""
+
 def obter_anuncios_existentes(sb_base, sb_key):
-    """Retorna conjunto de IDs já cadastrados no Supabase para evitar duplicidade"""
     existing = set()
     try:
         url = f"{sb_base}/rest/v1/classified_ads?select=id,slug"
@@ -39,8 +100,7 @@ def obter_anuncios_existentes(sb_base, sb_key):
         print(f"⚠️ Aviso ao verificar anúncios existentes: {e}")
     return existing
 
-def buscar_links_radar(termo_ou_url, max_links=50):
-    """Varre as páginas de busca da OLX e retorna os links dos anúncios mais recentes"""
+def buscar_links_radar(termo_ou_url, max_links=60):
     if termo_ou_url.startswith("http"):
         url = termo_ou_url
     else:
@@ -54,7 +114,6 @@ def buscar_links_radar(termo_ou_url, max_links=50):
             return []
 
         links = list(set(re.findall(r'href="(https://(?:pr\.)?olx\.com\.br/[^"]+-\d+)"', resp.text)))
-        # Filtrar links do tipo ajuda, suporte, etc.
         valid_links = [
             l for l in links
             if not any(x in l for x in ['/ajuda', '/seguranca', '/termos', '/central', '/desapega'])
@@ -65,37 +124,7 @@ def buscar_links_radar(termo_ou_url, max_links=50):
         print(f"❌ Erro de conexão com a OLX: {e}")
         return []
 
-def extrair_telefone(texto):
-    if not texto:
-        return ""
-    m1 = re.search(r'(?:(?:\+|0)?55\s*)?(?:\(?0?([1-9]{2})\)?\s*)?(?:9\s*[0-9]{4}[-\s.]?[0-9]{4})', texto)
-    if m1:
-        raw = re.sub(r'\D', '', m1.group(0))
-        if raw.startswith('55') and len(raw) in [12, 13]:
-            raw = raw[2:]
-        if raw.startswith('0') and len(raw) == 12:
-            raw = raw[1:]
-        if len(raw) == 11 and raw[2] == '9':
-            return raw
-        if len(raw) == 9 and raw[0] == '9':
-            return '43' + raw
-        if len(raw) == 10:
-            return raw
-
-    m2 = re.search(r'(?:whats(?:app)?|watss|contato|fone|tel|celular)[\s:]*([0-9\(\)\s-]{8,16})', texto, re.I)
-    if m2:
-        digits = re.sub(r'\D', '', m2.group(1))
-        if len(digits) == 11:
-            return digits
-        if len(digits) == 9:
-            return '43' + digits
-        if len(digits) == 8:
-            return '439' + digits
-
-    return ""
-
 def extrair_dados_anuncio(url_olx):
-    """Extrai título, preço, fotos reais, descrição e contato em multicamadas"""
     try:
         resp = requests.get(url_olx, impersonate="chrome120", timeout=25)
         if resp.status_code != 200:
@@ -103,13 +132,13 @@ def extrair_dados_anuncio(url_olx):
     except Exception:
         return None
 
-    html = resp.text
+    html_content = resp.text
     titulo = None
     raw_desc = ""
     images = []
 
     # Camada 1: JSON-LD
-    json_ld_matches = re.findall(r'<script type="application/ld\+json">([\s\S]*?)</script>', html)
+    json_ld_matches = re.findall(r'<script type="application/ld\+json">([\s\S]*?)</script>', html_content)
     for jm in json_ld_matches:
         try:
             d = json.loads(jm)
@@ -132,7 +161,7 @@ def extrair_dados_anuncio(url_olx):
             pass
 
     # Camada 2: __NEXT_DATA__
-    nd_m = re.search(r'<script id="__NEXT_DATA__" type="application/json">([\s\S]*?)</script>', html)
+    nd_m = re.search(r'<script id="__NEXT_DATA__" type="application/json">([\s\S]*?)</script>', html_content)
     if nd_m:
         try:
             nd = json.loads(nd_m.group(1))
@@ -150,27 +179,32 @@ def extrair_dados_anuncio(url_olx):
 
     # Camada 3: Fallbacks HTML
     if not titulo:
-        og_t = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+        og_t = re.search(r'<meta property="og:title" content="([^"]+)"', html_content)
         if og_t:
             titulo = og_t.group(1).split(" - ")[0].strip()
         else:
-            t_tag = re.search(r'<title>([^<]+)</title>', html)
+            t_tag = re.search(r'<title>([^<]+)</title>', html_content)
             if t_tag:
                 titulo = t_tag.group(1).split(" - ")[0].strip()
 
     if not images:
-        html_imgs = list(dict.fromkeys(re.findall(r'https://img\.olx\.com\.br/images/\d+/\d+\.jpg', html)))
+        html_imgs = list(dict.fromkeys(re.findall(r'https://img\.olx\.com\.br/images/\d+/\d+\.jpg', html_content)))
         images.extend(html_imgs)
 
-    # Rejeita anúncio sem título válido ou sem nenhuma foto real
     if not titulo or titulo == "Anúncio da Região" or not images:
         return None
 
-    clean_desc = re.sub(r'<[^>]+>', ' ', raw_desc).replace('&nbsp;', ' ').strip()
-    clean_desc = re.sub(r'\s+', ' ', clean_desc)
+    # Formatação limpa e profissional
+    titulo = formatar_titulo_limpo(titulo)
+    clean_desc = formatar_descricao_profissional(raw_desc)
+
+    # REGRA DE OURO: Só aceita se tiver telefone/WhatsApp real
+    contato = extrair_telefone(clean_desc)
+    if not contato or len(contato) < 8:
+        return None # Pula anúncios sem WhatsApp
 
     # Preço
-    price_m = re.search(r'"price":"?(\d+)"?', html)
+    price_m = re.search(r'"price":"?(\d+)"?', html_content)
     if price_m:
         preco_val = int(price_m.group(1))
         preco = f"R$ {preco_val:,}".replace(",", ".")
@@ -210,9 +244,6 @@ def extrair_dados_anuncio(url_olx):
     elif any(k in cat_lower for k in ["trator", "agro", "ferramenta", "gado", "rocadeira"]):
         categoria = "Agro & Ferramentas"
 
-    # WhatsApp (extração precisa - nunca usa número pessoal como fallback)
-    contato = extrair_telefone(clean_desc)
-
     clean_id = re.sub(r'\D', '', url_olx)[-6:]
     slug = f"{cidade_slug}-{re.sub(r'[^a-z0-9]+', '-', titulo.lower()).strip('-')[:80]}-{clean_id}"
 
@@ -230,7 +261,6 @@ def extrair_dados_anuncio(url_olx):
     }
 
 def salvar_no_supabase(ad_data, env):
-    """Baixa fotos reais, sobe no Storage e salva no banco de dados"""
     sb_base = env.get("NEXT_PUBLIC_SUPABASE_URL", "")
     sb_key = env.get("SUPABASE_SERVICE_ROLE_KEY") or env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
 
@@ -304,15 +334,16 @@ def executar_radar(termo, limite=5):
 
     print("\n" + "="*65)
     print(f"   📡 RADAR ATIVADO: Buscando anúncios de '{termo}' na OLX")
+    print("   (Regra: Somente anúncios com WhatsApp/Telefone real e fotos)")
     print("="*65)
 
     print("\n[1/3] Consultando anúncios já publicados no portal...")
     existentes = obter_anuncios_existentes(sb_base, sb_key)
-    print(f"  ✓ {len(existentes)} identificadores conhecidos no banco de dados.")
+    print(f"  ✓ {len(existentes)} anúncios já catalogados no banco de dados.")
 
-    print(f"\n[2/3] Vasculhando a OLX em busca dos mais recentes...")
-    links = buscar_links_radar(termo, max_links=50)
-    print(f"  ✓ {len(links)} anúncios encontrados na varredura.")
+    print(f"\n[2/3] Vasculhando a OLX em busca de novos anúncios...")
+    links = buscar_links_radar(termo, max_links=60)
+    print(f"  ✓ {len(links)} anúncios encontrados na varredura inicial.")
 
     novos_links = []
     for l in links:
@@ -321,40 +352,44 @@ def executar_radar(termo, limite=5):
         if not ja_existe:
             novos_links.append(l)
 
-    print(f"  ✓ {len(novos_links)} anúncios são INÉDITOS e prontos para publicação.")
+    print(f"  ✓ {len(novos_links)} anúncios são INÉDITOS.")
 
     if not novos_links:
         print("\n🎉 Nenhum anúncio novo pendente. Todos os anúncios desta busca já estão no portal!")
         return
 
-    links_para_processar = novos_links[:limite]
-    print(f"\n[3/3] Processando e publicando os {len(links_para_processar)} primeiros anúncios novos...")
+    print(f"\n[3/3] Filtrando e publicando até {limite} anúncios que possuem WhatsApp...")
     print("-" * 65)
 
     publicados = 0
-    for idx, link in enumerate(links_para_processar):
-        print(f"\n👉 [{idx+1}/{len(links_para_processar)}] Analisando: {link[:70]}...")
+    tentados = 0
+    for link in novos_links:
+        if publicados >= limite:
+            break
+
+        tentados += 1
+        print(f"\n👉 [{publicados+1}/{limite}] Analisando ({tentados}º varrido): {link[:65]}...")
         ad_data = extrair_dados_anuncio(link)
         if not ad_data:
-            print("  ⚠️ Anúncio ignorado (sem fotos reais ou dados incompletos).")
+            print("  ⏭️ Pulado: Sem WhatsApp divulgado na descrição ou sem fotos.")
             continue
 
-        print(f"  📌 {ad_data['titulo'][:50]} | 💰 {ad_data['preco']} | 🏙️ {ad_data['cidade_slug'].capitalize()} | 📂 {ad_data['categoria']}")
-        print(f"  📱 WhatsApp do Vendedor: {ad_data['contato'] if ad_data['contato'] else 'Não divulgado (negociação via chat original)'}")
+        print(f"  📌 {ad_data['titulo'][:50]} | 💰 {ad_data['preco']}")
+        print(f"  🏙️ {ad_data['cidade_slug'].capitalize()} | 📂 {ad_data['categoria']}")
+        print(f"  📱 WhatsApp Vendedor: {ad_data['contato']}")
         print(f"  📸 Baixando e salvando {len(ad_data['images'])} fotos reais no Supabase...")
         
         ad_id = salvar_no_supabase(ad_data, env)
         if ad_id:
             print(f"  ✅ PUBLICADO COM SUCESSO! (ID: {ad_id[:8]}...)")
             publicados += 1
-            # Marca o ID localmente para não repetir
             if ad_data.get("clean_id"):
                 existentes.add(ad_data["clean_id"])
         
-        time.sleep(1) # Intervalo educado entre requisições
+        time.sleep(1)
 
     print("\n" + "="*65)
-    print(f"  🏁 VARREDURA CONCLUÍDA: {publicados} anúncios novos publicados no ar!")
+    print(f"  🏁 VARREDURA CONCLUÍDA: {publicados} anúncios com WhatsApp publicados!")
     print(f"  🌐 Veja agora em: https://www.redeapucarana.com.br/comprasevendas")
     print("="*65 + "\n")
 
@@ -362,11 +397,11 @@ def menu_principal():
     while True:
         print("=========================================================")
         print("   📡 RADAR AUTOMÁTICO DE ANÚNCIOS - REDE APUCARANA")
-        print("   Vasculha a OLX na Região e publica direto no portal")
+        print("   (Garantia: 100% dos anúncios com WhatsApp e fotos)")
         print("=========================================================")
         print("Escolha a varredura que deseja fazer hoje:")
-        print("  [1] Apucarana (Anúncios Gerais Mais Recentes)")
-        print("  [2] Arapongas (Anúncios Gerais Mais Recentes)")
+        print("  [1] Apucarana (Anúncios Gerais com WhatsApp)")
+        print("  [2] Arapongas (Anúncios Gerais com WhatsApp)")
         print("  [3] Fretes & Carretos (Apucarana e Vale do Ivaí)")
         print("  [4] Veículos & Motos (Região de Apucarana)")
         print("  [5] Imóveis & Aluguel (Região de Apucarana)")
@@ -400,7 +435,7 @@ def menu_principal():
             print("Opção inválida!")
             continue
 
-        qtd_str = input("Quantos anúncios deseja importar agora? (padrão: 5): ").strip()
+        qtd_str = input("Quantos anúncios com WhatsApp deseja importar? (padrão: 5): ").strip()
         limite = int(qtd_str) if qtd_str.isdigit() and int(qtd_str) > 0 else 5
 
         executar_radar(termo, limite=limite)
