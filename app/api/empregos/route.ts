@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { MOCK_AUTONOMOS, AutonomoItem } from "@/lib/autonomos-data";
+import { indexUrlAndNotifySitemap } from "@/lib/google-indexing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -206,6 +207,11 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
+
+      // Disparo automático em segundo plano para o Google Indexing API e Search Console
+      void indexUrlAndNotifySitemap("https://www.redeapucarana.com.br/empregos").catch((indexErr) => {
+        console.warn("[Auto-Indexação Google Vagas Empregos]:", indexErr?.message || indexErr);
+      });
 
       return NextResponse.json({
         success: true,

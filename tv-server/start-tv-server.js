@@ -89,6 +89,8 @@ killPreviousProcesses();
 console.clear();
 console.log('='.repeat(78));
 console.log('  🚀 INICIANDO SERVIDOR DE TV REDE APUCARANA (MEDIAMTX + CLOUDFLARE)...');
+console.log('  📡 REDE TAILSCALE: IP 100.95.147.34');
+console.log('  👉 OBS do Estudio deve apontar para: rtmp://100.95.147.34:1935/live');
 console.log('='.repeat(78));
 
 // 3. Inicia o MediaMTX
@@ -136,8 +138,46 @@ mtxProcess.on('error', (err) => {
 
 // 4. Inicia o Cloudflare Tunnel
 const cfProcess = spawn(
+  // 3.5 Despachante Unificado: Roteia HLS (8888) e WebRTC WHIP (8889) sob a mesma porta 8880
+const http = require('http');
+
+const dispatcherServer = http.createServer((req, res) => {
+  const isWebRtc = req.url.includes('/whip') || req.url.includes('/whep');
+  const targetPort = isWebRtc ? 8889 : 8888;
+
+  const proxyReq = http.request(
+    {
+      hostname: '127.0.0.1',
+      port: targetPort,
+      path: req.url,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: '127.0.0.1:' + targetPort,
+      },
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    }
+  );
+
+  proxyReq.on('error', (err) => {
+    if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'text/plain' });
+      res.end('Gateway Error: ' + err.message);
+    }
+  });
+
+  req.pipe(proxyReq, { end: true });
+});
+
+dispatcherServer.listen(8880, '127.0.0.1', () => {
+  console.log('⚡ Despachante Unificado Ativo: HLS (8888) + WebRTC WHIP (8889) em http://localhost:8880');
+});
+
   cloudflaredExe,
-  ['tunnel', '--url', 'http://localhost:8888'],
+  ['tunnel', '--url', 'http://localhost:8880'],
   {
     cwd: __dirname,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -151,15 +191,13 @@ async function onTunnelReady(publicUrl) {
   const m3u8Url = `${publicUrl}/live/tvapucarana/index.m3u8`;
 
   console.log('\n' + '='.repeat(78));
-  console.log('  ✅ SERVIDOR DE TV REDE APUCARANA ATIVO! (100% GRATUITO)');
+  console.log('  ✅ SERVIDOR DE TV REDE APUCARANA ATIVO!');
   console.log('='.repeat(78));
   console.log('  🎥 CONFIGURE SEU OBS STUDIO (Configurações -> Transmissão):');
-  console.log('     • Serviço:              Personalizado (Custom)');
-  console.log('     • Servidor (neste PC):  rtmp://localhost:1935/live');
-  if (hostIp && hostIp !== 'localhost') {
-    console.log(`     • Servidor (outro PC):  rtmp://${hostIp}:1935/live (use este se o OBS estiver em outro PC do estúdio)`);
-  }
-  console.log('     • Chave de Transmissão: tvapucarana');
+  console.log('     • Serviço:                 Personalizado (Custom)');
+  console.log('     • OBS do Estudio deve apontar para: rtmp://100.95.147.34:1935/live');
+  console.log('     • Servidor (neste PC):     rtmp://localhost:1935/live');
+  console.log('     • Chave de Transmissão:    tvapucarana');
   console.log('-'.repeat(78));
   console.log('  🌐 LINK PÚBLICO HTTPS HLS (Gerado pelo Cloudflare Tunnel):');
   console.log(`     • ${m3u8Url}`);

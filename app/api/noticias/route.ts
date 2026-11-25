@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getSupabase, cidadeSlug } from "@/lib/supabase";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { refineNewsCategory, truncateWords, decodeHtmlEntities } from "@/lib/text-utils";
+import { indexUrlAndNotifySitemap } from "@/lib/google-indexing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
@@ -290,6 +291,14 @@ export async function POST(request: Request) {
       revalidatePath("/noticias");
       if (finalSlug) revalidatePath(`/noticia/${finalSlug}`);
     } catch {}
+
+    // Disparo automático em segundo plano para o Google Indexing API e Search Console
+    if (finalSlug) {
+      const fullArticleUrl = `https://www.redeapucarana.com.br/noticia/${encodeURIComponent(finalSlug)}`;
+      void indexUrlAndNotifySitemap(fullArticleUrl).catch((indexErr) => {
+        console.warn("[Auto-Indexação Google Notícia]:", indexErr?.message || indexErr);
+      });
+    }
 
     return NextResponse.json({
       success: true,

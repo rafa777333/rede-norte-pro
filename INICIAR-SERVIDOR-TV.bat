@@ -15,7 +15,7 @@ echo ===========================================================================
 echo   REDE APUCARANA - SOLICITANDO PRIVILEGIOS DE ADMINISTRADOR
 echo ==============================================================================
 echo.
-echo   Para fixar o IP estatico seguro .240 e liberar o Firewall do Windows,
+echo   Para liberar a porta TCP 1935 no Firewall do Windows (Tailscale e rede local),
 echo   este inicializador precisa de autorizacao de Administrador.
 echo.
 echo   Por favor, clique em "SIM" na janela do Windows que acaba de aparecer...

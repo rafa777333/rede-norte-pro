@@ -108,7 +108,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .from("news")
         .select("id,slug,status,updated_at,published_at,created_at")
         .eq("status", "published")
-        .order("published_at", { ascending: false })
+        .order("published_at", { ascending: false, nullsFirst: false })
         .limit(10000);
 
       if (!error && news && news.length > 0) {
@@ -124,7 +124,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
               changeFrequency: "daily" as const,
               priority: 0.8,
             };
-          });
+          })
+          .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
       }
     }
   } catch (err) {

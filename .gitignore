@@ -19,3 +19,9 @@ tv-server/*.key
 __pycache__/
 *.pyc
 *.lnk
+*service-account*.json
+*serviceaccount*.json
+*-seo-*.json
+google-key*.json
+Kit-TV-Estudio/
+

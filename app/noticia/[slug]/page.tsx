@@ -29,6 +29,7 @@ interface NormalizedNews {
   cidade: string;
   autor: string;
   published_at: string;
+  updated_at?: string;
 }
 
 /**
@@ -340,6 +341,7 @@ const getNewsBySlug = cache(
           cidade: data.cidade_slug || "Apucarana",
           autor: data.autor || "Redação Rede Apucarana",
           published_at: data.published_at || data.created_at || new Date().toISOString(),
+          updated_at: data.updated_at || data.published_at || data.created_at || new Date().toISOString(),
         };
       }
 
@@ -568,9 +570,35 @@ export default async function NewsArticlePage({
         .map((p) => p.trim())
         .filter(Boolean);
 
+  // Helper para URL absoluta de imagem no Schema JSON-LD
+  const toAbsoluteImageUrl = (img?: string | null): string | null => {
+    if (!img) return null;
+    const clean = img.trim();
+    if (!clean) return null;
+    if (clean.startsWith("http://") || clean.startsWith("https://")) {
+      return clean.replace(/^http:\/\//i, "https://");
+    }
+    if (clean.startsWith("/")) {
+      return `${SITE_URL}${clean}`;
+    }
+    return `${SITE_URL}/${clean}`;
+  };
+
   // Formatação segura de data
   const uploadDateIso = safeIsoDate(news.published_at);
+  const modifiedDateIso = safeIsoDate(news.updated_at || news.published_at);
   const formattedDisplayDate = safeFormatDate(news.published_at);
+
+  const imagesList = Array.from(
+    new Set(
+      [
+        toAbsoluteImageUrl(primaryThumb),
+        toAbsoluteImageUrl(news.cover_image),
+        toAbsoluteImageUrl(news.imagem),
+        toAbsoluteImageUrl("/logo-rede-apucarana.png"),
+      ].filter(Boolean) as string[]
+    )
+  );
 
   // =========================================================================
   // DADOS ESTRUTURADOS (JSON-LD) - Schema.org NewsArticle + VideoObject
@@ -582,18 +610,22 @@ export default async function NewsArticlePage({
       "@type": "WebPage",
       "@id": pageUrl,
     },
-    headline: news.title,
-    description: news.seo_description,
-    image: [primaryThumb, news.imagem].filter(Boolean),
+    headline: decodeHtmlEntities(news.title),
+    description: decodeHtmlEntities(news.seo_description || news.title),
+    image: imagesList,
     datePublished: uploadDateIso,
-    dateModified: uploadDateIso,
-    author: {
-      "@type": "Person",
-      name: news.autor,
-    },
+    dateModified: modifiedDateIso,
+    author: [
+      {
+        "@type": "Person",
+        name: news.autor || "Redação Rede Apucarana",
+        url: SITE_URL,
+      },
+    ],
     publisher: {
       "@type": "NewsMediaOrganization",
       name: "Rede Apucarana de Comunicação",
+      url: SITE_URL,
       logo: {
         "@type": "ImageObject",
         url: `${SITE_URL}/logo-rede-apucarana.png`,

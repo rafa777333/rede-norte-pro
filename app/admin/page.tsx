@@ -8,6 +8,7 @@ import AdminPlacesAnalytics from "@/components/admin/AdminPlacesAnalytics";
 import AdminOfertasManager from "@/components/admin/AdminOfertasManager";
 import AdminClassificadosManager from "@/components/admin/AdminClassificadosManager";
 import AdminTvVideosManager from "@/components/admin/AdminTvVideosManager";
+import AdminGoogleIndexer, { AdminGoogleIndexButton } from "@/components/admin/AdminGoogleIndexer";
 import { compressImageClient } from "@/lib/image-compression";
 import { decodeHtmlEntities } from "@/lib/text-utils";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,6 +27,7 @@ type VideoPortalAdmin = {
 
 type Noticia = {
   id: string;
+  slug?: string;
   titulo: string;
   cidade: string;
   cat: string;
@@ -250,7 +252,7 @@ export default function Admin() {
       if (supabase) {
         const results = await Promise.all([
           supabase.from("cities").select("slug,nome").limit(50),
-          supabase.from("news").select("id,titulo,categoria,resumo,imagem,cidade_slug,status,facebook_status,facebook_post_id,facebook_published_at,facebook_attempted_at,facebook_error,instagram_status,instagram_container_id,instagram_media_id,instagram_published_at,instagram_attempted_at,instagram_error").order("created_at", { ascending: false }).limit(30),
+          supabase.from("news").select("id,slug,titulo,categoria,resumo,imagem,cidade_slug,status,facebook_status,facebook_post_id,facebook_published_at,facebook_attempted_at,facebook_error,instagram_status,instagram_container_id,instagram_media_id,instagram_published_at,instagram_attempted_at,instagram_error").order("created_at", { ascending: false }).limit(30),
           supabase.from("service_providers").select("id,nome,categoria,endereco,whatsapp,imagem,descricao,cidade_slug").order("created_at", { ascending: false }).limit(30),
           supabase.from("classified_ads").select("id,titulo,categoria,preco,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }).limit(30),
           supabase.from("jobs").select("id,vaga,empresa,contato,imagem,descricao,cidade_slug,status").order("created_at", { ascending: false }).limit(30),
@@ -276,6 +278,7 @@ export default function Admin() {
       const cityMap = new Map((cities || []).map((c: any) => [c.slug, c.nome]));
       setNoticias((news || []).map((n: any) => ({
         id: n.id,
+        slug: n.slug || n.id,
         titulo: n.titulo,
         cidade: cityMap.get(n.cidade_slug) || "Apucarana",
         cat: n.categoria || "Cidade",
@@ -489,6 +492,27 @@ const salvar = async (table: string, record: any, image: string, folder: string,
       const { data: savedRecord, error } = await query;
       if (error) throw error;
       onDone(savedRecord); setEditId(null); await carregarTudo();
+
+      // Disparo automático de indexação no Google Indexing API e Search Console em segundo plano
+      try {
+        if (table === "news") {
+          const newsSlug = savedRecord?.slug || savedRecord?.id || id;
+          if (newsSlug) {
+            void fetch("/api/indexar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: `https://www.redeapucarana.com.br/noticia/${encodeURIComponent(newsSlug)}` }),
+            }).catch(() => {});
+          }
+        } else if (table === "jobs") {
+          void fetch("/api/indexar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: "https://www.redeapucarana.com.br/empregos" }),
+          }).catch(() => {});
+        }
+      } catch {}
+
       return savedRecord;
     } catch (e: any) { alert(`Não foi possível salvar: ${e.message || "erro de conexão"}`); return null; } finally { setLoading(false); }
   };
@@ -1253,6 +1277,9 @@ const salvarVideo = async () => {
               </Link>
             </div>
 
+            {/* Central de Indexação Google Instantânea */}
+            <AdminGoogleIndexer />
+
             <AdminSection title="Cadastrar notícia" description="Notícias municipais ficam na aba da cidade. Use a opção 'Exibir também no Geral' para destacar uma matéria da cidade na Capa Principal.">
             <FormInput placeholder="Título da notícia" value={nForm.titulo} onChange={(v) => setNForm({ ...nForm, titulo: v })} />
             <div className="form-row">
@@ -1334,6 +1361,7 @@ const salvarVideo = async () => {
                   "news",
                   {
                     titulo: nForm.titulo,
+                    slug: editId ? undefined : nForm.titulo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90),
                     categoria: nForm.cat,
                     resumo: nForm.resumo,
                     conteudo: nForm.texto || nForm.resumo,
@@ -1384,6 +1412,19 @@ const salvarVideo = async () => {
                   }
                   footer={
                     <div style={{ borderTop: "1px solid #edf2f7", paddingTop: "8px", marginTop: "2px", display: "grid", gap: "10px" }}>
+                      {/* BOTAO DE INDEXACAO GOOGLE DIRETA */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                        <AdminGoogleIndexButton url={`https://www.redeapucarana.com.br/noticia/${encodeURIComponent(n.slug || n.id)}`} />
+                        <a
+                          href={`https://www.redeapucarana.com.br/noticia/${encodeURIComponent(n.slug || n.id)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ fontSize: "11px", color: "#64748b", textDecoration: "none", fontWeight: 600 }}
+                        >
+                          Abrir matéria ↗
+                        </a>
+                      </div>
+
                       {/* COMPONENTE SOCIAL PUBLISH WIDGET (CARIMBO OFICIAL RA + META VIA N8N) */}
                       <SocialPublishWidget
                         newsId={n.id}
