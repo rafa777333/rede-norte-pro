@@ -27,12 +27,22 @@ CREATE TABLE IF NOT EXISTS public.onde_ir_places (
   active_promo JSONB DEFAULT NULL,
   menu_highlights JSONB DEFAULT '[]'::jsonb,
   description TEXT,
+  promo_active BOOLEAN DEFAULT false,
+  promo_text TEXT,
+  promo_highlight BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Caso a tabela já exista sem as colunas de promoção/escassez
+ALTER TABLE public.onde_ir_places
+ADD COLUMN IF NOT EXISTS promo_active BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS promo_text TEXT,
+ADD COLUMN IF NOT EXISTS promo_highlight BOOLEAN DEFAULT false;
+
 -- 2. Índices de Performance para a Vitrine Pública
 CREATE INDEX IF NOT EXISTS onde_ir_places_vip_active_idx ON public.onde_ir_places(is_active, is_vip DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS onde_ir_places_promo_idx ON public.onde_ir_places(is_active, promo_highlight DESC, promo_active DESC, is_vip DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS onde_ir_places_city_idx ON public.onde_ir_places(city);
 CREATE INDEX IF NOT EXISTS onde_ir_places_category_idx ON public.onde_ir_places(category);
 CREATE UNIQUE INDEX IF NOT EXISTS onde_ir_places_slug_uidx ON public.onde_ir_places(slug);
@@ -93,3 +103,6 @@ DROP POLICY IF EXISTS "Public/Admin delete for rede-norte-media" ON storage.obje
 CREATE POLICY "Public/Admin delete for rede-norte-media"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'rede-norte-media');
+
+-- 6. Recarrega o schema cache do PostgREST
+NOTIFY pgrst, 'reload schema';

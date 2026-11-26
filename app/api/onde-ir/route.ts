@@ -1,10 +1,40 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSupabase } from "@/lib/supabase";
 import { MOCK_PLACES } from "@/lib/mock-places";
-import { mapDbToPlace, mapPlaceToDb } from "@/lib/places-service";
+import { isValidUuid, mapDbToPlace, mapPlaceToDb } from "@/lib/places-service";
 
 export const dynamic = "force-dynamic";
+
+const MISSING_TABLE_HINT =
+  "A tabela onde_ir_places ainda não foi criada no Supabase. Execute o SQL em supabase/onde_ir_schema.sql no SQL Editor do Supabase.";
+
+function isMissingTableError(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    msg.includes("schema cache") ||
+    msg.includes("does not exist")
+  );
+}
+
+function isMissingColumnError(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!error) return false;
+  const msg = (error.message || "").toLowerCase();
+  return error.code === "42703" || error.code === "PGRST204" || msg.includes("column");
+}
+
+function revalidateOndeIrPages() {
+  try {
+    revalidatePath("/onde-ir");
+    revalidatePath("/");
+  } catch {
+    // Ignore outside request context
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -85,15 +115,13 @@ export async function POST(request: Request) {
           {
             success: false,
             error: error.message,
-            hint:
-              error.message.includes("does not exist") || error.code === "42P01"
-                ? "A tabela onde_ir_places ainda não foi criada no banco. Execute o SQL em supabase/onde_ir_schema.sql no editor do Supabase."
-                : error.message,
+            hint: isMissingTableError(error) ? MISSING_TABLE_HINT : error.message,
           },
           { status: 500 }
         );
       }
 
+      revalidateOndeIrPages();
       return NextResponse.json({
         success: true,
         count: data?.length || recordsToInsert.length,
@@ -111,21 +139,37 @@ export async function POST(request: Request) {
     }
 
     const dbRecord = mapPlaceToDb(placeData);
+    const isMockEdit = Boolean(placeData.id && !isValidUuid(placeData.id));
 
-    let result;
-    if (dbRecord.id) {
-      result = await supabase
+    const savePlace = async (record: Record<string, any>) => {
+      if (record.id) {
+        return supabase
+          .from("onde_ir_places")
+          .update(record)
+          .eq("id", record.id)
+          .select()
+          .single();
+      }
+      if (isMockEdit) {
+        return supabase
+          .from("onde_ir_places")
+          .upsert(record, { onConflict: "slug" })
+          .select()
+          .single();
+      }
+      return supabase
         .from("onde_ir_places")
-        .update(dbRecord)
-        .eq("id", dbRecord.id)
+        .insert(record)
         .select()
         .single();
-    } else {
-      result = await supabase
-        .from("onde_ir_places")
-        .insert(dbRecord)
-        .select()
-        .single();
+    };
+
+    let result = await savePlace(dbRecord);
+
+    // Fallback caso as colunas promo_active / promo_text / promo_highlight ainda não existam
+    if (result.error && isMissingColumnError(result.error)) {
+      const { promo_active: _a, promo_text: _t, promo_highlight: _h, ...legacyRecord } = dbRecord;
+      result = await savePlace(legacyRecord);
     }
 
     if (result.error) {
@@ -133,15 +177,13 @@ export async function POST(request: Request) {
         {
           success: false,
           error: result.error.message,
-          hint:
-            result.error.message.includes("does not exist") || result.error.code === "42P01"
-              ? "A tabela onde_ir_places ainda não foi criada no banco. Execute o script supabase/onde_ir_schema.sql."
-              : result.error.message,
+          hint: isMissingTableError(result.error) ? MISSING_TABLE_HINT : result.error.message,
         },
         { status: 500 }
       );
     }
 
+    revalidateOndeIrPages();
     return NextResponse.json({
       success: true,
       data: mapDbToPlace(result.data),
@@ -163,6 +205,17 @@ export async function PATCH(request: Request) {
     if (!id) {
       return NextResponse.json(
         { success: false, error: "ID é obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidUuid(id)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Este é um estabelecimento demonstrativo ainda não salvo no banco. Clique em 'Importar 6 Exemplos para o Banco' ou edite e salve o local primeiro.",
+        },
         { status: 400 }
       );
     }
@@ -217,11 +270,16 @@ export async function PATCH(request: Request) {
 
     if (error) {
       return NextResponse.json(
-        { success: false, error: error.message },
+        {
+          success: false,
+          error: error.message,
+          hint: isMissingTableError(error) ? MISSING_TABLE_HINT : error.message,
+        },
         { status: 500 }
       );
     }
 
+    revalidateOndeIrPages();
     return NextResponse.json({
       success: true,
       data: mapDbToPlace(data),
@@ -246,16 +304,32 @@ export async function DELETE(request: Request) {
       );
     }
 
+    if (!isValidUuid(id)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Este item é apenas demonstrativo (mock) e ainda não foi salvo no banco de dados.",
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = getSupabaseAdmin();
     const { error } = await supabase.from("onde_ir_places").delete().eq("id", id);
 
     if (error) {
       return NextResponse.json(
-        { success: false, error: error.message },
+        {
+          success: false,
+          error: error.message,
+          hint: isMissingTableError(error) ? MISSING_TABLE_HINT : error.message,
+        },
         { status: 500 }
       );
     }
 
+    revalidateOndeIrPages();
     return NextResponse.json({
       success: true,
       message: "Estabelecimento excluído com sucesso.",

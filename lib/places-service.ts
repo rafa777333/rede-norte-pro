@@ -2,6 +2,12 @@ import { PlaceItem, PlaceCategory } from "@/types/places";
 import { MOCK_PLACES } from "@/lib/mock-places";
 import { getSupabase, cidadeSlug } from "@/lib/supabase";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(value?: string | null): boolean {
+  return Boolean(value && UUID_REGEX.test(value.trim()));
+}
+
 export function mapDbToPlace(row: any): PlaceItem {
   return {
     id: String(row.id),
@@ -91,7 +97,7 @@ export function mapPlaceToDb(place: Partial<PlaceItem>): any {
     promo_highlight: promoHighlightBool,
   };
 
-  if (place.id && !place.id.startsWith("mock-")) {
+  if (isValidUuid(place.id)) {
     record.id = place.id;
   }
 

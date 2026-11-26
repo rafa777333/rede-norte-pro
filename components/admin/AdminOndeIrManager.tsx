@@ -96,6 +96,102 @@ export default function AdminOndeIrManager() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadingMenuItemId, setUploadingMenuItemId] = useState<string | null>(null);
+  const [dbMissingTable, setDbMissingTable] = useState<string | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
+
+  const ONDE_IR_SETUP_SQL = `-- Execute no SQL Editor do Supabase (supabase/onde_ir_schema.sql + promo + analytics)
+CREATE TABLE IF NOT EXISTS public.onde_ir_places (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  tagline TEXT,
+  category TEXT NOT NULL,
+  city TEXT NOT NULL,
+  neighborhood TEXT,
+  address TEXT,
+  whatsapp TEXT,
+  instagram TEXT,
+  google_maps_url TEXT,
+  is_vip BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
+  rating NUMERIC DEFAULT 5.0,
+  open_hours JSONB DEFAULT '{"open": "18:00", "close": "23:30", "days": "Segunda a Sábado"}'::jsonb,
+  cover_image TEXT NOT NULL,
+  logo TEXT,
+  video_url TEXT,
+  video_thumbnail TEXT,
+  active_promo JSONB DEFAULT NULL,
+  menu_highlights JSONB DEFAULT '[]'::jsonb,
+  description TEXT,
+  promo_active BOOLEAN DEFAULT false,
+  promo_text TEXT,
+  promo_highlight BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS onde_ir_places_vip_active_idx ON public.onde_ir_places(is_active, is_vip DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS onde_ir_places_promo_idx ON public.onde_ir_places(is_active, promo_highlight DESC, promo_active DESC, is_vip DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS onde_ir_places_city_idx ON public.onde_ir_places(city);
+CREATE INDEX IF NOT EXISTS onde_ir_places_category_idx ON public.onde_ir_places(category);
+CREATE UNIQUE INDEX IF NOT EXISTS onde_ir_places_slug_uidx ON public.onde_ir_places(slug);
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_onde_ir_places_updated_at ON public.onde_ir_places;
+CREATE TRIGGER trigger_onde_ir_places_updated_at
+BEFORE UPDATE ON public.onde_ir_places
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE public.onde_ir_places ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read access for onde_ir_places" ON public.onde_ir_places;
+CREATE POLICY "Public read access for onde_ir_places" ON public.onde_ir_places FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admin write access for onde_ir_places" ON public.onde_ir_places;
+CREATE POLICY "Admin write access for onde_ir_places" ON public.onde_ir_places FOR ALL USING (true) WITH CHECK (true);
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('rede-norte-media', 'rede-norte-media', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public read for rede-norte-media" ON storage.objects;
+CREATE POLICY "Public read for rede-norte-media" ON storage.objects FOR SELECT USING (bucket_id = 'rede-norte-media');
+
+DROP POLICY IF EXISTS "Public/Admin upload for rede-norte-media" ON storage.objects;
+CREATE POLICY "Public/Admin upload for rede-norte-media" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'rede-norte-media');
+
+DROP POLICY IF EXISTS "Public/Admin update for rede-norte-media" ON storage.objects;
+CREATE POLICY "Public/Admin update for rede-norte-media" ON storage.objects FOR UPDATE USING (bucket_id = 'rede-norte-media');
+
+DROP POLICY IF EXISTS "Public/Admin delete for rede-norte-media" ON storage.objects;
+CREATE POLICY "Public/Admin delete for rede-norte-media" ON storage.objects FOR DELETE USING (bucket_id = 'rede-norte-media');
+
+NOTIFY pgrst, 'reload schema';`;
+
+  const supabaseSqlEditorUrl = (() => {
+    const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const match = rawUrl.match(/^https:\/\/([a-z0-9-]+)\.supabase\.co/i);
+    return match
+      ? `https://supabase.com/dashboard/project/${match[1]}/sql/new`
+      : "https://supabase.com/dashboard";
+  })();
+
+  const copiarSqlSetup = async () => {
+    try {
+      await navigator.clipboard.writeText(ONDE_IR_SETUP_SQL);
+      setSqlCopied(true);
+      setTimeout(() => setSqlCopied(false), 3000);
+    } catch {
+      alert("Não foi possível copiar automaticamente. Use o arquivo supabase/onde_ir_schema.sql.");
+    }
+  };
 
   // Carrega os dados da API
   const carregarLocais = async () => {
@@ -103,6 +199,11 @@ export default function AdminOndeIrManager() {
     try {
       const res = await fetch("/api/onde-ir?all=true");
       const json = await res.json();
+      if (json.fallback && json.dbError) {
+        setDbMissingTable(json.dbError);
+      } else {
+        setDbMissingTable(null);
+      }
       if (json.success && Array.isArray(json.data)) {
         setPlaces(json.data);
       } else {
@@ -126,19 +227,28 @@ export default function AdminOndeIrManager() {
     const supabase = getSupabase();
     if (!supabase) throw new Error("Supabase não configurado.");
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const ext = file.name.split(".").pop()?.toLowerCase() || (pasta.includes("videos") ? "mp4" : "jpg");
     const nomeArquivo = `${pasta}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+    const contentType =
+      file.type ||
+      (ext === "mp4" ? "video/mp4" : ext === "mov" ? "video/quicktime" : ext === "webm" ? "video/webm" : "application/octet-stream");
 
     const { error } = await supabase.storage
       .from("rede-norte-media")
-      .upload(nomeArquivo, file, { contentType: file.type, upsert: true });
+      .upload(nomeArquivo, file, { contentType, upsert: true });
 
     if (error) {
-      console.warn("Storage upload falhou, tentando converter para Base64:", error.message);
-      // Fallback para Base64
-      return new Promise((resolve) => {
+      const isVideoOrLarge = pasta.includes("videos") || file.type.startsWith("video/") || file.size > 2 * 1024 * 1024;
+      if (isVideoOrLarge) {
+        throw new Error(
+          `Falha ao enviar mídia para o Supabase Storage (${error.message}). Verifique o bucket 'rede-norte-media'.`
+        );
+      }
+      console.warn("Storage upload falhou para imagem pequena, tentando Base64:", error.message);
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error(error.message));
         reader.readAsDataURL(file);
       });
     }
@@ -471,6 +581,39 @@ export default function AdminOndeIrManager() {
             >
               ✕
             </button>
+          </div>
+        )}
+
+        {/* Alerta se a tabela onde_ir_places ainda não existir no Supabase */}
+        {dbMissingTable && (
+          <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <p className="font-bold text-red-950">
+                  ⚠️ Tabela <code className="bg-red-100 px-1.5 py-0.5 rounded">public.onde_ir_places</code> ainda não criada no Supabase
+                </p>
+                <p className="text-[11px] text-red-800 mt-0.5">
+                  Os estabelecimentos exibidos abaixo são apenas demonstrativos (mock). Para salvar vídeos e alterações no banco, execute o SQL de criação no Supabase uma única vez.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={copiarSqlSetup}
+                  className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-800 text-white font-bold text-[11px] transition"
+                >
+                  {sqlCopied ? "✅ SQL Copiado!" : "📋 Copiar SQL Completo"}
+                </button>
+                <a
+                  href={supabaseSqlEditorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg border border-red-300 bg-white hover:bg-red-100 text-red-900 font-bold text-[11px] transition"
+                >
+                  Abrir SQL Editor →
+                </a>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1028,7 +1171,7 @@ export default function AdminOndeIrManager() {
                               setUploadingCover(true);
                               try {
                                 const url = await fazerUploadArquivo(file, "onde-ir/covers");
-                                setEditPlace({ ...editPlace, coverImage: url });
+                                setEditPlace((prev) => ({ ...prev, coverImage: url }));
                               } catch (err: any) {
                                 alert("Erro no upload: " + err.message);
                               } finally {
@@ -1074,7 +1217,7 @@ export default function AdminOndeIrManager() {
                             setUploadingLogo(true);
                             try {
                               const url = await fazerUploadArquivo(file, "onde-ir/logos");
-                              setEditPlace({ ...editPlace, logo: url });
+                              setEditPlace((prev) => ({ ...prev, logo: url }));
                             } catch (err: any) {
                               alert("Erro no upload: " + err.message);
                             } finally {
@@ -1133,7 +1276,7 @@ export default function AdminOndeIrManager() {
                               setUploadingVideo(true);
                               try {
                                 const url = await fazerUploadArquivo(file, "onde-ir/videos");
-                                setEditPlace({ ...editPlace, videoUrl: url });
+                                setEditPlace((prev) => ({ ...prev, videoUrl: url }));
                               } catch (err: any) {
                                 alert("Erro no upload do vídeo: " + err.message);
                               } finally {
@@ -1551,10 +1694,16 @@ export default function AdminOndeIrManager() {
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploadingCover || uploadingLogo || uploadingVideo}
                   className="px-6 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition disabled:opacity-50"
                 >
-                  {saving ? "Salvando no Banco..." : editPlace.id ? "Salvar Alterações" : "Cadastrar Local"}
+                  {uploadingVideo
+                    ? "Aguardando envio do vídeo..."
+                    : saving
+                    ? "Salvando no Banco..."
+                    : editPlace.id
+                    ? "Salvar Alterações"
+                    : "Cadastrar Local"}
                 </button>
               </div>
             </form>
